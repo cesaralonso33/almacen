@@ -198,3 +198,4 @@ La custodia oficial solo cambia con un acuse autenticado:
 
 En todo momento existe **una sola custodia activa por expediente**, garantizada por un índice único
 parcial en base de datos.
+"# almacen" 

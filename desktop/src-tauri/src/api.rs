@@ -6,6 +6,26 @@ use serde_json::{json, Value};
 
 use crate::sync::Transporte;
 
+/// Traduce errores de red a mensajes accionables para la interfaz.
+pub fn describir(error: reqwest::Error) -> String {
+    let destino = error
+        .url()
+        .map(|url| url.to_string())
+        .unwrap_or_else(|| "el servidor".to_string());
+
+    if error.is_timeout() {
+        return format!(
+            "El servidor no respondió a tiempo ({destino}). Verifique la red y la dirección."
+        );
+    }
+    if error.is_connect() {
+        return format!(
+            "No se pudo conectar con {destino}. Use https://<dominio> si el backend tiene TLS, o http://<ip> si está en modo sin cifrado; verifique también el puerto y el firewall."
+        );
+    }
+    format!("Error de red al llamar {destino}: {error}")
+}
+
 pub struct ClienteHttp {
     base: String,
     token: String,
@@ -32,7 +52,7 @@ impl ClienteHttp {
             .json(&json!({ "correo": correo, "password": password }))
             .send()
             .await
-            .map_err(|error| error.to_string())?;
+            .map_err(describir)?;
         interpretar(respuesta).await
     }
 
@@ -44,14 +64,14 @@ impl ClienteHttp {
             .json(&json!({ "nombre": nombre, "plataforma": std::env::consts::OS }))
             .send()
             .await
-            .map_err(|error| error.to_string())?;
+            .map_err(describir)?;
         interpretar(respuesta).await
     }
 }
 
 async fn interpretar(respuesta: reqwest::Response) -> Result<Value, String> {
     let estado = respuesta.status();
-    let cuerpo = respuesta.text().await.map_err(|error| error.to_string())?;
+    let cuerpo = respuesta.text().await.map_err(describir)?;
     if !estado.is_success() {
         return Err(format!("HTTP {estado}: {cuerpo}"));
     }
@@ -72,7 +92,7 @@ impl Transporte for ClienteHttp {
             ])
             .send()
             .await
-            .map_err(|error| error.to_string())?;
+            .map_err(describir)?;
         interpretar(respuesta).await
     }
 
@@ -84,7 +104,7 @@ impl Transporte for ClienteHttp {
             .json(&json!({ "dispositivo_id": dispositivo, "operaciones": operaciones }))
             .send()
             .await
-            .map_err(|error| error.to_string())?;
+            .map_err(describir)?;
         interpretar(respuesta).await
     }
 
@@ -96,7 +116,7 @@ impl Transporte for ClienteHttp {
             .query(&[("dispositivo_id", dispositivo)])
             .send()
             .await
-            .map_err(|error| error.to_string())?;
+            .map_err(describir)?;
         interpretar(respuesta).await
     }
 }

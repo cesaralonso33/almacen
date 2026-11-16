@@ -320,7 +320,7 @@ async fn peticion(
     let respuesta = solicitud
         .send()
         .await
-        .map_err(|error| format!("Sin conexión con el servidor: {error}"))?;
+        .map_err(api::describir)?;
     let estado_http = respuesta.status();
     let texto = respuesta.text().await.map_err(|error| error.to_string())?;
 

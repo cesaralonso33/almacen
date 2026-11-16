@@ -7,6 +7,7 @@ pub mod entrada;
 pub mod entregas;
 pub mod expedientes;
 pub mod pedidos;
+pub mod reportes;
 pub mod sync;
 pub mod transferencias;
 
@@ -36,6 +37,7 @@ pub fn router(estado: AppState) -> Router {
         .route("/api/v1/admin/roles", get(admin::listar_roles))
         .route("/api/v1/pedidos", get(consultas::listar_pedidos).post(pedidos::crear))
         .route("/api/v1/dashboard", get(consultas::dashboard))
+        .route("/api/v1/reportes/altas", get(reportes::altas))
         .route("/api/v1/usuarios/directorio", get(directorio::directorio))
         .route("/api/v1/custodias", get(consultas::custodias))
         .route("/api/v1/expedientes", get(consultas::buscar_expedientes).post(expedientes::crear))

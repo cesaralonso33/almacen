@@ -252,7 +252,7 @@ pub async fn importar(
 
         sqlx::query(
             "INSERT INTO movimientos(expediente_id, tipo, actor_id, detalle)
-             VALUES ($1,'ALTA',$2,'Importación masiva')",
+             VALUES ($1,'IMPORTACION',$2,'Importación masiva')",
         )
         .bind(expediente_id)
         .bind(user.id)

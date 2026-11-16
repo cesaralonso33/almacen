@@ -343,7 +343,7 @@ Verificación:
 | `bash -n` de respaldo y restauración | OK, sin CRLF |
 | `tauri.conf.json` | aceptado por `cargo check` |
 | `npm run check` / `npm run build` | 0 errores / build OK |
-| `cargo test` servidor | 61 pruebas en verde |
+| `cargo test` servidor | 65 pruebas en verde |
 | `cargo test` escritorio | 8 pruebas en verde |
 
 Limitación: **Docker no está instalado en este equipo**, por lo que `docker compose up`, la

@@ -8,10 +8,28 @@
 
     let tablero = $state<Record<string, number> | null>(null);
     let pedidos = $state<PedidoResumen[]>([]);
+    let altas = $state<any>(null);
+    let agrupacion = $state<'por_dia' | 'por_mes' | 'por_anio'>('por_mes');
+    let paginaAltas = $state(1);
     let pagina = $state(1);
+
+    const agrupaciones: Array<{ clave: 'por_dia' | 'por_mes' | 'por_anio'; etiqueta: string }> = [
+        { clave: 'por_dia', etiqueta: 'Día' },
+        { clave: 'por_mes', etiqueta: 'Mes' },
+        { clave: 'por_anio', etiqueta: 'Año' }
+    ];
 
     const paginas = $derived(totalPaginas(pedidos.length, POR_PAGINA));
     const visibles = $derived(recortar(pedidos, pagina, POR_PAGINA));
+
+    const filasAltasTodas = $derived<any[]>(altas ? (altas[agrupacion] ?? []) : []);
+    const paginasAltas = $derived(totalPaginas(filasAltasTodas.length, POR_PAGINA));
+    const filasAltas = $derived(recortar(filasAltasTodas, paginaAltas, POR_PAGINA));
+
+    function cambiarAgrupacion(clave: 'por_dia' | 'por_mes' | 'por_anio') {
+        agrupacion = clave;
+        paginaAltas = 1;
+    }
 
     onMount(cargar);
 
@@ -21,8 +39,15 @@
             const respuesta = await api<{ pedidos: PedidoResumen[] }>('GET', '/api/v1/pedidos');
             pedidos = respuesta.pedidos;
             pagina = 1;
+            paginaAltas = 1;
         } catch (error) {
             app.avisar(String(error), 'error');
+        }
+
+        try {
+            altas = await api('GET', '/api/v1/reportes/altas');
+        } catch {
+            altas = null;
         }
     }
 
@@ -59,6 +84,61 @@
                 <p class="text-sm text-slate-400">Sin pedidos registrados</p>
             {/if}
         </div>
+    </section>
+
+    <section class="tarjeta p-4">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+                <h2 class="text-sm font-semibold text-slate-700">Expedientes nuevos por usuario</h2>
+                <p class="text-xs text-slate-500">
+                    Altas con custodia inicial · {altas?.total ?? 0} en total
+                </p>
+            </div>
+            <div class="flex gap-1">
+                {#each agrupaciones as opcion}
+                    <button
+                        class="btn-secundario {agrupacion === opcion.clave
+                            ? 'bg-slate-100 font-semibold text-slate-900'
+                            : ''}"
+                        onclick={() => cambiarAgrupacion(opcion.clave)}
+                    >
+                        {opcion.etiqueta}
+                    </button>
+                {/each}
+            </div>
+        </div>
+
+        <table class="tabla">
+            <thead>
+                <tr>
+                    <th>Periodo</th>
+                    <th>Usuario</th>
+                    <th class="text-right">Expedientes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {#each filasAltas as fila}
+                    <tr>
+                        <td class="font-mono text-xs text-slate-600">{fila.periodo}</td>
+                        <td>{fila.usuario}</td>
+                        <td class="text-right font-semibold">{fila.total}</td>
+                    </tr>
+                {/each}
+                {#if filasAltasTodas.length === 0}
+                    <tr>
+                        <td colspan="3" class="py-4 text-center text-slate-400">
+                            Sin altas registradas
+                        </td>
+                    </tr>
+                {/if}
+            </tbody>
+        </table>
+        <Paginacion
+            pagina={paginaAltas}
+            paginas={paginasAltas}
+            total={filasAltasTodas.length}
+            onCambiar={(valor) => (paginaAltas = valor)}
+        />
     </section>
 
     <section class="tarjeta overflow-hidden">

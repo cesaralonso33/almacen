@@ -1,0 +1,3 @@
+# Instrucción inicial para OpenCode
+
+Lee y sigue íntegramente `AGENTS.md` en la raíz del repositorio. Tu misión es implementar toda la aplicación de almacén y custodia de expedientes jurídicos descrita allí, trabajando sobre este starter existente. No te quedes en un plan: edita archivos, compila, prueba y corrige por fases. Empieza inspeccionando el repositorio y creando `docs/PLAN.md` y `docs/PROGRESO.md`, luego implementa migraciones PostgreSQL, autenticación, pedidos múltiples, descartes, entregas parciales y completas, confirmaciones de recepción y custodia, sincronización offline SQLite, interfaz Tauri/Svelte y despliegue Debian. Mantén las restricciones de seguridad y cadena de custodia. Reporta pruebas reales y bloqueos sin inventar resultados.

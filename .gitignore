@@ -1,0 +1,36 @@
+# Rust
+server/target/
+desktop/src-tauri/target/
+**/*.rs.bk
+
+# Node
+desktop/node_modules/
+desktop/dist/
+
+# Entorno y secretos (nunca versionar)
+.env
+.env.*
+!.env.example
+infra/.env
+
+# Bases locales y respaldos
+*.sqlite
+*.sqlite3
+*.db
+*.db-wal
+*.db-shm
+*.dump
+*.backup
+
+# Registros
+*.log
+logs/
+
+# Tauri (esquemas generados)
+desktop/src-tauri/gen/schemas/
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop/.vscode/
+.idea/

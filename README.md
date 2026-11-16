@@ -170,10 +170,16 @@ Ver `docs/PLAN.md` y `docs/PROGRESO.md`.
 cd infra
 cp .env.example .env      # completar secretos y SITIO
 docker compose up -d --build
-curl --cacert certs/tls-ca.crt https://$SITIO/health
+docker compose exec api env \
+  ADMIN_CORREO='jefe@institucion.mx' \
+  ADMIN_PASSWORD='UnaClaveLargaYUnica#2026' \
+  /usr/local/bin/crear_admin
+curl https://$SITIO/health
 ```
 
-Ver `docs/DESPLIEGUE.md`, `docs/OPERACION.md` y `docs/SEGURIDAD.md`.
+En un VPS con dominio público use `cp Caddyfile.publico Caddyfile` para TLS automático con
+Let's Encrypt. Ver `docs/DESPLIEGUE.md` (sección «Ruta rápida para VPS»), `docs/OPERACION.md` y
+`docs/SEGURIDAD.md`.
 
 ## Documentación
 

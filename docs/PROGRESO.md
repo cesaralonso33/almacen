@@ -323,12 +323,13 @@ de interfaz. Queda para la Fase 6 junto con la instalación.
 
 ### Despliegue institucional (Fase 6)
 
-- `server/Dockerfile` multi-etapa; binario y `seed_demo` en imagen Debian slim con usuario 10001.
+- `server/Dockerfile` multi-etapa; `expedientes-api`, `seed_demo` y `crear_admin` en imagen Debian slim con usuario 10001.
 - `infra/docker-compose.yml`: PostgreSQL 17, API y Caddy con healthchecks, reinicio automático y
   red interna; solo Caddy publica 80/443.
 - `infra/Caddyfile` (certificados institucionales) y `Caddyfile.interno` (CA interna de Caddy).
 - `infra/backup/backup.sh` y `infra/restore/restore.sh` con retención, confirmación y respaldo previo.
 - `.env.example`, `.gitattributes` (LF en scripts) y `.dockerignore`.
+- `crear_admin` para aprovisionar la cuenta administradora inicial sin datos de demostración.
 - Paquete NSIS activado, iconos y CSP; dirección del servidor configurable desde el acceso y
   persistida en SQLite (`servidor_actual` / `configurar_servidor`).
 - Documentación: `DESPLIEGUE.md`, `OPERACION.md`, `SEGURIDAD.md`, `ARQUITECTURA.md`,
@@ -342,7 +343,7 @@ Verificación:
 | `bash -n` de respaldo y restauración | OK, sin CRLF |
 | `tauri.conf.json` | aceptado por `cargo check` |
 | `npm run check` / `npm run build` | 0 errores / build OK |
-| `cargo test` servidor | 52 pruebas en verde |
+| `cargo test` servidor | 54 pruebas en verde |
 | `cargo test` escritorio | 8 pruebas en verde |
 
 Limitación: **Docker no está instalado en este equipo**, por lo que `docker compose up`, la

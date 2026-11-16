@@ -24,6 +24,7 @@ pub struct TestApp {
     pub db: PgPool,
     pub app: Router,
     pub nombre: String,
+    pub url: String,
 }
 
 pub async fn setup() -> TestApp {
@@ -40,9 +41,10 @@ pub async fn setup() -> TestApp {
         .await
         .expect("crear base de prueba");
     let raiz = admin_url.rsplit_once('/').expect("URL con base").0;
+    let url = format!("{raiz}/{nombre}");
     let db = PgPoolOptions::new()
         .max_connections(10)
-        .connect(&format!("{raiz}/{nombre}"))
+        .connect(&url)
         .await
         .expect("conectar a la base de prueba");
     sqlx::migrate!("./migrations")
@@ -52,7 +54,7 @@ pub async fn setup() -> TestApp {
 
     let config = Config::para_pruebas(format!("{raiz}/{nombre}"));
     let estado = AppState::nuevo(db.clone(), config, LoginLimiter::nuevo(5, 900));
-    TestApp { admin, db, app: api::router(estado), nombre }
+    TestApp { admin, db, app: api::router(estado), nombre, url }
 }
 
 impl TestApp {

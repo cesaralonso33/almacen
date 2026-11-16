@@ -22,6 +22,7 @@ RUN apt-get update \
 
 COPY --from=compilacion /app/target/release/expedientes-api /usr/local/bin/expedientes-api
 COPY --from=compilacion /app/target/release/seed_demo /usr/local/bin/seed_demo
+COPY --from=compilacion /app/target/release/crear_admin /usr/local/bin/crear_admin
 
 USER 10001:10001
 EXPOSE 3000

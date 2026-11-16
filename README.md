@@ -124,27 +124,48 @@ avanza en la misma transacción que aplica los cambios.
 
 ## Escritorio
 
+### Compilar el instalador (Windows)
+
+Requisitos: Rust estable, Node.js 20+, Microsoft C++ Build Tools y WebView2 (incluido en Windows 10/11).
+
 ```bash
 cd desktop
 npm install
 npm run check        # svelte-check
-npm run build        # frontend
-npm run tauri dev    # aplicación de escritorio
+npm run tauri build
 ```
 
-Variable `EXPEDIENTES_API_URL` (por omisión `http://127.0.0.1:3000`).
+El instalador queda en:
 
-La interfaz incluye:
+```
+desktop/src-tauri/target/release/bundle/nsis/Custodia Jurídica_0.1.0_x64-setup.exe
+```
 
-- Acceso con credenciales institucionales y sesión en memoria del proceso principal.
+### Configurar el primer acceso
+
+1. Abra la aplicación. La pantalla de acceso pide **Servidor**, correo y contraseña.
+2. Escriba la dirección del backend, sin barra final:
+   - `https://129-121-117-177.sslip.io` si usa TLS,
+   - `http://129.121.117.177` si usa el modo sin cifrado.
+3. Use la cuenta administradora creada con `crear_admin`.
+4. La dirección se guarda en la base local del equipo; para cambiarla, cierre sesión y edítela.
+5. En **Administración** cree los usuarios y asigne roles.
+6. Cada usuario entra con su contraseña temporal y la cambia con el botón **Contraseña** del menú lateral.
+
+Si la URL empieza con `http://`, la aplicación muestra **«Sin cifrado»**: es intencional, indica que
+el tráfico no está protegido.
+
+La variable `EXPEDIENTES_API_URL` solo se usa como valor inicial en la primera ejecución; después
+manda la dirección guardada en la pantalla de acceso.
+
+### Operación
+
 - Navegación por permisos: Inicio, Expedientes, Mis pedidos, Almacén, Entregas, Mis custodias,
   Devoluciones, Reportes y Administración.
-- Tablero con contadores, tabla de expedientes con búsqueda e historial, alta de pedidos múltiples,
-  bandeja de almacén con preparación y descarte, despacho, acuse de recepción, devoluciones,
-  transferencias, administración de usuarios y roles.
+- Tablero con contadores, búsqueda de expedientes con historial, alta de pedidos múltiples,
+  preparación y descarte, despacho, acuse, devoluciones, transferencias y administración.
 - Estado de sincronización visible (`En línea`, `Sin conexión`, `Error`), pendientes y conflictos.
-- Sin conexión, la búsqueda de expedientes usa la copia local y los pedidos nuevos se guardan en el
-  outbox marcados como pendientes de sincronizar.
+- Sin conexión, la búsqueda usa la copia local y los pedidos nuevos se guardan en el outbox.
 
 Los iconos se generan con `powershell -File scripts/generar-iconos.ps1` y se versionan en
 `desktop/src-tauri/icons`.

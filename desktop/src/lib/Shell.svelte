@@ -2,6 +2,7 @@
     import { invoke } from '@tauri-apps/api/core';
     import { app } from './estado.svelte';
     import Modal from './Modal.svelte';
+    import CambiarPassword from './CambiarPassword.svelte';
     import Inicio from './paneles/Inicio.svelte';
     import Expedientes from './paneles/Expedientes.svelte';
     import Pedidos from './paneles/Pedidos.svelte';
@@ -26,6 +27,7 @@
 
     let conflictos = $state<any[]>([]);
     let verConflictos = $state(false);
+    let verPassword = $state(false);
 
     const titulo = $derived(items.find((item) => item.id === app.panel)?.etiqueta ?? 'Inicio');
     const estadoSync = $derived(app.sync?.estado ?? 'SIN_CONEXION');
@@ -74,9 +76,10 @@
 
         <div class="border-t border-white/10 px-4 py-4 text-sm">
             <p class="truncate font-medium text-white">{app.usuario?.nombre}</p>
-            <button class="mt-2 text-xs text-slate-300 underline" onclick={() => app.salir()}>
-                Cerrar sesión
-            </button>
+            <div class="mt-2 flex flex-wrap gap-3 text-xs text-slate-300">
+                <button class="underline" onclick={() => (verPassword = true)}>Contraseña</button>
+                <button class="underline" onclick={() => app.salir()}>Cerrar sesión</button>
+            </div>
         </div>
     </aside>
 
@@ -126,6 +129,10 @@
         </main>
     </div>
 </div>
+
+{#if verPassword}
+    <CambiarPassword oncerrar={() => (verPassword = false)} />
+{/if}
 
 {#if verConflictos}
     <Modal titulo="Conflictos de sincronización" oncerrar={() => (verConflictos = false)}>

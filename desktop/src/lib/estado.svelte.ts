@@ -52,6 +52,10 @@ class EstadoApp {
 
     async salir() {
         await invoke('logout');
+        this.cerrarSesionLocal();
+    }
+
+    cerrarSesionLocal() {
         this.usuario = null;
         this.sync = null;
         this.panel = 'inicio';

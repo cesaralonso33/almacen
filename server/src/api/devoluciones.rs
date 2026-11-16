@@ -162,18 +162,19 @@ pub async fn confirmar(
         .execute(&mut *tx)
         .await?;
 
-    sqlx::query(
+    let version_expediente: i64 = sqlx::query_scalar(
         "UPDATE expedientes
          SET estado = 'ALMACEN',
              custodio_id = NULL,
              ubicacion_id = COALESCE($2, ubicacion_id),
              version = version + 1,
              actualizado_en = now()
-         WHERE id = $1",
+         WHERE id = $1
+         RETURNING version",
     )
     .bind(expediente_id)
     .bind(input.ubicacion_id)
-    .execute(&mut *tx)
+    .fetch_one(&mut *tx)
     .await?;
 
     sqlx::query(
@@ -201,6 +202,21 @@ pub async fn confirmar(
         id,
         "EXITO",
         json!({ "expediente_id": expediente_id, "custodio_anterior": custodio_id }),
+    )
+    .await?;
+
+    crate::sync::global(
+        &mut tx,
+        "expediente",
+        expediente_id,
+        "ACTUALIZAR",
+        version_expediente,
+        json!({
+            "id": expediente_id,
+            "estado": "ALMACEN",
+            "custodio_id": Value::Null,
+            "version": version_expediente,
+        }),
     )
     .await?;
 

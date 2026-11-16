@@ -213,14 +213,30 @@ async fn resolver(
         .execute(&mut *tx)
         .await?;
 
-    sqlx::query(
+    let version_expediente: i64 = sqlx::query_scalar(
         "UPDATE expedientes
          SET custodio_id = $2, version = version + 1, actualizado_en = now()
-         WHERE id = $1",
+         WHERE id = $1
+         RETURNING version",
     )
     .bind(expediente_id)
     .bind(destino_id)
-    .execute(&mut *tx)
+    .fetch_one(&mut *tx)
+    .await?;
+
+    crate::sync::global(
+        &mut tx,
+        "expediente",
+        expediente_id,
+        "ACTUALIZAR",
+        version_expediente,
+        json!({
+            "id": expediente_id,
+            "estado": "EN_CUSTODIA",
+            "custodio_id": destino_id,
+            "version": version_expediente,
+        }),
+    )
     .await?;
 
     sqlx::query(

@@ -244,6 +244,56 @@ Verificación manual sobre `expedientes_fase2` (base con datos de la Fase 2):
 | Cancelación de pedido | 200, estado `CANCELADO`, renglón `CANCELADO` |
 | Bandeja `/devoluciones` | 200 |
 
+### Sincronización offline (Fase 4)
+
+Servidor:
+
+- Migración `0004`: `pedidos.version`, índice de eventos por usuario y reglas que hacen
+  `sync_events` inmutable.
+- `POST /sync/dispositivos`, `POST /sync/push`, `GET /sync/pull`, `GET /sync/snapshot`.
+- Los eventos se emiten dentro de la transacción de negocio en pedidos, ítems, entregas,
+  devoluciones y transferencias.
+- Visibilidad: `GLOBAL` (expedientes/custodia), `ROL` (`ALMACEN`) y `USUARIO` (solicitante).
+- Push idempotente por (clave, dispositivo): replay del resultado, rechazo de duplicados
+  concurrentes y `operaciones_idempotentes` como registro.
+- Solo `CREAR_PEDIDO` se acepta offline; cualquier otra operación devuelve `RECHAZADA`.
+
+Escritorio (`desktop/src-tauri/src/{db,sync,api}.rs`):
+
+- Esquema SQLite v1 con proyecciones (`expedientes`, `pedidos`, `pedido_items`, `entregas`),
+  `outbox`, `sync_metadata`, `sync_conflicts` y `sync_status`.
+- El lote de eventos y el cursor se escriben en una sola transacción; si un evento es inválido,
+  se revierte todo y el cursor no avanza (probado).
+- Retroceso exponencial con jitter para reintentos; los rechazos crean conflicto y no se reenvían.
+- Snapshot cuando el cursor ya no es válido.
+- Comandos Tauri: `login`, `logout`, `estado_sync`, `sincronizar`, `crear_pedido_local`,
+  `listar_expedientes`, `listar_conflictos`.
+
+Pruebas:
+
+- Servidor: **45 pruebas** (16 auth/RBAC + 8 custodia + 12 modelo + 9 sync).
+- Escritorio: **8 pruebas** del motor de sincronización.
+- Casos cubiertos: snapshot, paginación y orden, cursor inválido, filtrado por usuario,
+  idempotencia, duplicado concurrente, operación no permitida offline, dispositivo ajeno,
+  corte de red con outbox persistente, lote inválido sin avance de cursor.
+
+Verificación manual contra `expedientes_fase2`:
+
+| Escenario | Resultado |
+|---|---|
+| Flujo completo tras añadir eventos | preparar/despachar/confirmar 200 |
+| Registro de dispositivo | 200 con `dispositivo_id` |
+| Push `CREAR_PEDIDO` | `ACEPTADA`, pedido creado |
+| Replay con la misma clave | `ACEPTADA`, mismo `pedido_id`, sin duplicado |
+| Pull con cursor 0 | eventos ordenados y filtrados por usuario |
+| Snapshot | 6 expedientes, 5 pedidos, cursor |
+
+Limitaciones conocidas:
+
+- No hay SSE/WebSocket: el pull periódico recupera los cambios; es suficiente para la fase.
+- Los tokens viven en memoria del proceso; al reiniciar la aplicación se requiere iniciar sesión.
+- La interfaz Svelte todavía no consume los comandos (Fase 5).
+
 ## Estado frente a las fases
 
 - Fase 0: **completada** (este documento y `docs/PLAN.md`).
@@ -252,7 +302,9 @@ Verificación manual sobre `expedientes_fase2` (base con datos de la Fase 2):
 - Fase 2: **completada**. Autenticación, sesiones rotativas, RBAC, administración y auditoría.
 - Fase 3: **completada**. Devoluciones con acuse, transferencias con aceptación, cancelación y
   estados operativos.
-- Fases 4–6: no iniciadas.
+- Fase 4: **completada**. Push idempotente, pull incremental filtrado, snapshot y motor local con
+  outbox y conflictos.
+- Fases 5–6: no iniciadas.
 
 ## Siguiente acción recomendada
 

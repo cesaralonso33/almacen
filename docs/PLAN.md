@@ -86,11 +86,26 @@ Criterio de salida: criterios de aceptación 1–6 y pruebas de concurrencia. **
 
 ## Fase 4 — Sincronización offline
 
-Depende de: Fases 1–3.
+Depende de: Fases 1–3. Estado: **completada** (sin notificaciones SSE; el pull cubre la recuperación).
 
-Trabajo: `sync_events` con secuencia monotónica y tombstones, push idempotente, pull por cursor filtrado por permisos, SQLite con migraciones locales, outbox con reintentos y conflictos, SSE solo como señal.
+Implementado:
 
-Criterio de salida: criterios 7, 8 y 10.
+- Migración `0004`: versión de pedidos e índices de eventos; `sync_events` inmutable.
+- Registro de dispositivos por usuario y validación de propiedad en cada push/pull.
+- `sync_events` emitidos en la misma transacción que cada operación de negocio, con visibilidad
+  `GLOBAL`, `ROL` o `USUARIO`.
+- Push idempotente por (clave, dispositivo) con replay del resultado y rechazo de operaciones
+  concurrentes duplicadas.
+- Pull incremental paginado, ordenado, filtrado por permisos y con `reiniciar` cuando el cursor
+  ya no es válido; snapshot inicial autorizado.
+- Solo `CREAR_PEDIDO` se acepta offline; toda confirmación de custodia, entrega, devolución o
+  permiso se rechaza con `RECHAZADA`.
+- Escritorio: esquema SQLite versionado, proyecciones, `outbox` con retroceso exponencial,
+  `sync_conflicts` y `sync_status`; el cursor avanza en la misma transacción que aplica el lote.
+- Comandos Tauri: `login`, `logout`, `estado_sync`, `sincronizar`, `crear_pedido_local`,
+  `listar_expedientes`, `listar_conflictos`.
+
+Criterio de salida: criterios 7, 8 y 10. **Cumplido** con 9 pruebas de servidor y 8 del motor local.
 
 ## Fase 5 — Interfaz Svelte 5
 
@@ -118,9 +133,10 @@ Criterio de salida: instalación reproducible en Debian y criterios 11–12.
 | 4 | Dos receptores simultáneos → una custodia y un conflicto | Cumple: doble confirmación y doble aceptación de transferencia devuelven 200/409 con una sola custodia |
 | 5 | Descartar no borra expediente ni historial | Cumple |
 | 6 | Devolución solo con acuse del almacén; transferencia con acuse | **Cumple**: flujos en dos pasos verificados |
-| 7 | Pedido offline se sincroniza una vez | **No cumple**: no hay sync |
-| 8 | Cliente offline no confirma custodia | Cumple por ausencia de capacidad offline |
+| 7 | Pedido offline se sincroniza una vez | Cumple: outbox con clave única y push idempotente |
+| 8 | Cliente offline no confirma custodia | Cumple: el motor solo encola `CREAR_PEDIDO`; el servidor rechaza el resto |
 | 9 | Usuario sin permisos no opera | **Cumple** (RBAC por permisos, probado) |
-| 10 | Reinicio no pierde outbox ni duplica movimientos | **No cumple**: outbox sin motor, idempotencia sin usar |
-| 11 | Migraciones, compilación y suite automatizada | Parcial: API compila y migra; escritorio no compila; 0 pruebas |
-| 12 | README reproducible sin secretos | Parcial: README describe el starter, no el despliegue |
+| 10 | Reinicio no pierde outbox ni duplica movimientos | Cumple: outbox persistente en SQLite + idempotencia en servidor |
+| 11 | Migraciones, compilación y suite automatizada | Parcial: API y escritorio compilan; 45 pruebas de servidor y 8 del cliente; falta prueba E2E de escritorio |
+| 12 | README reproducible sin secretos | Parcial: instalación y demo documentadas; falta despliegue Debian |
+

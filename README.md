@@ -108,6 +108,20 @@ Administración (rol ADMINISTRADOR):
 Motivos de descarte: `NO_LOCALIZADO`, `NO_DISPONIBLE`, `EN_CUSTODIA_OTRO`, `REGISTRO_ERRONEO`, `OTRO`
 (este último exige descripción).
 
+## Sincronización offline
+
+- `POST /api/v1/sync/dispositivos` `{ "nombre", "plataforma" }` — registra el dispositivo del usuario.
+- `POST /api/v1/sync/push` `{ "dispositivo_id", "operaciones": [{ "clave", "tipo", "payload" }] }`
+  — idempotente por (clave, dispositivo). Solo `CREAR_PEDIDO` se acepta sin conexión; cualquier
+  confirmación de custodia, entrega, devolución o permiso se rechaza.
+- `GET /api/v1/sync/pull?dispositivo_id=...&cursor=...&limite=...` — eventos ordenados y filtrados
+  por permisos (global, por rol o por usuario).
+- `GET /api/v1/sync/snapshot?dispositivo_id=...` — estado inicial autorizado y cursor.
+
+El escritorio mantiene en SQLite las proyecciones autorizadas, el `outbox` con reintentos
+exponenciales y la tabla `sync_conflicts` para los rechazos del servidor. El cursor local solo
+avanza en la misma transacción que aplica los cambios.
+
 ## Escritorio
 
 ```bash
@@ -116,6 +130,10 @@ npm install
 npm run build        # frontend
 npm run tauri dev    # aplicación de escritorio
 ```
+
+Variable `EXPEDIENTES_API_URL` (por omisión `http://127.0.0.1:3000`). La interfaz Svelte de la
+Fase 5 todavía no consume estos comandos; el motor de sincronización y el esquema local ya están
+implementados y probados.
 
 Los iconos se generan con `powershell -File scripts/generar-iconos.ps1` y se versionan en
 `desktop/src-tauri/icons`.
@@ -129,7 +147,9 @@ Ver `docs/PLAN.md` y `docs/PROGRESO.md`.
 - Fase 2: completada (Argon2id, JWT, refresh rotativo, RBAC, administración de usuarios).
 - Fase 3: completada (entregas parciales, acuses, devoluciones con acuse del almacén,
   transferencias con acuse del receptor y cancelación de pedidos).
-- Fases 4–6: pendientes (sincronización offline, interfaz Svelte y despliegue institucional).
+- Fase 4: completada (push idempotente, pull incremental por permisos, snapshot y motor local
+  con outbox y conflictos).
+- Fases 5–6: pendientes (interfaz Svelte y despliegue institucional).
 
 ## Cadena de custodia
 

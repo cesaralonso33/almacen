@@ -6,6 +6,7 @@ pub mod auth;
 pub mod config;
 pub mod error;
 pub mod limiter;
+pub mod sync;
 
 use std::sync::Arc;
 
@@ -27,3 +28,4 @@ impl AppState {
         Self { db, config: Arc::new(config), limitador: Arc::new(limitador) }
     }
 }
+

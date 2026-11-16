@@ -130,6 +130,28 @@ pub async fn despachar(
         )
         .await?;
 
+        crate::sync::a_usuario_y_almacen(
+            &mut tx,
+            "pedido_item",
+            item_id,
+            "ACTUALIZAR",
+            receptor,
+            0,
+            json!({ "id": item_id, "expediente_id": expediente, "estado": "EN_ENTREGA" }),
+        )
+        .await?;
+
+        crate::sync::a_usuario_y_almacen(
+            &mut tx,
+            "entrega",
+            entrega_id,
+            "CREAR",
+            receptor,
+            0,
+            json!({ "id": entrega_id, "pedido_item_id": item_id, "estado": "DESPACHADA" }),
+        )
+        .await?;
+
         entregas.push(entrega_id);
     }
 
@@ -202,14 +224,15 @@ pub async fn confirmar(
     .execute(&mut *tx)
     .await?;
 
-    sqlx::query(
+    let version_expediente: i64 = sqlx::query_scalar(
         "UPDATE expedientes
          SET estado = 'EN_CUSTODIA', custodio_id = $2, version = version + 1, actualizado_en = now()
-         WHERE id = $1",
+         WHERE id = $1
+         RETURNING version",
     )
     .bind(expediente)
     .bind(receptor)
-    .execute(&mut *tx)
+    .fetch_one(&mut *tx)
     .await?;
 
     sqlx::query("UPDATE entregas SET estado = 'RECIBIDA', confirmada_en = now() WHERE id = $1")
@@ -245,6 +268,43 @@ pub async fn confirmar(
         id,
         "EXITO",
         json!({ "expediente_id": expediente, "sesion_id": user.sesion_id }),
+    )
+    .await?;
+
+    crate::sync::global(
+        &mut tx,
+        "expediente",
+        expediente,
+        "ACTUALIZAR",
+        version_expediente,
+        json!({
+            "id": expediente,
+            "estado": "EN_CUSTODIA",
+            "custodio_id": receptor,
+            "version": version_expediente,
+        }),
+    )
+    .await?;
+
+    crate::sync::a_usuario_y_almacen(
+        &mut tx,
+        "entrega",
+        id,
+        "ACTUALIZAR",
+        receptor,
+        0,
+        json!({ "id": id, "pedido_item_id": item, "estado": "RECIBIDA" }),
+    )
+    .await?;
+
+    crate::sync::a_usuario_y_almacen(
+        &mut tx,
+        "pedido_item",
+        item,
+        "ACTUALIZAR",
+        receptor,
+        0,
+        json!({ "id": item, "expediente_id": expediente, "estado": "ENTREGADO" }),
     )
     .await?;
 

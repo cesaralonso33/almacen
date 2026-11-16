@@ -4,6 +4,7 @@ pub mod devoluciones;
 pub mod entrada;
 pub mod entregas;
 pub mod pedidos;
+pub mod sync;
 pub mod transferencias;
 
 use axum::{
@@ -44,6 +45,10 @@ pub fn router(estado: AppState) -> Router {
         .route("/api/v1/transferencias", post(transferencias::solicitar))
         .route("/api/v1/transferencias/{id}/aceptar", post(transferencias::aceptar))
         .route("/api/v1/transferencias/{id}/rechazar", post(transferencias::rechazar))
+        .route("/api/v1/sync/dispositivos", post(sync::registrar_dispositivo))
+        .route("/api/v1/sync/push", post(sync::push))
+        .route("/api/v1/sync/pull", get(sync::pull))
+        .route("/api/v1/sync/snapshot", get(sync::snapshot))
         .fallback(ruta_no_encontrada)
         .method_not_allowed_fallback(metodo_no_permitido)
         .with_state(estado)
@@ -65,3 +70,4 @@ async fn metodo_no_permitido() -> ApiError {
         "Método no permitido para esta ruta",
     )
 }
+

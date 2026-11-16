@@ -58,18 +58,46 @@ pub async fn crear(
 
     let mut tx = app.db.begin().await?;
     let pedido_id: Uuid = sqlx::query_scalar(
-        "INSERT INTO pedidos(solicitante_id) VALUES ($1) RETURNING id",
+        "INSERT INTO pedidos(solicitante_id, version) VALUES ($1,1) RETURNING id",
     )
     .bind(user.id)
     .fetch_one(&mut *tx)
     .await?;
 
+    let mut items = Vec::with_capacity(ids.len());
     for expediente in &ids {
-        sqlx::query("INSERT INTO pedido_items(pedido_id, expediente_id) VALUES ($1,$2)")
-            .bind(pedido_id)
-            .bind(expediente)
-            .execute(&mut *tx)
-            .await?;
+        let item_id: Uuid = sqlx::query_scalar(
+            "INSERT INTO pedido_items(pedido_id, expediente_id) VALUES ($1,$2) RETURNING id",
+        )
+        .bind(pedido_id)
+        .bind(expediente)
+        .fetch_one(&mut *tx)
+        .await?;
+        items.push((item_id, *expediente));
+    }
+
+    crate::sync::a_usuario_y_almacen(
+        &mut tx,
+        "pedido",
+        pedido_id,
+        "CREAR",
+        user.id,
+        1,
+        json!({ "id": pedido_id, "solicitante_id": user.id, "estado": "PENDIENTE", "version": 1 }),
+    )
+    .await?;
+
+    for (item_id, expediente) in &items {
+        crate::sync::a_usuario_y_almacen(
+            &mut tx,
+            "pedido_item",
+            *item_id,
+            "CREAR",
+            user.id,
+            1,
+            json!({ "id": item_id, "pedido_id": pedido_id, "expediente_id": expediente, "estado": "PENDIENTE" }),
+        )
+        .await?;
     }
 
     audit::registrar(
@@ -178,8 +206,10 @@ pub async fn preparar(
         .fetch_one(&mut *tx)
         .await?;
 
-    let (expediente_releido, estado_item): (Uuid, String) = sqlx::query_as(
-        "SELECT expediente_id, estado FROM pedido_items WHERE id = $1 FOR UPDATE",
+    let (expediente_releido, estado_item, pedido_id, solicitante): (Uuid, String, Uuid, Uuid) = sqlx::query_as(
+        "SELECT i.expediente_id, i.estado, i.pedido_id, p.solicitante_id
+         FROM pedido_items i JOIN pedidos p ON p.id = i.pedido_id
+         WHERE i.id = $1 FOR UPDATE OF i",
     )
     .bind(id)
     .fetch_one(&mut *tx)
@@ -225,6 +255,17 @@ pub async fn preparar(
         .execute(&mut *tx)
         .await?;
 
+    crate::sync::a_usuario_y_almacen(
+        &mut tx,
+        "pedido_item",
+        id,
+        "ACTUALIZAR",
+        solicitante,
+        0,
+        json!({ "id": id, "pedido_id": pedido_id, "expediente_id": expediente, "estado": "PREPARADO" }),
+    )
+    .await?;
+
     sqlx::query("INSERT INTO movimientos(expediente_id, tipo, actor_id) VALUES ($1,'PREPARACION',$2)")
         .bind(expediente)
         .bind(user.id)
@@ -256,13 +297,16 @@ pub async fn descartar(
 
     let mut tx = app.db.begin().await?;
 
-    let fila = sqlx::query_as::<_, (Uuid, String)>(
-        "SELECT expediente_id, estado FROM pedido_items WHERE id = $1 FOR UPDATE",
+    let fila = sqlx::query_as::<_, (Uuid, String, Uuid, Uuid)>(
+        "SELECT i.expediente_id, i.estado, i.pedido_id, p.solicitante_id
+         FROM pedido_items i JOIN pedidos p ON p.id = i.pedido_id
+         WHERE i.id = $1 FOR UPDATE OF i",
     )
     .bind(id)
     .fetch_optional(&mut *tx)
     .await?;
-    let (expediente, estado) = fila.ok_or_else(|| ApiError::no_encontrado("Renglón no encontrado"))?;
+    let (expediente, estado, pedido_id, solicitante) =
+        fila.ok_or_else(|| ApiError::no_encontrado("Renglón no encontrado"))?;
 
     if estado != "PENDIENTE" && estado != "PREPARADO" {
         return Err(ApiError::conflicto("El renglón no es descartable en su estado actual"));
@@ -306,6 +350,17 @@ pub async fn descartar(
         .bind(&texto)
         .execute(&mut *tx)
         .await?;
+
+    crate::sync::a_usuario_y_almacen(
+        &mut tx,
+        "pedido_item",
+        id,
+        "ACTUALIZAR",
+        solicitante,
+        0,
+        json!({ "id": id, "pedido_id": pedido_id, "expediente_id": expediente, "estado": "DESCARTADO" }),
+    )
+    .await?;
 
     sqlx::query(
         "UPDATE reservas SET liberada_en = now(), motivo_liberacion = 'DESCARTE'
@@ -407,15 +462,47 @@ pub async fn cancelar(
     .execute(&mut *tx)
     .await?;
 
-    sqlx::query(
-        "UPDATE pedidos SET cancelado_en = now(), cancelado_por = $2, cancelado_motivo = $3
-         WHERE id = $1",
+    let items: Vec<(Uuid, String)> =
+        sqlx::query_as("SELECT id, estado FROM pedido_items WHERE pedido_id = $1")
+            .bind(id)
+            .fetch_all(&mut *tx)
+            .await?;
+
+    let version: i64 = sqlx::query_scalar(
+        "UPDATE pedidos
+         SET cancelado_en = now(), cancelado_por = $2, cancelado_motivo = $3, version = version + 1
+         WHERE id = $1
+         RETURNING version",
     )
     .bind(id)
     .bind(user.id)
     .bind(motivo)
-    .execute(&mut *tx)
+    .fetch_one(&mut *tx)
     .await?;
+
+    crate::sync::a_usuario_y_almacen(
+        &mut tx,
+        "pedido",
+        id,
+        "ACTUALIZAR",
+        user.id,
+        version,
+        json!({ "id": id, "solicitante_id": user.id, "estado": "CANCELADO", "version": version }),
+    )
+    .await?;
+
+    for (item_id, estado_item) in &items {
+        crate::sync::a_usuario_y_almacen(
+            &mut tx,
+            "pedido_item",
+            *item_id,
+            "ACTUALIZAR",
+            user.id,
+            version,
+            json!({ "id": item_id, "pedido_id": id, "estado": estado_item }),
+        )
+        .await?;
+    }
 
     audit::registrar(
         &mut tx,

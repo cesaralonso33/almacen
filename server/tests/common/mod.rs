@@ -200,3 +200,45 @@ pub async fn custodias_activas(db: &PgPool, expediente: Uuid) -> i64 {
         .await
         .expect("contar custodias")
 }
+
+/// Registra un dispositivo de sincronización para la sesión indicada.
+pub async fn registrar_dispositivo(app: &Router, token: &str, nombre: &str) -> String {
+    let (estado, cuerpo) = pedir(
+        app,
+        "POST",
+        "/api/v1/sync/dispositivos",
+        Some(token),
+        Some(json!({ "nombre": nombre, "plataforma": "pruebas" })),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK, "registrar dispositivo: {cuerpo}");
+    cuerpo["dispositivo_id"].as_str().expect("dispositivo_id").to_string()
+}
+
+/// Empuja una operación desde un dispositivo y devuelve el resultado de esa operación.
+pub async fn push_operacion(
+    app: &Router,
+    token: &str,
+    dispositivo: &str,
+    clave: Uuid,
+    tipo: &str,
+    payload: Value,
+) -> (StatusCode, Value) {
+    let (estado, cuerpo) = pedir(
+        app,
+        "POST",
+        "/api/v1/sync/push",
+        Some(token),
+        Some(json!({
+            "dispositivo_id": dispositivo,
+            "operaciones": [{ "clave": clave, "tipo": tipo, "payload": payload }]
+        })),
+    )
+    .await;
+    let resultado = cuerpo["resultados"]
+        .as_array()
+        .and_then(|lista| lista.first())
+        .cloned()
+        .unwrap_or(Value::Null);
+    (estado, resultado)
+}

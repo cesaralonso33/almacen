@@ -144,7 +144,7 @@ desktop/src-tauri/target/release/bundle/nsis/Custodia Jurídica_0.1.0_x64-setup.
 ### Configurar el primer acceso
 
 1. Abra la aplicación. La pantalla de acceso pide **Servidor**, correo y contraseña.
-2. Escriba la dirección del backend, sin barra final:
+2. La dirección viene precargada con `https://129-121-117-177.sslip.io`; ajústela si su instalación usa otro nombre o el modo sin cifrado, sin barra final:
    - `https://129-121-117-177.sslip.io` si usa TLS,
    - `http://129.121.117.177` si usa el modo sin cifrado.
 3. Use la cuenta administradora creada con `crear_admin`.

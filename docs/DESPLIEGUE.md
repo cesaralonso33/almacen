@@ -358,7 +358,7 @@ los demás usuarios desde el panel de administración.
 
 1. Instale el paquete `Custodia Jurídica` (NSIS) generado con `npm run tauri build`.
 2. Instale la CA institucional en el almacén de certificados de Windows.
-3. En la pantalla de acceso, configure la dirección `https://almacen.institucion.mx`.
+3. En la pantalla de acceso, la dirección viene precargada con `https://129-121-117-177.sslip.io`; cámbiela si su instalación usa otro nombre o HTTP.
 4. Verifique el estado `En línea` y realice una búsqueda de expedientes.
 
 La dirección del servidor se guarda en la base local del equipo, no en el instalador.

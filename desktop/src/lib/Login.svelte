@@ -5,7 +5,7 @@
 
     let correo = $state('');
     let password = $state('');
-    let servidor = $state('https://almacen.institucion.mx');
+    let servidor = $state('https://129-121-117-177.sslip.io');
     let error = $state('');
 
     onMount(async () => {
@@ -47,7 +47,7 @@
                     class="campo"
                     type="url"
                     bind:value={servidor}
-                    placeholder="https://almacen.institucion.mx"
+                    placeholder="https://129-121-117-177.sslip.io"
                     required
                 />
             </label>

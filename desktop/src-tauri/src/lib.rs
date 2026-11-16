@@ -375,7 +375,7 @@ pub fn run() {
 
             let base_inicial = db::leer_meta(&db::abrir(&ruta_db)?, "base_url")
                 .or_else(|| std::env::var("EXPEDIENTES_API_URL").ok())
-                .unwrap_or_else(|| "http://127.0.0.1:3000".to_string());
+                .unwrap_or_else(|| "https://129-121-117-177.sslip.io".to_string());
 
             app.manage(EstadoApp {
                 ruta_db,

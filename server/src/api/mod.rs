@@ -5,6 +5,7 @@ pub mod directorio;
 pub mod devoluciones;
 pub mod entrada;
 pub mod entregas;
+pub mod expedientes;
 pub mod pedidos;
 pub mod sync;
 pub mod transferencias;
@@ -36,7 +37,7 @@ pub fn router(estado: AppState) -> Router {
         .route("/api/v1/dashboard", get(consultas::dashboard))
         .route("/api/v1/usuarios/directorio", get(directorio::directorio))
         .route("/api/v1/custodias", get(consultas::custodias))
-        .route("/api/v1/expedientes", get(consultas::buscar_expedientes))
+        .route("/api/v1/expedientes", get(consultas::buscar_expedientes).post(expedientes::crear))
         .route("/api/v1/expedientes/{id}/historial", get(consultas::historial))
         .route("/api/v1/entregas/pendientes", get(consultas::entregas_pendientes))
         .route("/api/v1/pedidos/{id}", get(pedidos::detalle))

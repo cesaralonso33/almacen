@@ -12,6 +12,13 @@
     let historial = $state<any[]>([]);
     let local = $state(false);
 
+    let creando = $state(false);
+    let numeroNuevo = $state('');
+    let descripcionNueva = $state('');
+    let unidadNueva = $state('');
+    let anioNuevo = $state<number | null>(null);
+    let guardando = $state(false);
+
     let temporizador: ReturnType<typeof setTimeout>;
 
     onMount(cargar);
@@ -44,6 +51,30 @@
         }
     }
 
+    async function crearExpediente() {
+        guardando = true;
+        try {
+            await api('POST', '/api/v1/expedientes', {
+                numero: numeroNuevo,
+                descripcion: descripcionNueva || null,
+                unidad: unidadNueva || null,
+                anio: anioNuevo || null
+            });
+            app.avisar('Expediente registrado');
+            creando = false;
+            numeroNuevo = '';
+            descripcionNueva = '';
+            unidadNueva = '';
+            anioNuevo = null;
+            await cargar();
+            await app.sincronizar(true);
+        } catch (error) {
+            app.avisar(String(error), 'error');
+        } finally {
+            guardando = false;
+        }
+    }
+
     async function abrir(expediente: Expediente) {
         try {
             const respuesta = await api<any>('GET', `/api/v1/expedientes/${expediente.id}/historial`);
@@ -64,6 +95,9 @@
             oninput={conRetardo}
         />
         <button class="btn-secundario" onclick={cargar}>Actualizar</button>
+        {#if app.permiso('expedientes:administrar')}
+            <button class="btn-primario" onclick={() => (creando = true)}>Nuevo expediente</button>
+        {/if}
         <span class="text-sm text-slate-500">{expedientes.length} resultados</span>
     </div>
 
@@ -109,6 +143,45 @@
         </div>
     </div>
 </div>
+
+{#if creando}
+    <Modal titulo="Nuevo expediente" oncerrar={() => (creando = false)}>
+        <form
+            class="space-y-4"
+            onsubmit={(evento) => {
+                evento.preventDefault();
+                crearExpediente();
+            }}
+        >
+            <div class="grid gap-3 sm:grid-cols-2">
+                <label class="block text-sm">
+                    <span class="mb-1 block font-medium text-slate-600">Número de expediente</span>
+                    <input class="campo" bind:value={numeroNuevo} required />
+                </label>
+                <label class="block text-sm">
+                    <span class="mb-1 block font-medium text-slate-600">Unidad / órgano</span>
+                    <input class="campo" bind:value={unidadNueva} />
+                </label>
+                <label class="block text-sm">
+                    <span class="mb-1 block font-medium text-slate-600">Año</span>
+                    <input class="campo" type="number" min="1900" max="2200" bind:value={anioNuevo} />
+                </label>
+                <label class="block text-sm sm:col-span-2">
+                    <span class="mb-1 block font-medium text-slate-600">Descripción</span>
+                    <input class="campo" bind:value={descripcionNueva} />
+                </label>
+            </div>
+
+            <p class="text-xs text-slate-500">
+                El número es único por unidad y año. El expediente se registra en almacén.
+            </p>
+
+            <button class="btn-primario" type="submit" disabled={guardando}>
+                {guardando ? 'Guardando…' : 'Registrar expediente'}
+            </button>
+        </form>
+    </Modal>
+{/if}
 
 {#if seleccionado}
     <Modal titulo={`Expediente ${seleccionado.numero}`} oncerrar={() => (seleccionado = null)}>

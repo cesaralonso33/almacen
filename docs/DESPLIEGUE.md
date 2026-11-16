@@ -78,6 +78,32 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
 ### 5. Desplegar
 
+**Opción en un paso (recomendada).** El script genera secretos, elige `sslip.io` + Let's Encrypt,
+levanta el stack y verifica `/health`:
+
+```bash
+sudo mkdir -p /opt/expedientes && sudo chown deploy:deploy /opt/expedientes
+git clone <repositorio> /opt/expedientes
+cd /opt/expedientes/infra
+chmod +x preparar-vps.sh
+
+./preparar-vps.sh \
+  --admin-correo 'jefe@institucion.mx' \
+  --admin-password 'UnaClaveLargaYUnica#2026' \
+  --admin-nombre 'Dirección jurídica'
+```
+
+Si el proveedor bloquea 80/443 y no hay TLS posible:
+
+```bash
+./preparar-vps.sh --http
+```
+
+Opciones: `--sitio <dominio>` si ya tiene uno, `--http` para red cerrada, `--admin-*` para crear la
+cuenta inicial.
+
+**Opción manual**, si prefiere controlar cada paso:
+
 ```bash
 sudo mkdir -p /opt/expedientes && sudo chown deploy:deploy /opt/expedientes
 git clone <repositorio> /opt/expedientes
@@ -88,9 +114,9 @@ chmod 600 .env
 
 # Genere secretos y péguelos en .env
 openssl rand -hex 32      # JWT_SECRET
-openssl rand -base64 24   # POSTGRES_PASSWORD
+openssl rand -hex 24      # POSTGRES_PASSWORD
 
-# Edite SITIO y ACME_EMAIL
+# Edite SITIO
 nano .env
 
 # TLS automático con Let's Encrypt (definir en .env)
@@ -296,7 +322,6 @@ Funciona, pero **no use el editor web**. Use un stack de tipo **Repository**:
    - `JWT_SECRET`
    - `SITIO`
    - `CADDYFILE` (`./Caddyfile.publico`, `./Caddyfile.interno` o `./Caddyfile`)
-   - `ACME_EMAIL` si usa Let's Encrypt
 4. *Deploy the stack*.
 
 El contexto de compilación `../server` y los montajes `./Caddyfile*` funcionan porque Portainer

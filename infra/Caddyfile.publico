@@ -5,12 +5,14 @@
 #   - Puertos 80 y 443 accesibles desde internet.
 #   - Sin proxy delante durante la emisión (Cloudflare en modo DNS only).
 #
-# Uso: cp Caddyfile.publico Caddyfile
-#      docker compose up -d --build
-
-{
-    email {$ACME_EMAIL}
-}
+# Correo opcional para avisos de Let's Encrypt: si lo desea, agregue al inicio de este
+# archivo el bloque:
+#
+#   {
+#       email operacion@institucion.mx
+#   }
+#
+# Uso: CADDYFILE=./Caddyfile.publico en infra/.env
 
 {$SITIO} {
     encode zstd gzip

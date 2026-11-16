@@ -169,11 +169,8 @@ Ver `docs/PLAN.md` y `docs/PROGRESO.md`.
 ```bash
 cd infra
 cp .env.example .env      # completar secretos y SITIO
-docker compose up -d --build
-docker compose exec api env \
-  ADMIN_CORREO='jefe@institucion.mx' \
-  ADMIN_PASSWORD='UnaClaveLargaYUnica#2026' \
-  /usr/local/bin/crear_admin
+chmod +x preparar-vps.sh
+./preparar-vps.sh --admin-correo 'jefe@institucion.mx' --admin-password 'UnaClaveLargaYUnica#2026'
 curl https://$SITIO/health
 ```
 

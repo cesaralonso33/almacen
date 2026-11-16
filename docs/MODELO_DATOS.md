@@ -44,3 +44,5 @@ Migraciones en `server/migrations` (SQLx, aplicadas al iniciar la API).
 7. Una transferencia exige origen y destino distintos.
 8. Al registrar un expediente, el creador queda como custodio inicial; solo lo pierde con una
    devolución confirmada por el almacén o una transferencia aceptada.
+9. El número se normaliza a 8 caracteres antes de la primera barra, rellenando con ceros a la
+   izquierda; la unicidad se evalúa sobre el valor normalizado.

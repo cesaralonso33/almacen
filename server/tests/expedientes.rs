@@ -146,3 +146,71 @@ async fn alta_respeta_permisos_y_unicidad() {
 
     t.cerrar().await;
 }
+
+#[tokio::test]
+async fn normaliza_el_numero_a_ocho_caracteres_antes_de_la_barra() {
+    let t = setup().await;
+    crear_usuario(&t.db, "usuario@test.mx", "USUARIO").await;
+    let (tok, _) = iniciar_sesion(&t.app, "usuario@test.mx").await;
+
+    let (estado, alta) = pedir(
+        &t.app,
+        "POST",
+        "/api/v1/expedientes",
+        Some(&tok),
+        Some(json!({ "numero": "5259/2026" })),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK, "{alta}");
+    assert_eq!(alta["numero"], "00005259/2026");
+
+    let guardado: String =
+        sqlx::query_scalar("SELECT numero FROM expedientes WHERE id = $1")
+            .bind(alta["expediente_id"].as_str().unwrap().parse::<uuid::Uuid>().unwrap())
+            .fetch_one(&t.db)
+            .await
+            .unwrap();
+    assert_eq!(guardado, "00005259/2026");
+
+    let (estado, _) = pedir(
+        &t.app,
+        "POST",
+        "/api/v1/expedientes",
+        Some(&tok),
+        Some(json!({ "numero": "00005259/2026" })),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::CONFLICT, "el duplicado se compara ya normalizado");
+
+    let (_, completo) = pedir(
+        &t.app,
+        "POST",
+        "/api/v1/expedientes",
+        Some(&tok),
+        Some(json!({ "numero": "12345678/2026" })),
+    )
+    .await;
+    assert_eq!(completo["numero"], "12345678/2026");
+
+    let (_, largo) = pedir(
+        &t.app,
+        "POST",
+        "/api/v1/expedientes",
+        Some(&tok),
+        Some(json!({ "numero": "123456789/2026" })),
+    )
+    .await;
+    assert_eq!(largo["numero"], "123456789/2026", "no se recorta");
+
+    let (_, sin_barra) = pedir(
+        &t.app,
+        "POST",
+        "/api/v1/expedientes",
+        Some(&tok),
+        Some(json!({ "numero": "EXP-1" })),
+    )
+    .await;
+    assert_eq!(sin_barra["numero"], "EXP-1", "sin barra se conserva");
+
+    t.cerrar().await;
+}

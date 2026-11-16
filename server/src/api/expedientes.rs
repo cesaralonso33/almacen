@@ -15,6 +15,19 @@ pub struct NuevoExpediente {
     pub anio: Option<i16>,
 }
 
+/// Normaliza la parte anterior a la primera barra a 8 caracteres con ceros a la izquierda.
+///
+/// `5259/2026` → `00005259/2026`. Sin barra, o con una parte de 8 o más caracteres, se conserva.
+pub fn normalizar_numero(numero: &str) -> String {
+    match numero.split_once('/') {
+        Some((prefijo, resto)) if !prefijo.is_empty() && prefijo.chars().count() < 8 => {
+            let relleno = 8 - prefijo.chars().count();
+            format!("{}{}/{}", "0".repeat(relleno), prefijo, resto)
+        }
+        _ => numero.to_string(),
+    }
+}
+
 /// Alta de un expediente físico: el creador queda como custodio inicial.
 ///
 /// La custodia se mantiene con esa persona hasta que solicite la devolución y el
@@ -26,7 +39,7 @@ pub async fn crear(
 ) -> Result<Json<Value>, ApiError> {
     user.exigir("expedientes:crear")?;
 
-    let numero = input.numero.trim();
+    let numero = normalizar_numero(input.numero.trim());
     if numero.is_empty() {
         return Err(ApiError::inprocesable("El número de expediente es obligatorio"));
     }
@@ -58,7 +71,7 @@ pub async fn crear(
          VALUES ($1, COALESCE($2, ''), $3, $4, 'EN_CUSTODIA', $5, 1)
          RETURNING id",
     )
-    .bind(numero)
+    .bind(&numero)
     .bind(descripcion)
     .bind(unidad)
     .bind(anio)
@@ -128,7 +141,24 @@ pub async fn crear(
 
     Ok(Json(json!({
         "expediente_id": expediente_id,
+        "numero": numero,
         "custodio_id": user.id,
         "anio": anio,
     })))
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::normalizar_numero;
+
+    #[test]
+    fn rellena_con_ceros_hasta_ocho_caracteres() {
+        assert_eq!(normalizar_numero("5259/2026"), "00005259/2026");
+        assert_eq!(normalizar_numero("1/2026"), "00000001/2026");
+        assert_eq!(normalizar_numero("12345678/2026"), "12345678/2026");
+        assert_eq!(normalizar_numero("123456789/2026"), "123456789/2026");
+        assert_eq!(normalizar_numero("12/34/56"), "00000012/34/56");
+        assert_eq!(normalizar_numero("EXP-1"), "EXP-1");
+        assert_eq!(normalizar_numero("/2026"), "/2026");
+    }
 }

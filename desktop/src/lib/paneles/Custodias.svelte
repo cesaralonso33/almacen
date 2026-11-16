@@ -168,8 +168,10 @@
             }}
         >
             <p class="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800">
-                Al registrarlo, el expediente queda de inmediato bajo tu custodia. Para regresarlo al
-                almacén usa «Devolver»; la custodia se cierra cuando el almacén acuse la recepción.
+                El número se completa con ceros a la izquierda hasta 8 caracteres antes de la barra
+                (5259/2026 → 00005259/2026). Al registrarlo, el expediente queda de inmediato bajo tu
+                custodia. Para regresarlo al almacén usa «Devolver»; la custodia se cierra cuando el
+                almacén acuse la recepción.
             </p>
 
             <div class="grid gap-3 sm:grid-cols-2">

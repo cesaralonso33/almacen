@@ -194,7 +194,8 @@ cd infra
 cp .env.example .env      # completar secretos y SITIO
 chmod +x preparar-vps.sh
 ./preparar-vps.sh --admin-correo 'jefe@institucion.mx' --admin-password 'UnaClaveLargaYUnica#2026'
-curl https://$SITIO/health
+set -a; . ./.env; set +a
+curl -fsS "https://$SITIO/health"
 ```
 
 En un VPS con dominio público defina `CADDYFILE=./Caddyfile.publico` en `infra/.env` para TLS

@@ -5,7 +5,7 @@
 | Actividad | Comando / lugar |
 |---|---|
 | Estado de servicios | `docker compose ps` |
-| Salud de la API | `curl https://$SITIO/health` |
+| Salud de la API | `set -a; . ./.env; set +a; curl -fsS "https://$SITIO/health"` |
 | Logs de la API | `docker compose logs -f api` |
 | Logs del proxy | `infra/caddy_data` → `access.log` (rotación 10 MiB, 10 archivos) |
 | Pedidos y entregas | Panel «Inicio» de la aplicación |

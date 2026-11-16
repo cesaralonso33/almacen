@@ -119,6 +119,7 @@ if [ "$listo" -ne 1 ]; then
 fi
 
 echo "API disponible en $ESQUEMA://$SITIO"
+echo "Verifique con: curl -fsS $ESQUEMA://$SITIO/health"
 
 if [ "$MODO" = "http" ]; then
     echo "ADVERTENCIA: el tráfico no está cifrado. Restrinja el puerto 80 a la red" \

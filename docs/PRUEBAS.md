@@ -44,7 +44,7 @@ npm run build
 ## Verificación manual de despliegue
 
 1. `docker compose up -d --build`.
-2. `curl https://$SITIO/health` → `{"ok":true}`.
+2. `set -a; . ./.env; set +a; curl -fsS "https://$SITIO/health"` → `{"ok":true}`.
 3. Iniciar sesión con cada rol y comprobar la navegación visible.
 4. Crear un pedido de 5 expedientes, entregar 2, descartar 1 y comprobar `PARCIAL`.
 5. Entregar los 2 restantes y comprobar `COMPLETADO` (4 entregados + 1 descartado).

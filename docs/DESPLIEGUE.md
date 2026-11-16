@@ -145,7 +145,8 @@ demostración. Después cree el resto de usuarios desde el panel de Administraci
 ### 7. Comprobar
 
 ```bash
-curl -fsS https://$SITIO/health
+set -a; . ./.env; set +a
+curl -fsS "https://$SITIO/health"
 curl -sI https://$SITIO | grep -i strict-transport-security
 docker compose logs --tail=50 api
 ```
@@ -336,7 +337,7 @@ Caddy).
 cd /opt/expedientes/infra
 docker compose up -d --build
 docker compose ps
-curl --cacert certs/raiz-institucional.crt https://$SITIO/health
+curl --cacert certs/raiz-institucional.crt "https://$(grep '^SITIO=' .env | cut -d= -f2)/health"
 ```
 
 Solo Caddy publica puertos. PostgreSQL y la API quedan en la red interna de contenedores.

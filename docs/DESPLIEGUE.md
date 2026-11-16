@@ -149,6 +149,54 @@ institución autoriza esa ubicación, que el disco está cifrado, que los respal
 cifrados y que el acceso SSH está restringido. Si la normativa exige residencia interna, use el
 servidor Debian institucional en lugar de un VPS público.
 
+### 10. Sin dominio: usar solo la IP
+
+Es posible, pero **Let's Encrypt no emite certificados para direcciones IP** de forma general, así
+que `Caddyfile.publico` no sirve. El camino correcto es la CA interna de Caddy:
+
+1. En `infra/.env`:
+
+   ```env
+   SITIO=203.0.113.10
+   ```
+
+2. Use la variante con CA interna:
+
+   ```bash
+   cp Caddyfile.interno Caddyfile
+   docker compose up -d --build
+   ```
+
+3. Extraiga la raíz de Caddy y distribúyala a los clientes:
+
+   ```bash
+   docker compose exec caddy cat /data/caddy/pki/authorities/local/root.crt > raiz-interna.crt
+   ```
+
+4. Instale `raiz-interna.crt` en cada equipo Windows:
+   doble clic → **Instalar certificado** → **Equipo local** → *Entidades de certificación raíz de
+   confianza*. En dominio, distribúyala por GPO.
+
+5. Compruebe que el certificado incluye la IP como SAN:
+
+   ```bash
+   openssl s_client -connect 203.0.113.10:443 -servername 203.0.113.10 </dev/null 2>/dev/null \
+     | openssl x509 -noout -subject -ext subjectAltName
+   curl --cacert raiz-interna.crt https://203.0.113.10/health
+   ```
+
+6. En la aplicación, configure `https://203.0.113.10`.
+
+El cliente de escritorio usa el almacén de certificados del sistema (`rustls-tls-native-roots`),
+por lo que confía en la CA una vez instalada.
+
+Consideraciones:
+
+- La IP debe ser **fija**; si cambia, hay que volver a emitir y distribuir.
+- HSTS no aplica a direcciones IP, pero el tráfico sigue cifrado.
+- Para producción institucional es preferible un nombre DNS (aunque sea interno) y un certificado
+  de la CA institucional; la IP es aceptable para pruebas o redes cerradas.
+
 ## Preparación
 
 ```bash

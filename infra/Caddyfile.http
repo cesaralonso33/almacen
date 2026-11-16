@@ -1,0 +1,35 @@
+# SOLO para redes cerradas (VPN institucional o firewall por IP).
+#
+# El tráfico NO va cifrado: credenciales, tokens y datos de expedientes quedan
+# visibles para cualquiera que pueda observar la red. No usar en internet abierto.
+#
+# Uso: CADDYFILE=./Caddyfile.http en infra/.env
+
+{
+    auto_https off
+}
+
+:80 {
+    encode zstd gzip
+
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+        -Server
+    }
+
+    reverse_proxy api:3000 {
+        health_uri /health
+        health_interval 30s
+    }
+
+    log {
+        output file /data/access.log {
+            roll_size 10MiB
+            roll_keep 10
+        }
+        format console
+    }
+}

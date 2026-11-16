@@ -5,6 +5,7 @@
     import { app } from './lib/estado.svelte';
 
     onMount(() => {
+        app.cargarServidor();
         app.refrescarSync();
         const intervalo = window.setInterval(() => {
             if (app.usuario) app.sincronizar(true);

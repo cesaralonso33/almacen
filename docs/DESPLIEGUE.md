@@ -231,6 +231,46 @@ CADDYFILE=./Caddyfile.interno   # solo IP o LAN, CA interna
 CADDYFILE=./Caddyfile           # certificados institucionales en certs/
 ```
 
+## Sin TLS (solo HTTP, red cerrada)
+
+Existe una variante sin cifrado para cuando no es posible configurar certificados:
+
+```env
+# infra/.env
+SITIO=129.121.117.177
+CADDYFILE=./Caddyfile.http
+```
+
+```bash
+docker compose up -d --force-recreate caddy
+docker exec expedientes-caddy-1 head -5 /etc/caddy/Caddyfile   # debe decir auto_https off
+curl -v http://129.121.117.177/health
+```
+
+En la aplicación use `http://129.121.117.177`. La pantalla de acceso y la barra superior muestran
+**«Sin cifrado»**.
+
+### Riesgo y mitigación obligatoria
+
+Con HTTP, las credenciales, los tokens y los datos de expedientes viajan **en claro**. Solo es
+aceptable si el puerto 80 está restringido a la red institucional o a una VPN:
+
+```bash
+# Ejemplo: permitir solo la red institucional y cerrar al resto
+sudo ufw delete allow 80/tcp
+sudo ufw allow from 10.0.0.0/8 to any port 80 proto tcp
+sudo ufw allow from 192.168.0.0/16 to any port 80 proto tcp
+sudo ufw status numbered
+```
+
+Alternativas recomendadas, en orden:
+
+1. Dominio público o `sslip.io` con Let's Encrypt (`Caddyfile.publico`).
+2. VPN (WireGuard/Tailscale) que cifre el transporte aunque el servicio sea HTTP.
+3. Certificado institucional (`certs/` + `Caddyfile`).
+
+Planifique migrar a TLS: el modo HTTP es una contingencia, no un estado final.
+
 ## Coexistencia con Portainer
 
 Portainer usa por omisión **9443** (interfaz), **8000** (Edge) y opcionalmente **9000**; no debería

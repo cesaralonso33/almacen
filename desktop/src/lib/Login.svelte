@@ -52,6 +52,13 @@
                 />
             </label>
 
+            {#if servidor.startsWith('http://')}
+                <p class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800" role="alert">
+                    Conexión sin cifrado: el tráfico viaja en claro. Use esta dirección solo en una
+                    red cerrada o VPN institucional.
+                </p>
+            {/if}
+
             <label class="block text-sm">
                 <span class="mb-1 block font-medium text-slate-600">Correo</span>
                 <input

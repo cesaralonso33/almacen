@@ -11,8 +11,21 @@ class EstadoApp {
     usuario = $state<SesionInfo | null>(null);
     panel = $state('inicio');
     sync = $state<Sincronizacion | null>(null);
+    servidor = $state('');
     mensaje = $state<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
     ocupado = $state(false);
+
+    get inseguro(): boolean {
+        return this.servidor.startsWith('http://');
+    }
+
+    async cargarServidor() {
+        try {
+            this.servidor = await invoke<string>('servidor_actual');
+        } catch {
+            this.servidor = '';
+        }
+    }
 
     permiso(clave: string): boolean {
         return this.usuario?.permisos.includes(clave) ?? false;
@@ -29,6 +42,7 @@ class EstadoApp {
         this.ocupado = true;
         try {
             this.usuario = await invoke<SesionInfo>('login', { correo, password });
+            await this.cargarServidor();
             await this.refrescarSync();
             await this.sincronizar(true);
         } finally {

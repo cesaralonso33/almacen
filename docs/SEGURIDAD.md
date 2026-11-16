@@ -41,3 +41,4 @@
 | Límite de login por correo | Complementar con límite por IP en el proxy |
 | Usuario de base con privilegios de propietario | Crear un rol de aplicación con permisos mínimos |
 | Sin pinning de certificado en el cliente | Validación por CA institucional instalada |
+| Modo HTTP sin TLS (`Caddyfile.http`) | Solo con firewall/VPN; migrar a TLS cuanto antes |

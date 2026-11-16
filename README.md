@@ -178,8 +178,10 @@ curl https://$SITIO/health
 ```
 
 En un VPS con dominio público defina `CADDYFILE=./Caddyfile.publico` en `infra/.env` para TLS
-automático con Let's Encrypt. Ver `docs/DESPLIEGUE.md` (secciones «Ruta rápida para VPS» y
-«Coexistencia con Portainer»), `docs/OPERACION.md` y `docs/SEGURIDAD.md`.
+automático con Let's Encrypt. Si no es posible configurar TLS, existe `Caddyfile.http` para redes
+cerradas, con advertencia visible en la aplicación; el tráfico queda **sin cifrar**.
+Ver `docs/DESPLIEGUE.md` (secciones «Ruta rápida para VPS», «Sin TLS» y «Coexistencia con
+Portainer»), `docs/OPERACION.md` y `docs/SEGURIDAD.md`.
 
 ## Documentación
 

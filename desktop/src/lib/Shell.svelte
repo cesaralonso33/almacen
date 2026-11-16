@@ -85,6 +85,14 @@
             <h2 class="text-lg font-semibold text-slate-800">{titulo}</h2>
 
             <div class="flex items-center gap-3">
+                {#if app.inseguro}
+                    <span
+                        class="insignia bg-amber-100 text-amber-800"
+                        title="La conexión no está cifrada. Use solo en red cerrada o VPN."
+                    >
+                        Sin cifrado
+                    </span>
+                {/if}
                 <span class="insignia {claseSync}">
                     {estadoSync === 'EN_LINEA' ? 'En línea' : estadoSync === 'ERROR' ? 'Error de sincronización' : 'Sin conexión'}
                 </span>

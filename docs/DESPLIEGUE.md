@@ -93,8 +93,8 @@ openssl rand -base64 24   # POSTGRES_PASSWORD
 # Edite SITIO y ACME_EMAIL
 nano .env
 
-# TLS automático con Let's Encrypt
-cp Caddyfile.publico Caddyfile
+# TLS automático con Let's Encrypt (definir en .env)
+# CADDYFILE=./Caddyfile.publico
 
 docker compose up -d --build
 docker compose ps
@@ -160,10 +160,13 @@ que `Caddyfile.publico` no sirve. El camino correcto es la CA interna de Caddy:
    SITIO=203.0.113.10
    ```
 
-2. Use la variante con CA interna:
+2. Indique la variante con CA interna en `.env`:
+
+   ```env
+   CADDYFILE=./Caddyfile.interno
+   ```
 
    ```bash
-   cp Caddyfile.interno Caddyfile
    docker compose up -d --build
    ```
 
@@ -220,11 +223,47 @@ Edite `.env` con `SITIO`, credenciales y rutas de certificados. **Nunca** versio
 - VPS con dominio público: use `Caddyfile.publico` (Let's Encrypt automático).
 - Pruebas en LAN: use `Caddyfile.interno` (CA interna) y distribuya la raíz a los clientes.
 
-```bash
-# Variante con CA interna
-cp Caddyfile Caddyfile.institucional
-cp Caddyfile.interno Caddyfile
+La variante se elige con `CADDYFILE` en `.env`; no hace falta copiar archivos:
+
+```env
+CADDYFILE=./Caddyfile.publico   # dominio público, Let's Encrypt
+CADDYFILE=./Caddyfile.interno   # solo IP o LAN, CA interna
+CADDYFILE=./Caddyfile           # certificados institucionales en certs/
 ```
+
+## Coexistencia con Portainer
+
+Portainer usa por omisión **9443** (interfaz), **8000** (Edge) y opcionalmente **9000**; no debería
+ocupar 80 ni 443. Compruebe quién tiene los puertos:
+
+```bash
+sudo ss -tlnp | grep -E ':80|:443'
+docker ps --format 'table {{.Names}}\t{{.Ports}}'
+```
+
+Si Portainer está publicado en 443, cámbielo a 9443 (`9443:9443`) y acceda a él por
+`https://IP:9443`; así Caddy puede quedarse con 80/443.
+
+### Desplegar este stack desde Portainer
+
+Funciona, pero **no use el editor web**. Use un stack de tipo **Repository**:
+
+1. *Stacks* → *Add stack* → **Repository**.
+2. Repositorio y rama; **Compose path**: `infra/docker-compose.yml`.
+3. En *Environment variables* defina las del archivo `.env` (Portainer las inyecta; el `.env` no
+   está en el repositorio):
+   - `POSTGRES_PASSWORD`
+   - `JWT_SECRET`
+   - `SITIO`
+   - `CADDYFILE` (`./Caddyfile.publico`, `./Caddyfile.interno` o `./Caddyfile`)
+   - `ACME_EMAIL` si usa Let's Encrypt
+4. *Deploy the stack*.
+
+El contexto de compilación `../server` y los montajes `./Caddyfile*` funcionan porque Portainer
+clona el repositorio completo. Con el editor web no existen esos archivos y Caddy falla.
+
+Para que los cambios de `CADDYFILE` se apliquen, use *Update the stack* (recrea el contenedor de
+Caddy).
 
 ## Arranque
 

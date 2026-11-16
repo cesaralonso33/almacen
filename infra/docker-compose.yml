@@ -55,7 +55,7 @@ services:
     environment:
       SITIO: ${SITIO:?Defina SITIO en infra/.env}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${CADDYFILE:-./Caddyfile}:/etc/caddy/Caddyfile:ro
       - ./certs:/certs:ro
       - caddy_data:/data
       - caddy_config:/config

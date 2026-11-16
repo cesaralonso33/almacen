@@ -177,9 +177,9 @@ docker compose exec api env \
 curl https://$SITIO/health
 ```
 
-En un VPS con dominio público use `cp Caddyfile.publico Caddyfile` para TLS automático con
-Let's Encrypt. Ver `docs/DESPLIEGUE.md` (sección «Ruta rápida para VPS»), `docs/OPERACION.md` y
-`docs/SEGURIDAD.md`.
+En un VPS con dominio público defina `CADDYFILE=./Caddyfile.publico` en `infra/.env` para TLS
+automático con Let's Encrypt. Ver `docs/DESPLIEGUE.md` (secciones «Ruta rápida para VPS» y
+«Coexistencia con Portainer»), `docs/OPERACION.md` y `docs/SEGURIDAD.md`.
 
 ## Documentación
 

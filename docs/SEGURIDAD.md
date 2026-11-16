@@ -8,6 +8,8 @@
 - **Refresh opaco** de 32 bytes, almacenado como SHA-256, rotativo y de un solo uso.
 - Cambio de contraseña y desactivación revocan todas las sesiones.
 - Límite de 5 intentos fallidos por correo en 15 minutos (429).
+- La sesión dura como máximo **18 horas** y se cierra tras **30 minutos sin actividad del usuario**
+  (`IDLE_TTL_MINUTOS`). La sincronización automática no cuenta como actividad.
 
 ## Autorización
 

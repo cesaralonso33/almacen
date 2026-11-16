@@ -55,9 +55,9 @@ impl FromRequestParts<AppState> for AuthUser {
 
         let claims = tokens::validar_access(&estado.config.jwt_secret, token)?;
 
-        let fila = sqlx::query_as::<_, (Uuid, String, Option<String>, bool, bool, DateTime<Utc>, Option<Uuid>)>(
+        let fila = sqlx::query_as::<_, (Uuid, String, Option<String>, bool, bool, DateTime<Utc>, Option<Uuid>, DateTime<Utc>)>(
             "SELECT u.id, u.nombre, u.correo, u.activo,
-                    (s.revocada_en IS NOT NULL), s.expira_en, s.dispositivo_id
+                    (s.revocada_en IS NOT NULL), s.expira_en, s.dispositivo_id, s.ultima_actividad_en
              FROM sesiones s
              JOIN usuarios u ON u.id = s.usuario_id
              WHERE s.id = $1 AND u.id = $2",
@@ -67,11 +67,37 @@ impl FromRequestParts<AppState> for AuthUser {
         .fetch_optional(&estado.db)
         .await?;
 
-        let (_id, nombre, correo, activo, revocada, expira_en, _dispositivo) = fila
+        let (_id, nombre, correo, activo, revocada, expira_en, _dispositivo, ultima_actividad) = fila
             .ok_or_else(|| ApiError::no_autenticado("Sesión no válida o expirada"))?;
 
         if revocada || !activo || expira_en <= Utc::now() {
             return Err(ApiError::no_autenticado("Sesión no válida o expirada"));
+        }
+
+        // Los endpoints de sincronización no cuentan como actividad del usuario:
+        // el escritorio puede estar sincronizando sin que alguien esté trabajando.
+        let es_sincronizacion = parts.uri.path().starts_with("/api/v1/sync/");
+        if !es_sincronizacion {
+            let inactividad = chrono::Duration::from_std(estado.config.idle_ttl)
+                .unwrap_or_else(|_| chrono::Duration::minutes(30));
+            if Utc::now() - ultima_actividad > inactividad {
+                sqlx::query(
+                    "UPDATE sesiones SET revocada_en = now() WHERE id = $1 AND revocada_en IS NULL",
+                )
+                .bind(claims.sid)
+                .execute(&estado.db)
+                .await?;
+                return Err(ApiError::no_autenticado("Sesión cerrada por inactividad"));
+            }
+
+            // Se actualiza como máximo una vez por minuto para no escribir en cada petición.
+            sqlx::query(
+                "UPDATE sesiones SET ultima_actividad_en = now()
+                 WHERE id = $1 AND ultima_actividad_en < now() - interval '1 minute'",
+            )
+            .bind(claims.sid)
+            .execute(&estado.db)
+            .await?;
         }
 
         let permisos: Vec<String> = sqlx::query_scalar(

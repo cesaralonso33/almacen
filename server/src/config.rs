@@ -9,6 +9,7 @@ pub struct Config {
     pub jwt_secret: String,
     pub access_ttl: Duration,
     pub refresh_ttl: Duration,
+    pub idle_ttl: Duration,
     pub reserva_ttl: Duration,
     pub bind_addr: String,
 }
@@ -21,12 +22,13 @@ impl Config {
         if jwt_secret.len() < 32 {
             bail!("JWT_SECRET debe tener al menos 32 caracteres");
         }
-        let access_ttl = minutos("ACCESS_TTL_MINUTOS", 15)?;
-        let refresh_ttl = minutos("REFRESH_TTL_MINUTOS", 60 * 24 * 7)?;
+        let access_ttl = minutos("ACCESS_TTL_MINUTOS", 18 * 60)?;
+        let refresh_ttl = minutos("REFRESH_TTL_MINUTOS", 18 * 60)?;
+        let idle_ttl = minutos("IDLE_TTL_MINUTOS", 30)?;
         let reserva_ttl = minutos("RESERVA_TTL_MINUTOS", 30)?;
         let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3000".to_string());
 
-        Ok(Self { database_url, jwt_secret, access_ttl, refresh_ttl, reserva_ttl, bind_addr })
+        Ok(Self { database_url, jwt_secret, access_ttl, refresh_ttl, idle_ttl, reserva_ttl, bind_addr })
     }
 
     /// Configuración determinista para pruebas automatizadas.
@@ -34,8 +36,9 @@ impl Config {
         Self {
             database_url,
             jwt_secret: "secreto-de-pruebas-con-mas-de-32-caracteres".to_string(),
-            access_ttl: Duration::from_secs(15 * 60),
-            refresh_ttl: Duration::from_secs(7 * 24 * 60 * 60),
+            access_ttl: Duration::from_secs(18 * 60 * 60),
+            refresh_ttl: Duration::from_secs(18 * 60 * 60),
+            idle_ttl: Duration::from_secs(30 * 60),
             reserva_ttl: Duration::from_secs(30 * 60),
             bind_addr: "127.0.0.1:0".to_string(),
         }

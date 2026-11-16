@@ -43,11 +43,25 @@ Criterio de salida: `sqlx migrate run` desde base vacía + pruebas de restriccio
 
 ## Fase 2 — Autenticación y RBAC
 
-Depende de: Fase 1.
+Depende de: Fase 1. Estado: **completada**.
 
-Trabajo: Argon2id, login/refresh/logout/me, refresh rotativo revocable, rate limiting, extraer identidad del token y **eliminar todo `actor_id` del cuerpo**. Guardas por permiso en cada ruta. Auditoría con actor, dispositivo, IP, correlación y resultado.
+Implementado:
 
-Criterio de salida: criterio de aceptación 9 (usuario sin permisos no puede operar) y 401/403 probados.
+- Argon2id para contraseñas; hash nunca se expone.
+- JWT HS256 de acceso (15 min) con `sub` y `sid`; validación contra sesión viva en base.
+- Refresh opaco de 32 bytes, almacenado como SHA-256, rotación atómica con detección de reuso.
+- Logout, `/me`, cambio de contraseña con revocación de todas las sesiones.
+- Limitador de login (5 fallos por correo en 15 min) → 429.
+- Extractor `AuthUser` con permisos cargados de la base en cada petición.
+- `actor_id`, `solicitante_id` y `receptor_id` eliminados de los cuerpos; campos desconocidos → 400.
+- Permisos aplicados en cada ruta; receptor y custodio se validan contra la sesión.
+- Administración de usuarios y roles (`/admin/...`), activación/desactivación con revocación.
+- Errores uniformes (`code`, `message`, `correlacion_id`) también en 404/405 y JSON inválido.
+- Auditoría transaccional de login, refresh, logout, cambio de contraseña y operaciones de negocio.
+- Semilla `seed_demo` con Argon2id y contraseñas de demostración documentadas.
+
+Criterio de salida: criterio de aceptación 9 en verde y 401/403 probados. **Cumplido** con 16 pruebas
+de integración de autenticación y RBAC.
 
 ## Fase 3 — Flujo de pedidos, entregas y custodia
 
@@ -87,13 +101,13 @@ Criterio de salida: instalación reproducible en Debian y criterios 11–12.
 |---|---|---|
 | 1 | Pedido de 5: 2 entregados, 1 descartado, 2 pendientes → PARCIAL | Cumple (verificado por HTTP) |
 | 2 | Entregar los 2 restantes → COMPLETADO 4+1 | Cumple (verificado por HTTP) |
-| 3 | Custodia solo tras acuse autenticado | Parcial: custodia solo tras confirmar, pero el acuse no está autenticado |
+| 3 | Custodia solo tras acuse autenticado | Cumple: el receptor designado confirma con su sesión y se registra `acuses` |
 | 4 | Dos receptores simultáneos → una custodia y un conflicto | Parcial: doble confirmación devuelve 200/409 y una sola custodia; no hay dos receptores posibles por diseño |
 | 5 | Descartar no borra expediente ni historial | Cumple |
 | 6 | Devolución solo con acuse del almacén; transferencia con acuse | **No cumple**: el custodio cierra la devolución solo; no hay transferencias |
 | 7 | Pedido offline se sincroniza una vez | **No cumple**: no hay sync |
 | 8 | Cliente offline no confirma custodia | Cumple por ausencia de capacidad offline |
-| 9 | Usuario sin permisos no opera | **No cumple**: no hay autenticación |
+| 9 | Usuario sin permisos no opera | **Cumple** (RBAC por permisos, probado) |
 | 10 | Reinicio no pierde outbox ni duplica movimientos | **No cumple**: outbox sin motor, idempotencia sin usar |
 | 11 | Migraciones, compilación y suite automatizada | Parcial: API compila y migra; escritorio no compila; 0 pruebas |
 | 12 | README reproducible sin secretos | Parcial: README describe el starter, no el despliegue |

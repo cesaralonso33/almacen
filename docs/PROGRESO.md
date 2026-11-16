@@ -146,12 +146,65 @@ Verificado también que la migración `0002` se aplica sobre la base ya poblada 
 - Semillas de usuarios de demostración con Argon2id (requiere el código de autenticación).
 - Conectar `reservas` a `prepare`/`dispatch` (hoy solo existe la tabla).
 
+### Autenticación y RBAC (Fase 2)
+
+Reestructuración del servidor en biblioteca + binario:
+
+```
+server/src/
+  lib.rs, main.rs, config.rs, error.rs, limiter.rs, audit.rs
+  auth/{mod,password,tokens,extractor}.rs
+  api/{mod,entrada,auth,admin,pedidos,entregas,expedientes}.rs
+  bin/seed_demo.rs
+```
+
+- Argon2id, JWT HS256 de 15 minutos ligado a `sesiones.id`, refresh opaco rotativo con hash SHA-256
+  y detección de reuso (el refresh anterior devuelve 401 tras rotar).
+- Extraer identidad del token: se eliminaron `actor_id`, `solicitante_id` y `receptor_id` de los
+  cuerpos; `deny_unknown_fields` hace que enviarlos devuelva 400.
+- Permisos verificados en cada endpoint (`pedidos:crear`, `pedidos:preparar`, `entregas:despachar`,
+  `entregas:confirmar`, `devoluciones:solicitar`, `admin:usuarios`, ...).
+- Limitador de login: 5 fallos → 429.
+- Cambio de contraseña revoca todas las sesiones; desactivar un usuario revoca y bloquea el acceso.
+- Errores uniformes también en 404, 405 y JSON inválido; se añadió `fallback` y
+  `method_not_allowed_fallback`.
+- `seed_demo` crea 4 cuentas y 6 expedientes ficticios con Argon2id; es idempotente
+  (verificado: 4 usuarios, 6 expedientes y 4 asignaciones tras ejecutarlo dos veces).
+
+### Pruebas de la Fase 2
+
+`cargo test`: **28 pruebas, 0 fallos** (16 de autenticación/RBAC + 12 de modelo de datos).
+
+Verificación manual contra PostgreSQL real (`expedientes_fase2`, API en el puerto 3000):
+
+| Escenario | Resultado |
+|---|---|
+| Login de solicitante, almacén y consulta | 200 con permisos distintos por rol |
+| `GET /auth/me` sin token | 401 `NO_AUTENTICADO` |
+| `POST /pedidos` con `solicitante_id` en el cuerpo | 400 |
+| Pedido creado por sesión | 200, solicitante = usuario del token |
+| Preparar con perfil CONSULTA | 403 `SIN_PERMISO` |
+| Despacho y confirmación por el receptor | 200, pedido `COMPLETADO` |
+| Confirmación por el almacén | 403 |
+| Refresh reutilizado | 401 |
+| Logout y reutilización del access | 401 |
+| Ruta inexistente / método incorrecto | 404 / 405 con JSON uniforme |
+| Auditoría | 7 eventos con actor y resultado |
+| Sesiones | 4 creadas, 2 revocadas |
+
+### Pendientes conocidos de la Fase 2
+
+- La API no emite tokens para dispositivos: `sesiones.dispositivo_id` queda nulo hasta la Fase 4.
+- `debe_cambiar_password` se informa en el login, pero no bloquea las demás rutas.
+- No hay CORS ni TLS: se resuelven en la Fase 6 dentro de la red institucional.
+
 ## Estado frente a las fases
 
 - Fase 0: **completada** (este documento y `docs/PLAN.md`).
-- Fase 1: **parcial**. Modelo institucional y pruebas de invariantes listos; faltan semillas de
-  usuarios, alineación de estados y uso de reservas desde la API.
-- Fases 2–6: no iniciadas.
+- Fase 1: **parcial**. Modelo institucional y pruebas de invariantes listos; faltan alineación de
+  estados y semillas de usuarios (resuelto el seed en Fase 2).
+- Fase 2: **completada**. Autenticación, sesiones rotativas, RBAC, administración y auditoría.
+- Fases 3–6: no iniciadas.
 
 ## Siguiente acción recomendada
 

@@ -2,6 +2,8 @@
     import { onMount } from 'svelte';
     import { api } from '../api';
     import { app } from '../estado.svelte';
+    import Paginacion from '../Paginacion.svelte';
+    import { POR_PAGINA, recortar, totalPaginas } from '../paginacion';
 
     let usuarios = $state<any[]>([]);
     let roles = $state<any[]>([]);
@@ -10,6 +12,10 @@
     let correo = $state('');
     let password = $state('');
     let seleccionRoles = $state<string[]>([]);
+    let pagina = $state(1);
+
+    const paginas = $derived(totalPaginas(usuarios.length, POR_PAGINA));
+    const visibles = $derived(recortar(usuarios, pagina, POR_PAGINA));
 
     onMount(cargar);
 
@@ -19,6 +25,7 @@
             usuarios = lista.usuarios;
             const catalogo = await api<{ roles: any[] }>('GET', '/api/v1/admin/roles');
             roles = catalogo.roles;
+            pagina = 1;
         } catch (error) {
             app.avisar(String(error), 'error');
         }
@@ -110,7 +117,7 @@
                 </tr>
             </thead>
             <tbody>
-                {#each usuarios as usuario}
+                {#each visibles as usuario}
                     <tr>
                         <td class="font-medium">{usuario.nombre}</td>
                         <td class="text-slate-600">{usuario.correo}</td>
@@ -129,6 +136,7 @@
                 {/each}
             </tbody>
         </table>
+        <Paginacion {pagina} {paginas} total={usuarios.length} onCambiar={(valor) => (pagina = valor)} />
     </section>
 
     <section class="tarjeta p-4">

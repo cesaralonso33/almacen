@@ -4,12 +4,18 @@
     import { app } from '../estado.svelte';
     import Insignia from '../Insignia.svelte';
     import Modal from '../Modal.svelte';
+    import Paginacion from '../Paginacion.svelte';
+    import { POR_PAGINA, recortar, totalPaginas } from '../paginacion';
 
     let pedidos = $state<PedidoResumen[]>([]);
     let detalle = $state<any>(null);
     let descartando = $state<string | null>(null);
     let motivo = $state('NO_LOCALIZADO');
     let detalleMotivo = $state('');
+    let pagina = $state(1);
+
+    const paginas = $derived(totalPaginas(pedidos.length, POR_PAGINA));
+    const visibles = $derived(recortar(pedidos, pagina, POR_PAGINA));
 
     const motivos = [
         { clave: 'NO_LOCALIZADO', texto: 'No localizado' },
@@ -27,6 +33,7 @@
             pedidos = respuesta.pedidos.filter(
                 (pedido) => pedido.estado === 'PENDIENTE' || pedido.estado === 'EN_PROCESO' || pedido.estado === 'PARCIAL'
             );
+            pagina = 1;
         } catch (error) {
             app.avisar(String(error), 'error');
         }
@@ -103,7 +110,7 @@
                 </tr>
             </thead>
             <tbody>
-                {#each pedidos as pedido}
+                {#each visibles as pedido}
                     <tr class="cursor-pointer" onclick={() => abrir(pedido.id)}>
                         <td>{pedido.solicitante_nombre}</td>
                         <td><Insignia estado={pedido.estado} /></td>
@@ -117,6 +124,7 @@
             </tbody>
         </table>
     </div>
+    <Paginacion {pagina} {paginas} total={pedidos.length} onCambiar={(valor) => (pagina = valor)} />
 </div>
 
 {#if detalle}

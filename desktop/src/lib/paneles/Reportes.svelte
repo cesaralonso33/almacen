@@ -3,9 +3,15 @@
     import { api, type PedidoResumen } from '../api';
     import { app } from '../estado.svelte';
     import Insignia from '../Insignia.svelte';
+    import Paginacion from '../Paginacion.svelte';
+    import { POR_PAGINA, recortar, totalPaginas } from '../paginacion';
 
     let tablero = $state<Record<string, number> | null>(null);
     let pedidos = $state<PedidoResumen[]>([]);
+    let pagina = $state(1);
+
+    const paginas = $derived(totalPaginas(pedidos.length, POR_PAGINA));
+    const visibles = $derived(recortar(pedidos, pagina, POR_PAGINA));
 
     onMount(cargar);
 
@@ -14,6 +20,7 @@
             tablero = await api<Record<string, number>>('GET', '/api/v1/dashboard');
             const respuesta = await api<{ pedidos: PedidoResumen[] }>('GET', '/api/v1/pedidos');
             pedidos = respuesta.pedidos;
+            pagina = 1;
         } catch (error) {
             app.avisar(String(error), 'error');
         }
@@ -71,7 +78,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {#each pedidos as pedido}
+                    {#each visibles as pedido}
                         <tr>
                             <td class="font-mono text-xs text-slate-500">{pedido.id.slice(0, 8)}</td>
                             <td>{pedido.solicitante_nombre}</td>
@@ -84,5 +91,6 @@
                 </tbody>
             </table>
         </div>
+        <Paginacion {pagina} {paginas} total={pedidos.length} onCambiar={(valor) => (pagina = valor)} />
     </section>
 </div>

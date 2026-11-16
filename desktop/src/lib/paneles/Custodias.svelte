@@ -4,6 +4,8 @@
     import { app } from '../estado.svelte';
     import Insignia from '../Insignia.svelte';
     import Modal from '../Modal.svelte';
+    import Paginacion from '../Paginacion.svelte';
+    import { POR_PAGINA, recortar, totalPaginas } from '../paginacion';
 
     let custodias = $state<any[]>([]);
     let transferencia = $state<any>(null);
@@ -15,6 +17,14 @@
     let busqueda = $state('');
     let resultados = $state<any[]>([]);
     let solicitando = $state(false);
+    let pagina = $state(1);
+    let paginaBusqueda = $state(1);
+
+    const paginas = $derived(totalPaginas(custodias.length, POR_PAGINA));
+    const visibles = $derived(recortar(custodias, pagina, POR_PAGINA));
+    const POR_BUSQUEDA = 8;
+    const paginasBusqueda = $derived(totalPaginas(resultados.length, POR_BUSQUEDA));
+    const visiblesBusqueda = $derived(recortar(resultados, paginaBusqueda, POR_BUSQUEDA));
 
     onMount(cargar);
 
@@ -22,6 +32,7 @@
         try {
             const respuesta = await api<{ custodias: any[] }>('GET', '/api/v1/custodias');
             custodias = respuesta.custodias;
+            pagina = 1;
         } catch (error) {
             app.avisar(String(error), 'error');
         }
@@ -75,6 +86,7 @@
                 `/api/v1/expedientes?buscar=${encodeURIComponent(busqueda)}`
             );
             resultados = respuesta.expedientes;
+            paginaBusqueda = 1;
         } catch (error) {
             app.avisar(String(error), 'error');
         }
@@ -124,7 +136,7 @@
                 </tr>
             </thead>
             <tbody>
-                {#each custodias as custodia}
+                {#each visibles as custodia}
                     <tr>
                         <td class="font-medium">{custodia.numero}</td>
                         <td class="text-slate-600">{custodia.descripcion}</td>
@@ -150,6 +162,7 @@
             </tbody>
         </table>
     </div>
+    <Paginacion {pagina} {paginas} total={custodias.length} onCambiar={(valor) => (pagina = valor)} />
 </div>
 
 {#if agregando}
@@ -173,7 +186,7 @@
             <div class="max-h-72 overflow-auto rounded-lg border border-slate-200">
                 <table class="tabla">
                     <tbody>
-                        {#each resultados as expediente}
+                        {#each visiblesBusqueda as expediente}
                             <tr>
                                 <td class="font-medium">{expediente.numero}</td>
                                 <td class="text-slate-600">{expediente.descripcion}</td>
@@ -199,6 +212,13 @@
                     </tbody>
                 </table>
             </div>
+
+            <Paginacion
+                pagina={paginaBusqueda}
+                paginas={paginasBusqueda}
+                total={resultados.length}
+                onCambiar={(valor) => (paginaBusqueda = valor)}
+            />
         </div>
     </Modal>
 {/if}

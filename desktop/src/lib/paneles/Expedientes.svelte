@@ -5,12 +5,18 @@
     import { app } from '../estado.svelte';
     import Insignia from '../Insignia.svelte';
     import Modal from '../Modal.svelte';
+    import Paginacion from '../Paginacion.svelte';
+    import { POR_PAGINA, recortar, totalPaginas } from '../paginacion';
 
     let buscar = $state('');
     let expedientes = $state<Expediente[]>([]);
     let seleccionado = $state<any>(null);
     let historial = $state<any[]>([]);
     let local = $state(false);
+    let pagina = $state(1);
+
+    const paginas = $derived(totalPaginas(expedientes.length, POR_PAGINA));
+    const visibles = $derived(recortar(expedientes, pagina, POR_PAGINA));
 
     let creando = $state(false);
     let numeroNuevo = $state('');
@@ -36,6 +42,7 @@
             );
             expedientes = respuesta.expedientes;
             local = false;
+            pagina = 1;
         } catch {
             // Sin conexión: se consulta la proyección local autorizada previamente sincronizada.
             try {
@@ -44,6 +51,7 @@
                     ...item,
                     custodio: item.custodio_id ? 'En custodia' : null
                 }));
+                pagina = 1;
                 local = true;
             } catch (error) {
                 app.avisar(String(error), 'error');
@@ -121,7 +129,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {#each expedientes as expediente}
+                    {#each visibles as expediente}
                         <tr
                             class="cursor-pointer"
                             onclick={() => abrir(expediente)}
@@ -141,6 +149,12 @@
                 </tbody>
             </table>
         </div>
+        <Paginacion
+            {pagina}
+            {paginas}
+            total={expedientes.length}
+            onCambiar={(valor) => (pagina = valor)}
+        />
     </div>
 </div>
 

@@ -2,8 +2,14 @@
     import { onMount } from 'svelte';
     import { api } from '../api';
     import { app } from '../estado.svelte';
+    import Paginacion from '../Paginacion.svelte';
+    import { POR_PAGINA, recortar, totalPaginas } from '../paginacion';
 
     let entregas = $state<any[]>([]);
+    let pagina = $state(1);
+
+    const paginas = $derived(totalPaginas(entregas.length, POR_PAGINA));
+    const visibles = $derived(recortar(entregas, pagina, POR_PAGINA));
 
     onMount(cargar);
 
@@ -11,6 +17,7 @@
         try {
             const respuesta = await api<{ entregas: any[] }>('GET', '/api/v1/entregas/pendientes');
             entregas = respuesta.entregas;
+            pagina = 1;
         } catch (error) {
             app.avisar(String(error), 'error');
         }
@@ -46,7 +53,7 @@
                 </tr>
             </thead>
             <tbody>
-                {#each entregas as entrega}
+                {#each visibles as entrega}
                     <tr>
                         <td class="font-medium">{entrega.numero}</td>
                         <td class="text-slate-600">{entrega.descripcion}</td>
@@ -69,4 +76,5 @@
             </tbody>
         </table>
     </div>
+    <Paginacion {pagina} {paginas} total={entregas.length} onCambiar={(valor) => (pagina = valor)} />
 </div>

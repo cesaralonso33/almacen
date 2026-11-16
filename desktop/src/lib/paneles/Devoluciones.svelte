@@ -2,8 +2,14 @@
     import { onMount } from 'svelte';
     import { api } from '../api';
     import { app } from '../estado.svelte';
+    import Paginacion from '../Paginacion.svelte';
+    import { POR_PAGINA, recortar, totalPaginas } from '../paginacion';
 
     let devoluciones = $state<any[]>([]);
+    let pagina = $state(1);
+
+    const paginas = $derived(totalPaginas(devoluciones.length, POR_PAGINA));
+    const visibles = $derived(recortar(devoluciones, pagina, POR_PAGINA));
 
     onMount(cargar);
 
@@ -11,6 +17,7 @@
         try {
             const respuesta = await api<{ devoluciones: any[] }>('GET', '/api/v1/devoluciones');
             devoluciones = respuesta.devoluciones;
+            pagina = 1;
         } catch (error) {
             app.avisar(String(error), 'error');
         }
@@ -46,7 +53,7 @@
                 </tr>
             </thead>
             <tbody>
-                {#each devoluciones as devolucion}
+                {#each visibles as devolucion}
                     <tr>
                         <td class="font-medium">{devolucion.numero}</td>
                         <td class="text-slate-600">{devolucion.custodio}</td>
@@ -69,4 +76,5 @@
             </tbody>
         </table>
     </div>
+    <Paginacion {pagina} {paginas} total={devoluciones.length} onCambiar={(valor) => (pagina = valor)} />
 </div>

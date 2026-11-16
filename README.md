@@ -165,6 +165,7 @@ manda la dirección guardada en la pantalla de acceso.
 - Alta de expedientes (almacén/administración) y solicitud de entrega desde **Mis custodias**.
 - Tablero con contadores, búsqueda de expedientes con historial, alta de pedidos múltiples,
   preparación y descarte, despacho, acuse, devoluciones, transferencias y administración.
+- Todas las tablas tienen paginación (15 registros por página; 8 en los buscadores de los modales).
 - Estado de sincronización visible (`En línea`, `Sin conexión`, `Error`), pendientes y conflictos.
 - Sin conexión, la búsqueda usa la copia local y los pedidos nuevos se guardan en el outbox.
 

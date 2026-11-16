@@ -5,6 +5,8 @@
     import { app } from '../estado.svelte';
     import Insignia from '../Insignia.svelte';
     import Modal from '../Modal.svelte';
+    import Paginacion from '../Paginacion.svelte';
+    import { POR_PAGINA, recortar, totalPaginas } from '../paginacion';
 
     let pedidos = $state<PedidoResumen[]>([]);
     let creando = $state(false);
@@ -13,6 +15,14 @@
     let seleccion = $state<string[]>([]);
     let detalle = $state<any>(null);
     let motivoCancelacion = $state('');
+    let pagina = $state(1);
+    let paginaBusqueda = $state(1);
+
+    const paginas = $derived(totalPaginas(pedidos.length, POR_PAGINA));
+    const visibles = $derived(recortar(pedidos, pagina, POR_PAGINA));
+    const POR_BUSQUEDA = 8;
+    const paginasBusqueda = $derived(totalPaginas(resultados.length, POR_BUSQUEDA));
+    const visiblesBusqueda = $derived(recortar(resultados, paginaBusqueda, POR_BUSQUEDA));
 
     onMount(cargar);
 
@@ -20,6 +30,7 @@
         try {
             const respuesta = await api<{ pedidos: PedidoResumen[] }>('GET', '/api/v1/pedidos');
             pedidos = respuesta.pedidos;
+            pagina = 1;
         } catch (error) {
             app.avisar(String(error), 'error');
         }
@@ -32,6 +43,7 @@
                 `/api/v1/expedientes?buscar=${encodeURIComponent(busqueda)}`
             );
             resultados = respuesta.expedientes;
+            paginaBusqueda = 1;
         } catch (error) {
             app.avisar(String(error), 'error');
         }
@@ -126,7 +138,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {#each pedidos as pedido}
+                    {#each visibles as pedido}
                         <tr class="cursor-pointer" onclick={() => ver(pedido.id)}>
                             <td>{pedido.solicitante_nombre}</td>
                             <td><Insignia estado={pedido.estado} /></td>
@@ -144,6 +156,7 @@
                 </tbody>
             </table>
         </div>
+        <Paginacion {pagina} {paginas} total={pedidos.length} onCambiar={(valor) => (pagina = valor)} />
     </div>
 </div>
 
@@ -163,7 +176,7 @@
             <div class="max-h-72 overflow-auto rounded-lg border border-slate-200">
                 <table class="tabla">
                     <tbody>
-                        {#each resultados as expediente}
+                        {#each visiblesBusqueda as expediente}
                             <tr>
                                 <td class="w-8">
                                     <input
@@ -180,6 +193,13 @@
                     </tbody>
                 </table>
             </div>
+
+            <Paginacion
+                pagina={paginaBusqueda}
+                paginas={paginasBusqueda}
+                total={resultados.length}
+                onCambiar={(valor) => (paginaBusqueda = valor)}
+            />
 
             <div class="flex items-center justify-between">
                 <p class="text-sm text-slate-500">{seleccion.length} seleccionados</p>

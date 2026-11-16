@@ -18,9 +18,9 @@ Cada prueba crea una base PostgreSQL efímera, aplica todas las migraciones y la
 | `tests/sync.rs` | 9 | snapshot, push idempotente, pull filtrado, cursores, operación no permitida |
 | `tests/consultas.rs` | 7 | tablero, listados por rol, custodias, historial, directorio |
 | `tests/bootstrap.rs` | 2 | creación del administrador inicial, duplicados y contraseña corta |
-| `tests/expedientes.rs` | 1 | alta de expedientes, permisos y unicidad |
+| `tests/expedientes.rs` | 3 | alta con custodia del creador, año actual, devolución y permisos |
 
-Total: **55 pruebas**.
+Total: **57 pruebas**.
 
 ## Escritorio (Rust)
 

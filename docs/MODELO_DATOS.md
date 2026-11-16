@@ -42,3 +42,5 @@ Migraciones en `server/migrations` (SQLx, aplicadas al iniciar la API).
 5. La auditoría y los eventos de sincronización no se modifican ni se borran.
 6. El pedido no puede cancelarse con renglones entregados o en tránsito.
 7. Una transferencia exige origen y destino distintos.
+8. Al registrar un expediente, el creador queda como custodio inicial; solo lo pierde con una
+   devolución confirmada por el almacén o una transferencia aceptada.

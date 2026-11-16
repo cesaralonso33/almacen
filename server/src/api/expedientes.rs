@@ -1,4 +1,5 @@
 use axum::{extract::State, Json};
+use chrono::{Datelike, Utc};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use uuid::Uuid;
@@ -14,13 +15,16 @@ pub struct NuevoExpediente {
     pub anio: Option<i16>,
 }
 
-/// Alta de un expediente físico en el inventario.
+/// Alta de un expediente físico: el creador queda como custodio inicial.
+///
+/// La custodia se mantiene con esa persona hasta que solicite la devolución y el
+/// almacén acuse la recepción.
 pub async fn crear(
     State(app): State<AppState>,
     user: AuthUser,
     ApiJson(input): ApiJson<NuevoExpediente>,
 ) -> Result<Json<Value>, ApiError> {
-    user.exigir("expedientes:administrar")?;
+    user.exigir("expedientes:crear")?;
 
     let numero = input.numero.trim();
     if numero.is_empty() {
@@ -30,11 +34,10 @@ pub async fn crear(
         return Err(ApiError::inprocesable("El número de expediente es demasiado largo"));
     }
 
-    let anio = input.anio;
-    if let Some(valor) = anio {
-        if !(1900..=2200).contains(&valor) {
-            return Err(ApiError::inprocesable("El año debe estar entre 1900 y 2200"));
-        }
+    // Sin año explícito se usa el año en curso.
+    let anio = input.anio.unwrap_or_else(|| Utc::now().year() as i16);
+    if !(1900..=2200).contains(&anio) {
+        return Err(ApiError::inprocesable("El año debe estar entre 1900 y 2200"));
     }
 
     let descripcion = input
@@ -51,14 +54,15 @@ pub async fn crear(
     let mut tx = app.db.begin().await?;
 
     let insercion: Result<Uuid, sqlx::Error> = sqlx::query_scalar(
-        "INSERT INTO expedientes(numero, descripcion, unidad, anio, version)
-         VALUES ($1, COALESCE($2, ''), $3, $4, 1)
+        "INSERT INTO expedientes(numero, descripcion, unidad, anio, estado, custodio_id, version)
+         VALUES ($1, COALESCE($2, ''), $3, $4, 'EN_CUSTODIA', $5, 1)
          RETURNING id",
     )
     .bind(numero)
     .bind(descripcion)
     .bind(unidad)
     .bind(anio)
+    .bind(user.id)
     .fetch_one(&mut *tx)
     .await;
 
@@ -77,6 +81,21 @@ pub async fn crear(
         Err(error) => return Err(error.into()),
     };
 
+    sqlx::query("INSERT INTO custodias(expediente_id, usuario_id) VALUES ($1,$2)")
+        .bind(expediente_id)
+        .bind(user.id)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query(
+        "INSERT INTO movimientos(expediente_id, tipo, actor_id, detalle)
+         VALUES ($1,'ALTA',$2,'Registro del expediente y custodia inicial')",
+    )
+    .bind(expediente_id)
+    .bind(user.id)
+    .execute(&mut *tx)
+    .await?;
+
     sync::global(
         &mut tx,
         "expediente",
@@ -87,7 +106,8 @@ pub async fn crear(
             "id": expediente_id,
             "numero": numero,
             "descripcion": descripcion,
-            "estado": "ALMACEN",
+            "estado": "EN_CUSTODIA",
+            "custodio_id": user.id,
             "version": 1,
         }),
     )
@@ -100,11 +120,15 @@ pub async fn crear(
         "expedientes",
         expediente_id,
         "EXITO",
-        json!({ "numero": numero, "unidad": unidad, "anio": anio }),
+        json!({ "numero": numero, "unidad": unidad, "anio": anio, "custodio_inicial": user.id }),
     )
     .await?;
 
     tx.commit().await?;
 
-    Ok(Json(json!({ "expediente_id": expediente_id })))
+    Ok(Json(json!({
+        "expediente_id": expediente_id,
+        "custodio_id": user.id,
+        "anio": anio,
+    })))
 }

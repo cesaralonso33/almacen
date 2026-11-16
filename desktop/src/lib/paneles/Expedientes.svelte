@@ -22,8 +22,16 @@
     let numeroNuevo = $state('');
     let descripcionNueva = $state('');
     let unidadNueva = $state('');
-    let anioNuevo = $state<number | null>(null);
     let guardando = $state(false);
+    let anioNuevo = $state<number | null>(new Date().getFullYear());
+
+    function abrirAlta() {
+        numeroNuevo = '';
+        descripcionNueva = '';
+        unidadNueva = '';
+        anioNuevo = new Date().getFullYear();
+        creando = true;
+    }
 
     let temporizador: ReturnType<typeof setTimeout>;
 
@@ -68,12 +76,12 @@
                 unidad: unidadNueva || null,
                 anio: anioNuevo || null
             });
-            app.avisar('Expediente registrado');
+            app.avisar('Expediente registrado; queda bajo tu custodia');
             creando = false;
             numeroNuevo = '';
             descripcionNueva = '';
             unidadNueva = '';
-            anioNuevo = null;
+            anioNuevo = new Date().getFullYear();
             await cargar();
             await app.sincronizar(true);
         } catch (error) {
@@ -103,8 +111,8 @@
             oninput={conRetardo}
         />
         <button class="btn-secundario" onclick={cargar}>Actualizar</button>
-        {#if app.permiso('expedientes:administrar')}
-            <button class="btn-primario" onclick={() => (creando = true)}>Nuevo expediente</button>
+        {#if app.permiso('expedientes:crear')}
+            <button class="btn-primario" onclick={abrirAlta}>Nuevo expediente</button>
         {/if}
         <span class="text-sm text-slate-500">{expedientes.length} resultados</span>
     </div>
@@ -187,7 +195,8 @@
             </div>
 
             <p class="text-xs text-slate-500">
-                El número es único por unidad y año. El expediente se registra en almacén.
+                El número es único por unidad y año. Al registrarlo, el expediente queda bajo tu
+                custodia hasta que lo devuelvas al almacén.
             </p>
 
             <button class="btn-primario" type="submit" disabled={guardando}>

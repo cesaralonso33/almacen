@@ -162,7 +162,7 @@ manda la dirección guardada en la pantalla de acceso.
 
 - Navegación por permisos: Inicio, Expedientes, Mis pedidos, Almacén, Entregas, Mis custodias,
   Devoluciones, Reportes y Administración.
-- Alta de expedientes (almacén/administración) y solicitud de entrega desde **Mis custodias**.
+- Alta de expedientes por cualquier usuario operativo: el creador queda como custodio inicial hasta que lo devuelva al almacén.
 - Tablero con contadores, búsqueda de expedientes con historial, alta de pedidos múltiples,
   preparación y descarte, despacho, acuse, devoluciones, transferencias y administración.
 - Todas las tablas tienen paginación (15 registros por página; 8 en los buscadores de los modales).

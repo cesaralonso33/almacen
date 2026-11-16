@@ -1,4 +1,4 @@
-# Rust
+﻿# Rust
 server/target/
 desktop/src-tauri/target/
 **/*.rs.bk
@@ -29,8 +29,15 @@ logs/
 # Tauri (esquemas generados)
 desktop/src-tauri/gen/schemas/
 
+# Despliegue y secretos operativos
+infra/certs/*
+!infra/certs/LEEME.md
+infra/backup/salidas/*
+!infra/backup/salidas/.gitkeep
+
 # Sistema
 .DS_Store
 Thumbs.db
 desktop/.vscode/
 .idea/
+

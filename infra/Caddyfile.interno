@@ -1,0 +1,30 @@
+# Variante para pruebas en LAN sin certificados institucionales.
+# Caddy emite con su CA interna; hay que distribuir la raíz a los clientes:
+#   docker compose exec caddy cat /data/caddy/pki/authorities/local/root.crt
+#
+# Uso: copiar este archivo sobre Caddyfile o montarlo en docker-compose.yml.
+
+{$SITIO} {
+    tls internal
+
+    encode zstd gzip
+
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+        -Server
+    }
+
+    reverse_proxy api:3000 {
+        health_uri /health
+    }
+
+    log {
+        output file /data/access.log {
+            roll_size 10MiB
+            roll_keep 10
+        }
+    }
+}

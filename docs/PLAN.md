@@ -129,11 +129,23 @@ la verificación funcional de la ventana queda pendiente para la Fase 6 (prueba 
 
 ## Fase 6 — Despliegue institucional
 
-Depende de: Fases 1–5.
+Depende de: Fases 1–5. Estado: **completada** en configuración y artefactos; no ejecutada con
+Docker en este entorno (no disponible).
 
-Trabajo: Compose con PostgreSQL + API + Caddy y healthchecks, TLS con CA institucional, backups/restauración probada, rotación de logs, paquetes Tauri firmados, manual de operación y contingencia.
+Implementado:
 
-Criterio de salida: instalación reproducible en Debian y criterios 11–12.
+- `server/Dockerfile` multi-etapa (Rust 1.90 → Debian slim, usuario sin privilegios).
+- Compose con PostgreSQL 17, API y Caddy; healthchecks, reinicio automático y red interna sin
+  puertos publicados para base y API.
+- Caddyfile con TLS institucional, HSTS y cabeceras de seguridad; variante con CA interna.
+- Respaldos con `pg_dump` y retención configurable; restauración con respaldo previo y confirmación.
+- `.env.example` sin secretos, `.gitattributes` con LF para scripts y `.dockerignore`.
+- Paquete NSIS configurado (`bundle.active`, iconos, CSP) y dirección del servidor configurable
+  desde la pantalla de acceso.
+- Documentación: despliegue, operación, seguridad, arquitectura, modelo, sincronización y pruebas.
+
+Criterio de salida: criterios 11–12. **Parcial**: la suite y las migraciones están verificadas; el
+arranque con Docker queda pendiente de un equipo con Docker Engine.
 
 ## Criterios de aceptación (seguimiento)
 
@@ -149,6 +161,6 @@ Criterio de salida: instalación reproducible en Debian y criterios 11–12.
 | 8 | Cliente offline no confirma custodia | Cumple: el motor solo encola `CREAR_PEDIDO`; el servidor rechaza el resto |
 | 9 | Usuario sin permisos no opera | **Cumple** (RBAC por permisos, probado) |
 | 10 | Reinicio no pierde outbox ni duplica movimientos | Cumple: outbox persistente en SQLite + idempotencia en servidor |
-| 11 | Migraciones, compilación y suite automatizada | Parcial: API y escritorio compilan; 45 pruebas de servidor y 8 del cliente; falta prueba E2E de escritorio |
-| 12 | README reproducible sin secretos | Parcial: instalación y demo documentadas; falta despliegue Debian |
+| 11 | Migraciones, compilación y suite automatizada | Parcial: 52 pruebas de servidor y 8 del cliente en verde; falta ejecutar Docker y la prueba E2E de escritorio |
+| 12 | README reproducible sin secretos | Cumple en documentación: instalación, demo, despliegue y operación; falta validarlo en el servidor Debian |
 

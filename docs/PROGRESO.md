@@ -321,6 +321,35 @@ Limitación honesta: no se ejecutó la ventana Tauri de forma automatizada, por 
 están verificados por compilación y por las pruebas de la API que consumen, no por una prueba E2E
 de interfaz. Queda para la Fase 6 junto con la instalación.
 
+### Despliegue institucional (Fase 6)
+
+- `server/Dockerfile` multi-etapa; binario y `seed_demo` en imagen Debian slim con usuario 10001.
+- `infra/docker-compose.yml`: PostgreSQL 17, API y Caddy con healthchecks, reinicio automático y
+  red interna; solo Caddy publica 80/443.
+- `infra/Caddyfile` (certificados institucionales) y `Caddyfile.interno` (CA interna de Caddy).
+- `infra/backup/backup.sh` y `infra/restore/restore.sh` con retención, confirmación y respaldo previo.
+- `.env.example`, `.gitattributes` (LF en scripts) y `.dockerignore`.
+- Paquete NSIS activado, iconos y CSP; dirección del servidor configurable desde el acceso y
+  persistida en SQLite (`servidor_actual` / `configurar_servidor`).
+- Documentación: `DESPLIEGUE.md`, `OPERACION.md`, `SEGURIDAD.md`, `ARQUITECTURA.md`,
+  `MODELO_DATOS.md`, `SINCRONIZACION.md`, `PRUEBAS.md`.
+
+Verificación:
+
+| Comprobación | Resultado |
+|---|---|
+| Compose YAML | válido; servicios `postgres`, `api`, `caddy`; sin puertos en base ni API |
+| `bash -n` de respaldo y restauración | OK, sin CRLF |
+| `tauri.conf.json` | aceptado por `cargo check` |
+| `npm run check` / `npm run build` | 0 errores / build OK |
+| `cargo test` servidor | 52 pruebas en verde |
+| `cargo test` escritorio | 8 pruebas en verde |
+
+Limitación: **Docker no está instalado en este equipo**, por lo que `docker compose up`, la
+construcción de la imagen y la emisión TLS no se ejecutaron aquí. El paquete NSIS tampoco se
+generó (requiere herramientas de empaquetado y red). Queda como verificación pendiente en el
+servidor Debian de destino.
+
 ## Estado frente a las fases
 
 - Fase 0: **completada** (este documento y `docs/PLAN.md`).
@@ -333,7 +362,8 @@ de interfaz. Queda para la Fase 6 junto con la instalación.
   outbox y conflictos.
 - Fase 5: **completada**. Interfaz Svelte 5 con Tailwind, paneles por rol y estados de
   sincronización; pendiente la prueba E2E de la ventana.
-- Fase 6: no iniciada.
+- Fase 6: **completada** en artefactos y documentación; verificación con Docker pendiente en el
+  servidor de destino.
 
 ## Siguiente acción recomendada
 

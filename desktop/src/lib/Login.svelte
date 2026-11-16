@@ -1,14 +1,26 @@
 <script lang="ts">
+    import { invoke } from '@tauri-apps/api/core';
+    import { onMount } from 'svelte';
     import { app } from './estado.svelte';
 
     let correo = $state('');
     let password = $state('');
+    let servidor = $state('https://almacen.institucion.mx');
     let error = $state('');
+
+    onMount(async () => {
+        try {
+            servidor = await invoke<string>('servidor_actual');
+        } catch {
+            /* se conserva el valor por omisión */
+        }
+    });
 
     async function entrar(evento: SubmitEvent) {
         evento.preventDefault();
         error = '';
         try {
+            await invoke('configurar_servidor', { url: servidor });
             await app.iniciarSesion(correo.trim(), password);
         } catch (e) {
             error = String(e);
@@ -29,6 +41,17 @@
         </div>
 
         <form class="space-y-4" onsubmit={entrar}>
+            <label class="block text-sm">
+                <span class="mb-1 block font-medium text-slate-600">Servidor</span>
+                <input
+                    class="campo"
+                    type="url"
+                    bind:value={servidor}
+                    placeholder="https://almacen.institucion.mx"
+                    required
+                />
+            </label>
+
             <label class="block text-sm">
                 <span class="mb-1 block font-medium text-slate-600">Correo</span>
                 <input

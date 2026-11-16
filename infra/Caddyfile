@@ -1,0 +1,32 @@
+# Proxy TLS institucional. Sustituir los certificados de ./certs por los emitidos
+# por la autoridad certificadora de la institución.
+#
+# Para una instalación de prueba en LAN, usar Caddyfile.interno (CA interna de Caddy).
+
+{$SITIO} {
+    tls {$TLS_CERT:/certs/tls.crt} {$TLS_KEY:/certs/tls.key}
+
+    encode zstd gzip
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+        -Server
+    }
+
+    reverse_proxy api:3000 {
+        health_uri /health
+        health_interval 30s
+    }
+
+    log {
+        output file /data/access.log {
+            roll_size 10MiB
+            roll_keep 10
+        }
+        format console
+    }
+}

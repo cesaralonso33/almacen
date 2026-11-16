@@ -1,1 +1,37 @@
-{"productName":"Custodia Juridica","version":"0.1.0","identifier":"mx.institucion.custodia","build":{"beforeDevCommand":"npm run dev","devUrl":"http://localhost:1420","beforeBuildCommand":"npm run build","frontendDist":"../dist"},"app":{"windows":[{"title":"Almacén y custodia","width":1200,"height":800}],"security":{"csp":null}},"bundle":{"active":false}}
+{
+  "productName": "Custodia Jurídica",
+  "version": "0.1.0",
+  "identifier": "mx.institucion.custodia",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [{ "title": "Almacén y custodia", "width": 1280, "height": 820 }],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "Institución",
+    "copyright": "Uso institucional",
+    "category": "Business",
+    "shortDescription": "Almacén y custodia de expedientes jurídicos",
+    "longDescription": "Solicitud, entrega, devolución y cadena de custodia de expedientes jurídicos físicos con operación offline.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine"
+      }
+    }
+  }
+}

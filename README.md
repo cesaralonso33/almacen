@@ -161,7 +161,25 @@ Ver `docs/PLAN.md` y `docs/PROGRESO.md`.
 - Fase 4: completada (push idempotente, pull incremental por permisos, snapshot y motor local
   con outbox y conflictos).
 - Fase 5: completada (interfaz Svelte 5 con Tailwind, todos los paneles y estados de sincronización).
-- Fase 6: pendiente (despliegue institucional).
+- Fase 6: completada (Docker Compose con Caddy y TLS, respaldos/restauración, paquete NSIS y
+  documentación de operación).
+
+## Despliegue
+
+```bash
+cd infra
+cp .env.example .env      # completar secretos y SITIO
+docker compose up -d --build
+curl --cacert certs/tls-ca.crt https://$SITIO/health
+```
+
+Ver `docs/DESPLIEGUE.md`, `docs/OPERACION.md` y `docs/SEGURIDAD.md`.
+
+## Documentación
+
+`docs/PLAN.md`, `docs/PROGRESO.md`, `docs/ARQUITECTURA.md`, `docs/MODELO_DATOS.md`,
+`docs/SEGURIDAD.md`, `docs/SINCRONIZACION.md`, `docs/DESPLIEGUE.md`, `docs/OPERACION.md`,
+`docs/PRUEBAS.md`.
 
 ## Cadena de custodia
 

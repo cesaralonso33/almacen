@@ -21,7 +21,7 @@ struct Sesion {
 
 struct EstadoApp {
     ruta_db: PathBuf,
-    base_url: String,
+    base_url: Mutex<String>,
     sesion: Mutex<Option<Sesion>>,
 }
 
@@ -57,6 +57,14 @@ fn abrir(estado: &EstadoApp) -> Result<rusqlite::Connection, String> {
     db::abrir(&estado.ruta_db).map_err(|error| error.to_string())
 }
 
+fn base_url(estado: &EstadoApp) -> Result<String, String> {
+    estado
+        .base_url
+        .lock()
+        .map(|valor| valor.clone())
+        .map_err(|_| "configuración bloqueada".to_string())
+}
+
 fn sesion_activa(estado: &EstadoApp) -> Result<(String, String), String> {
     let guardia = estado.sesion.lock().map_err(|_| "sesión bloqueada".to_string())?;
     let sesion = guardia
@@ -71,7 +79,8 @@ async fn login(
     password: String,
     estado: tauri::State<'_, EstadoApp>,
 ) -> Result<SesionInfo, String> {
-    let respuesta = api::ClienteHttp::login(&estado.base_url, &correo, &password).await?;
+    let base = base_url(&estado)?;
+    let respuesta = api::ClienteHttp::login(&base, &correo, &password).await?;
 
     let access_token = respuesta
         .get("access_token")
@@ -94,7 +103,7 @@ async fn login(
     let dispositivo = match db::leer_meta(&conexion, &clave_meta) {
         Some(dispositivo) => dispositivo,
         None => {
-            let cliente = api::ClienteHttp::nuevo(&estado.base_url, access_token.clone());
+            let cliente = api::ClienteHttp::nuevo(&base, access_token.clone());
             let registro = cliente.registrar_dispositivo("Escritorio institucional").await?;
             let dispositivo = registro
                 .get("dispositivo_id")
@@ -173,7 +182,8 @@ async fn sincronizar(estado: tauri::State<'_, EstadoApp>) -> Result<serde_json::
         .or_else(|| db::leer_meta(&conexion, "dispositivo_actual"))
         .ok_or_else(|| "El dispositivo no está registrado".to_string())?;
 
-    let transporte = api::ClienteHttp::nuevo(&estado.base_url, token);
+    let base = base_url(&estado)?;
+    let transporte = api::ClienteHttp::nuevo(&base, token);
     let resumen = sync::sincronizar(&mut conexion, &transporte, &dispositivo).await?;
     serde_json::to_value(resumen).map_err(|error| error.to_string())
 }
@@ -294,7 +304,8 @@ async fn peticion(
     }
 
     let cliente = reqwest::Client::new();
-    let url = format!("{}{}", estado.base_url.trim_end_matches('/'), ruta);
+    let base = base_url(&estado)?;
+    let url = format!("{}{}", base.trim_end_matches('/'), ruta);
     let constructor = match metodo.to_ascii_uppercase().as_str() {
         "GET" => cliente.get(&url),
         "POST" => cliente.post(&url),
@@ -329,6 +340,30 @@ async fn peticion(
     serde_json::from_str(&texto).map_err(|error| error.to_string())
 }
 
+#[tauri::command]
+fn servidor_actual(estado: tauri::State<'_, EstadoApp>) -> Result<String, String> {
+    base_url(&estado)
+}
+
+/// Permite configurar el servidor en la instalación sin recompilar el paquete.
+#[tauri::command]
+fn configurar_servidor(url: String, estado: tauri::State<'_, EstadoApp>) -> Result<(), String> {
+    let limpio = url.trim().trim_end_matches('/').to_string();
+    if !(limpio.starts_with("https://") || limpio.starts_with("http://")) {
+        return Err("La dirección debe iniciar con https:// o http://".to_string());
+    }
+    if limpio.len() < 12 {
+        return Err("La dirección del servidor no es válida".to_string());
+    }
+
+    let conexion = abrir(&estado)?;
+    db::escribir_meta(&conexion, "base_url", &limpio).map_err(|error| error.to_string())?;
+
+    let mut guardia = estado.base_url.lock().map_err(|_| "configuración bloqueada".to_string())?;
+    *guardia = limpio;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -338,12 +373,13 @@ pub fn run() {
             let ruta_db = directorio.join("expedientes.sqlite");
             db::abrir(&ruta_db)?;
 
-            let base_url = std::env::var("EXPEDIENTES_API_URL")
-                .unwrap_or_else(|_| "http://127.0.0.1:3000".to_string());
+            let base_inicial = db::leer_meta(&db::abrir(&ruta_db)?, "base_url")
+                .or_else(|| std::env::var("EXPEDIENTES_API_URL").ok())
+                .unwrap_or_else(|| "http://127.0.0.1:3000".to_string());
 
             app.manage(EstadoApp {
                 ruta_db,
-                base_url,
+                base_url: Mutex::new(base_inicial),
                 sesion: Mutex::new(None),
             });
             Ok(())
@@ -356,7 +392,9 @@ pub fn run() {
             listar_expedientes,
             crear_pedido_local,
             listar_conflictos,
-            peticion
+            peticion,
+            servidor_actual,
+            configurar_servidor
         ])
         .run(tauri::generate_context!())
         .expect("error al iniciar Tauri");

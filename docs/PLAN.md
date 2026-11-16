@@ -22,9 +22,16 @@ Riesgos detectados en el starter (prioridad alta):
 
 ## Fase 1 — Modelo de datos PostgreSQL
 
-Depende de: Fase 0.
+Depende de: Fase 0. Estado: **parcial** (migración `0002` aplicada y 12 pruebas en verde).
 
-Trabajo:
+Trabajo pendiente:
+
+- Alinear `entregas.estado` (`DESPACHADA`, `RECIBIDA`, `INCIDENCIA`) y `pedido_items.estado`
+  (`RESERVADO`, `CANCELADO`) con el modelo exigido.
+- Semillas de usuarios de demostración con Argon2id (depende del código de Fase 2).
+- Conectar la tabla `reservas` a los endpoints de preparación y despacho.
+- Rehacer `movimientos` como bitácora operativa completa (resultado, ubicación, dispositivo,
+  correlación) o sustituirla por `auditoria` en los endpoints.
 
 - Migración `0002` con: `roles`, `permisos`, `usuario_roles`, `sesiones`, `dispositivos`, `ubicaciones` jerárquicas, catálogos de estado, `reservas`, `acuses`, `incidencias`, `descartes`, `auditoria`, `sync_events`, `sync_devices`, `operaciones_idempotentes`.
 - Rehacer `pedidos`/`pedido_items`/`entregas` para soportar `RESERVADO`, `CANCELADO`, `DESPACHADA`, `RECIBIDA`, `INCIDENCIA` y descartes con catálogo de motivos.

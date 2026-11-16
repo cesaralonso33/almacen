@@ -101,10 +101,57 @@ cumplen.
     sin límite de tasa, sin apagado ordenado, `/health` no comprueba la base.
 20. Sin `docs/`, `scripts/`, `tests/`, `.gitignore` ni `.env.example`.
 
+## Avance 2026-11-15 — segundo bloque
+
+### Control de versiones
+
+- `git init -b main` y `.gitignore` (Rust, Node, entornos, bases locales, esquemas generados de Tauri).
+- Commit inicial `9cbe5fa` con 37 archivos versionados.
+
+### Escritorio
+
+- `scripts/generar-iconos.ps1` genera `icon.ico` (PNG 256 incrustado) y los PNG que espera Tauri.
+- `cargo check` en `desktop/src-tauri` → **OK** (antes fallaba por `icons/icon.ico` ausente).
+
+### Modelo de datos (migración `0002_modelo_institucional.sql`)
+
+Añadido, sin eliminar datos:
+
+- `usuarios` (renombrada desde `users`) con correo, hash de contraseña, estado y marcas de tiempo.
+- RBAC: `roles`, `permisos`, `rol_permisos`, `usuario_roles` con índice único de asignación activa.
+- `dispositivos`, `sesiones` (refresh único, revocación, reemplazo) y `sync_devices`.
+- `ubicaciones` jerárquicas EDIFICIO > AREA > ESTANTE > CAJA con trigger de validación y
+  unicidad de código por padre (incluido el nivel raíz).
+- `expedientes`: `unidad`, `anio`, `ubicacion_id`; la unicidad de `numero` ahora es por
+  unidad/año mediante índice único.
+- `reservas` con `expira_en` y una sola reserva activa por expediente.
+- `motivos_descarte` (5 claves) y `descartes` con detalle obligatorio para `OTRO`.
+- `acuses` e `incidencias`.
+- `auditoria` append-only con reglas `DO INSTEAD NOTHING` para UPDATE y DELETE.
+- `sync_events` con secuencia global y tombstones; `operaciones_idempotentes` por
+  (clave, dispositivo).
+- Semillas de roles, 17 permisos, motivos de descarte y una ubicación base.
+
+### Pruebas
+
+`cargo test` (12 pruebas de integración, base efímera por prueba): **12 passed, 0 failed**.
+Verificado también que la migración `0002` se aplica sobre la base ya poblada de la revisión
+(2 migraciones) y que el flujo pedido → preparar → despachar → confirmar sigue devolviendo
+`COMPLETADO` con una custodia activa.
+
+### Pendiente inmediato
+
+- Alinear `entregas.estado` y `pedido_items.estado` con el modelo exigido (DESPACHADA/RECIBIDA,
+  RESERVADO/CANCELADO) al reescribir los endpoints en Fase 2–3.
+- Semillas de usuarios de demostración con Argon2id (requiere el código de autenticación).
+- Conectar `reservas` a `prepare`/`dispatch` (hoy solo existe la tabla).
+
 ## Estado frente a las fases
 
 - Fase 0: **completada** (este documento y `docs/PLAN.md`).
-- Fases 1–6: **no iniciadas** sobre el starter.
+- Fase 1: **parcial**. Modelo institucional y pruebas de invariantes listos; faltan semillas de
+  usuarios, alineación de estados y uso de reservas desde la API.
+- Fases 2–6: no iniciadas.
 
 ## Siguiente acción recomendada
 

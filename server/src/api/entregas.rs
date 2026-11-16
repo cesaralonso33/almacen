@@ -134,7 +134,7 @@ pub async fn despachar(
     }
 
     tx.commit().await?;
-    Ok(Json(json!({ "entregas": entregas, "estado": "PENDIENTE_RECEPCION" })))
+    Ok(Json(json!({ "entregas": entregas, "estado": "DESPACHADA" })))
 }
 
 pub async fn confirmar(
@@ -178,7 +178,7 @@ pub async fn confirmar(
         return Err(ApiError::prohibido("Solo el receptor designado puede confirmar la entrega"));
     }
 
-    if estado_entrega != "PENDIENTE_RECEPCION" || estado_item != "EN_ENTREGA" {
+    if estado_entrega != "DESPACHADA" || estado_item != "EN_ENTREGA" {
         return Err(ApiError::conflicto("La entrega ya fue procesada"));
     }
 
@@ -212,7 +212,7 @@ pub async fn confirmar(
     .execute(&mut *tx)
     .await?;
 
-    sqlx::query("UPDATE entregas SET estado = 'CONFIRMADA', confirmada_en = now() WHERE id = $1")
+    sqlx::query("UPDATE entregas SET estado = 'RECIBIDA', confirmada_en = now() WHERE id = $1")
         .bind(id)
         .execute(&mut *tx)
         .await?;
@@ -252,10 +252,11 @@ pub async fn confirmar(
 
     Ok(Json(json!({
         "entrega_id": id,
-        "estado": "CONFIRMADA",
+        "estado": "RECIBIDA",
         "custodio_id": receptor,
     })))
 }
+
 
 
 

@@ -2,7 +2,7 @@ use axum::{
     extract::{Path, State},
     Json,
 };
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use uuid::Uuid;
@@ -20,6 +20,12 @@ pub struct CrearPedido {
 pub struct DescarteInput {
     pub motivo_clave: String,
     pub detalle: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CancelacionPedido {
+    pub motivo: String,
 }
 
 pub async fn crear(
@@ -88,13 +94,14 @@ pub async fn detalle(
 ) -> Result<Json<Value>, ApiError> {
     user.exigir("pedidos:leer")?;
 
-    let solicitante: Option<Uuid> =
-        sqlx::query_scalar("SELECT solicitante_id FROM pedidos WHERE id = $1")
-            .bind(id)
-            .fetch_optional(&app.db)
-            .await?;
+    let cabecera = sqlx::query_as::<_, (Uuid, Option<DateTime<Utc>>, Option<String>)>(
+        "SELECT solicitante_id, cancelado_en, cancelado_motivo FROM pedidos WHERE id = $1",
+    )
+    .bind(id)
+    .fetch_optional(&app.db)
+    .await?;
 
-    let Some(solicitante) = solicitante else {
+    let Some((solicitante, cancelado_en, cancelado_motivo)) = cabecera else {
         return Err(ApiError::no_encontrado("Pedido no encontrado"));
     };
 
@@ -113,10 +120,20 @@ pub async fn detalle(
     let total = filas.len();
     let entregados = filas.iter().filter(|f| f.1 == "ENTREGADO").count();
     let descartados = filas.iter().filter(|f| f.1 == "DESCARTADO").count();
-    let estado = if entregados + descartados == total {
+    let cancelados = filas.iter().filter(|f| f.1 == "CANCELADO").count();
+    let resueltos = entregados + descartados + cancelados;
+    let en_proceso = filas
+        .iter()
+        .any(|f| matches!(f.1.as_str(), "RESERVADO" | "PREPARADO" | "EN_ENTREGA"));
+
+    let estado = if cancelado_en.is_some() {
+        "CANCELADO"
+    } else if total > 0 && resueltos == total {
         "COMPLETADO"
-    } else if entregados + descartados > 0 {
+    } else if resueltos > 0 {
         "PARCIAL"
+    } else if en_proceso {
+        "EN_PROCESO"
     } else {
         "PENDIENTE"
     };
@@ -132,6 +149,9 @@ pub async fn detalle(
         "estado": estado,
         "entregados": entregados,
         "descartados": descartados,
+        "cancelados": cancelados,
+        "cancelado_en": cancelado_en,
+        "cancelado_motivo": cancelado_motivo,
         "items": items,
     })))
 }
@@ -320,3 +340,94 @@ pub async fn descartar(
 
 
 
+
+pub async fn cancelar(
+    State(app): State<AppState>,
+    user: AuthUser,
+    Path(id): Path<Uuid>,
+    ApiJson(input): ApiJson<CancelacionPedido>,
+) -> Result<Json<Value>, ApiError> {
+    user.exigir("pedidos:crear")?;
+
+    let motivo = input.motivo.trim();
+    if motivo.chars().count() < 5 {
+        return Err(ApiError::inprocesable(
+            "El motivo de cancelación debe tener al menos 5 caracteres",
+        ));
+    }
+
+    let mut tx = app.db.begin().await?;
+
+    let cabecera = sqlx::query_as::<_, (Uuid, Option<DateTime<Utc>>)>(
+        "SELECT solicitante_id, cancelado_en FROM pedidos WHERE id = $1 FOR UPDATE",
+    )
+    .bind(id)
+    .fetch_optional(&mut *tx)
+    .await?;
+
+    let (solicitante, cancelado_en) =
+        cabecera.ok_or_else(|| ApiError::no_encontrado("Pedido no encontrado"))?;
+
+    if solicitante != user.id {
+        return Err(ApiError::no_encontrado("Pedido no encontrado"));
+    }
+    if cancelado_en.is_some() {
+        return Err(ApiError::conflicto("El pedido ya está cancelado"));
+    }
+
+    let irresolubles: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM pedido_items
+         WHERE pedido_id = $1 AND estado IN ('ENTREGADO','EN_ENTREGA')",
+    )
+    .bind(id)
+    .fetch_one(&mut *tx)
+    .await?;
+
+    if irresolubles > 0 {
+        return Err(ApiError::conflicto(
+            "No se puede cancelar un pedido con renglones entregados o en tránsito",
+        ));
+    }
+
+    sqlx::query(
+        "UPDATE pedido_items SET estado = 'CANCELADO', cancelado_motivo = $2
+         WHERE pedido_id = $1 AND estado IN ('PENDIENTE','RESERVADO','PREPARADO')",
+    )
+    .bind(id)
+    .bind(motivo)
+    .execute(&mut *tx)
+    .await?;
+
+    sqlx::query(
+        "UPDATE reservas SET liberada_en = now(), motivo_liberacion = 'CANCELACION'
+         WHERE liberada_en IS NULL
+           AND pedido_item_id IN (SELECT id FROM pedido_items WHERE pedido_id = $1)",
+    )
+    .bind(id)
+    .execute(&mut *tx)
+    .await?;
+
+    sqlx::query(
+        "UPDATE pedidos SET cancelado_en = now(), cancelado_por = $2, cancelado_motivo = $3
+         WHERE id = $1",
+    )
+    .bind(id)
+    .bind(user.id)
+    .bind(motivo)
+    .execute(&mut *tx)
+    .await?;
+
+    audit::registrar(
+        &mut tx,
+        Some(user.id),
+        "pedidos.cancelar",
+        "pedidos",
+        id,
+        "EXITO",
+        json!({ "motivo": motivo, "renglones_irresolubles": irresolubles }),
+    )
+    .await?;
+
+    tx.commit().await?;
+    Ok(Json(json!({ "pedido_id": id, "estado": "CANCELADO" })))
+}

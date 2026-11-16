@@ -91,8 +91,13 @@ La identidad **nunca** se acepta desde el cuerpo: enviar `actor_id`, `solicitant
 - `POST /api/v1/items/{id}/preparar` — permiso `pedidos:preparar`; crea reserva con vencimiento.
 - `POST /api/v1/items/{id}/descartar` `{ "motivo_clave", "detalle" }` — permiso `pedidos:descartar`.
 - `POST /api/v1/entregas` `{ "item_ids": ["UUID"] }` — permiso `entregas:despachar`.
-- `POST /api/v1/entregas/{id}/confirmar` — solo el receptor designado.
-- `POST /api/v1/expedientes/{id}/devolver` — solo el custodio actual.
+- `POST /api/v1/entregas/{id}/confirmar` — solo el receptor designado; genera el acuse.
+- `POST /api/v1/pedidos/{id}/cancelar` `{ "motivo" }` — solo el solicitante, sin renglones entregados.
+- `POST /api/v1/devoluciones` `{ "expediente_id", "observaciones" }` — el custodio solicita.
+- `POST /api/v1/devoluciones/{id}/confirmar` `{ "ubicacion_id"? }` — el almacén acusa la recepción.
+- `GET /api/v1/devoluciones` — bandeja de devoluciones pendientes (almacén).
+- `POST /api/v1/transferencias` `{ "expediente_id", "destino_id" }` — el custodio solicita.
+- `POST /api/v1/transferencias/{id}/aceptar` y `/rechazar` — solo el usuario destino.
 
 Administración (rol ADMINISTRADOR):
 
@@ -120,7 +125,20 @@ Los iconos se generan con `powershell -File scripts/generar-iconos.ps1` y se ver
 Ver `docs/PLAN.md` y `docs/PROGRESO.md`.
 
 - Fase 0: completada (diagnóstico y plan).
-- Fase 1: modelo institucional con pruebas de invariantes; pendiente alinear estados y conectar
-  reservas al resto del ciclo.
+- Fase 1: modelo institucional con pruebas de invariantes.
 - Fase 2: completada (Argon2id, JWT, refresh rotativo, RBAC, administración de usuarios).
-- Fases 3–6: pendientes. La devolución todavía no exige acuse del almacén y no existen transferencias.
+- Fase 3: completada (entregas parciales, acuses, devoluciones con acuse del almacén,
+  transferencias con acuse del receptor y cancelación de pedidos).
+- Fases 4–6: pendientes (sincronización offline, interfaz Svelte y despliegue institucional).
+
+## Cadena de custodia
+
+La custodia oficial solo cambia con un acuse autenticado:
+
+1. El despacho **no** transfiere custodia: queda `DESPACHADA` y el custodio anterior continúa siéndolo.
+2. La recepción del solicitante crea el acuse y abre la nueva custodia (`RECIBIDA`).
+3. La devolución no cierra la custodia hasta que el almacén confirma la recepción física.
+4. La transferencia no cambia de custodio hasta que el usuario destino la acepta.
+
+En todo momento existe **una sola custodia activa por expediente**, garantizada por un índice único
+parcial en base de datos.

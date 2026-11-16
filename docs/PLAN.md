@@ -65,11 +65,24 @@ de integración de autenticación y RBAC.
 
 ## Fase 3 — Flujo de pedidos, entregas y custodia
 
-Depende de: Fase 2.
+Depende de: Fase 2. Estado: **completada**.
 
-Trabajo: reserva con vencimiento, preparación, descarte con motivo catalogado, entrega parcial/completa, acuse autenticado, devolución con acuse de almacén, transferencia con acuse de receptor, recálculo derivado del pedido, auditoría completa.
+Implementado:
 
-Criterio de salida: criterios de aceptación 1–6 y pruebas de concurrencia (dos receptores, doble despacho, doble confirmación).
+- Migración `0003`: estados de entrega (`DESPACHADA`, `RECIBIDA`, `CANCELADA`, `INCIDENCIA`),
+  `RESERVADO`/`CANCELADO` en renglones, cancelación de pedidos y tablas `devoluciones` y
+  `transferencias` con índices únicos parciales.
+- Devolución en dos pasos: el custodio solicita y **la custodia no cambia** hasta que el almacén
+  acusa la recepción, momento en que se cierra y se actualiza la ubicación.
+- Transferencia directa en dos pasos: el custodio solicita y el custodio cambia solo cuando el
+  destino acepta; rechazo no altera nada.
+- Devolución y transferencia mutuamente excluyentes por expediente.
+- Cancelación de pedido con motivo, liberación de reservas y conservación del historial.
+- Estados de pedido derivados: `PENDIENTE`, `EN_PROCESO`, `PARCIAL`, `COMPLETADO`, `CANCELADO`.
+- Todas las transiciones registran movimiento y auditoría en la misma transacción.
+
+Criterio de salida: criterios de aceptación 1–6 y pruebas de concurrencia. **Cumplido** con
+8 pruebas adicionales (36 en total).
 
 ## Fase 4 — Sincronización offline
 
@@ -102,9 +115,9 @@ Criterio de salida: instalación reproducible en Debian y criterios 11–12.
 | 1 | Pedido de 5: 2 entregados, 1 descartado, 2 pendientes → PARCIAL | Cumple (verificado por HTTP) |
 | 2 | Entregar los 2 restantes → COMPLETADO 4+1 | Cumple (verificado por HTTP) |
 | 3 | Custodia solo tras acuse autenticado | Cumple: el receptor designado confirma con su sesión y se registra `acuses` |
-| 4 | Dos receptores simultáneos → una custodia y un conflicto | Parcial: doble confirmación devuelve 200/409 y una sola custodia; no hay dos receptores posibles por diseño |
+| 4 | Dos receptores simultáneos → una custodia y un conflicto | Cumple: doble confirmación y doble aceptación de transferencia devuelven 200/409 con una sola custodia |
 | 5 | Descartar no borra expediente ni historial | Cumple |
-| 6 | Devolución solo con acuse del almacén; transferencia con acuse | **No cumple**: el custodio cierra la devolución solo; no hay transferencias |
+| 6 | Devolución solo con acuse del almacén; transferencia con acuse | **Cumple**: flujos en dos pasos verificados |
 | 7 | Pedido offline se sincroniza una vez | **No cumple**: no hay sync |
 | 8 | Cliente offline no confirma custodia | Cumple por ausencia de capacidad offline |
 | 9 | Usuario sin permisos no opera | **Cumple** (RBAC por permisos, probado) |

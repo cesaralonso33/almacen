@@ -198,13 +198,61 @@ Verificación manual contra PostgreSQL real (`expedientes_fase2`, API en el puer
 - `debe_cambiar_password` se informa en el login, pero no bloquea las demás rutas.
 - No hay CORS ni TLS: se resuelven en la Fase 6 dentro de la red institucional.
 
+### Devoluciones, transferencias y cancelación (Fase 3)
+
+Migración `0003_devoluciones_y_transferencias.sql`:
+
+- `entregas.estado` pasa a `PREPARADA | DESPACHADA | RECIBIDA | CANCELADA | INCIDENCIA`; los datos
+  existentes se convierten (`PENDIENTE_RECEPCION` → `DESPACHADA`, `CONFIRMADA` → `RECIBIDA`).
+- `pedido_items` admite `RESERVADO` y `CANCELADO`, con `cancelado_motivo`.
+- `pedidos.cancelado_en`, `cancelado_por`, `cancelado_motivo` con restricción de coherencia.
+- `devoluciones` (SOLICITADA/CONFIRMADA/CANCELADA) con índice único de una solicitud activa.
+- `transferencias` (SOLICITADA/ACEPTADA/RECHAZADA/CANCELADA) con índice único de una activa.
+- Permiso `transferencias:solicitar` para ADMINISTRADOR, ALMACEN y USUARIO.
+
+Endpoints nuevos:
+
+- `POST /devoluciones` y `POST /devoluciones/{id}/confirmar`, `GET /devoluciones`.
+- `POST /transferencias` y `POST /transferencias/{id}/aceptar|rechazar`.
+- `POST /pedidos/{id}/cancelar`.
+- Se retiró `POST /expedientes/{id}/devolver`, que permitía cerrar la custodia sin acuse.
+
+Pruebas nuevas (`tests/custodia.rs`, 8):
+
+1. La devolución no cierra la custodia hasta el acuse del almacén; el custodio recibe 403 y un
+   segundo acuse devuelve 409.
+2. Solo el custodio puede solicitar la devolución (409 en caso contrario).
+3. La transferencia no cambia de custodio hasta la aceptación; el origen no puede aceptar (403).
+4. El rechazo no altera la custodia.
+5. Dos aceptaciones simultáneas → 200 y 409, una sola custodia y una sola transferencia aceptada.
+6. Devolución y transferencia son mutuamente excluyentes (409).
+7. Cancelar un pedido libera reservas, marca los renglones como CANCELADO y conserva el pedido.
+8. No se cancela un pedido con renglones entregados o en tránsito (409).
+
+`cargo test`: **36 pruebas, 0 fallos** (16 auth/RBAC + 8 custodia + 12 modelo).
+
+Verificación manual sobre `expedientes_fase2` (base con datos de la Fase 2):
+
+| Escenario | Resultado |
+|---|---|
+| Migración 0003 sobre datos existentes | entrega `CONFIRMADA` quedó como `RECIBIDA` |
+| Devolución solicitada | 200, custodia activa sigue en 1 |
+| Acuse del almacén | 200, custodia activa 0, expediente `ALMACEN` |
+| Segundo acuse | 409 |
+| Transferencia solicitada | 200, custodio sigue siendo el origen |
+| Aceptación por el destino | 200, custodio `admin@demo.mx`, una sola custodia |
+| Cancelación de pedido | 200, estado `CANCELADO`, renglón `CANCELADO` |
+| Bandeja `/devoluciones` | 200 |
+
 ## Estado frente a las fases
 
 - Fase 0: **completada** (este documento y `docs/PLAN.md`).
-- Fase 1: **parcial**. Modelo institucional y pruebas de invariantes listos; faltan alineación de
-  estados y semillas de usuarios (resuelto el seed en Fase 2).
+- Fase 1: **parcial**. Modelo institucional y pruebas de invariantes listos; falta revisar el uso de
+  `movimientos` frente a `auditoria`.
 - Fase 2: **completada**. Autenticación, sesiones rotativas, RBAC, administración y auditoría.
-- Fases 3–6: no iniciadas.
+- Fase 3: **completada**. Devoluciones con acuse, transferencias con aceptación, cancelación y
+  estados operativos.
+- Fases 4–6: no iniciadas.
 
 ## Siguiente acción recomendada
 

@@ -39,6 +39,7 @@ pub fn router(estado: AppState) -> Router {
         .route("/api/v1/usuarios/directorio", get(directorio::directorio))
         .route("/api/v1/custodias", get(consultas::custodias))
         .route("/api/v1/expedientes", get(consultas::buscar_expedientes).post(expedientes::crear))
+        .route("/api/v1/expedientes/importar", post(expedientes::importar))
         .route("/api/v1/expedientes/{id}/historial", get(consultas::historial))
         .route("/api/v1/entregas/pendientes", get(consultas::entregas_pendientes))
         .route("/api/v1/pedidos/{id}", get(pedidos::detalle))

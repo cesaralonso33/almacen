@@ -162,3 +162,137 @@ mod pruebas {
         assert_eq!(normalizar_numero("/2026"), "/2026");
     }
 }
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExpedienteImportado {
+    pub numero: String,
+    pub descripcion: Option<String>,
+    pub unidad: Option<String>,
+    pub anio: Option<i16>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ImportarLista {
+    pub expedientes: Vec<ExpedienteImportado>,
+}
+
+/// Importación masiva de expedientes al inventario del almacén.
+///
+/// No asigna custodia: los expedientes quedan en `ALMACEN` hasta que se soliciten.
+pub async fn importar(
+    State(app): State<AppState>,
+    user: AuthUser,
+    ApiJson(input): ApiJson<ImportarLista>,
+) -> Result<Json<Value>, ApiError> {
+    user.exigir("expedientes:administrar")?;
+
+    if input.expedientes.is_empty() || input.expedientes.len() > 500 {
+        return Err(ApiError::inprocesable(
+            "La importación admite entre 1 y 500 expedientes por lote",
+        ));
+    }
+
+    let mut tx = app.db.begin().await?;
+    let mut importados = 0_i64;
+    let mut omitidos = 0_i64;
+    let mut errores: Vec<Value> = Vec::new();
+    let mut creados: Vec<Value> = Vec::new();
+
+    for (indice, fila) in input.expedientes.iter().enumerate() {
+        let numero = normalizar_numero(fila.numero.trim());
+
+        if numero.is_empty() {
+            errores.push(json!({ "fila": indice + 1, "motivo": "Número vacío" }));
+            continue;
+        }
+        if numero.chars().count() > 100 {
+            errores.push(json!({ "fila": indice + 1, "motivo": "Número demasiado largo" }));
+            continue;
+        }
+
+        let anio = fila.anio.unwrap_or_else(|| Utc::now().year() as i16);
+        if !(1900..=2200).contains(&anio) {
+            errores.push(json!({ "fila": indice + 1, "motivo": "Año fuera de rango" }));
+            continue;
+        }
+
+        let descripcion = fila
+            .descripcion
+            .as_deref()
+            .map(str::trim)
+            .filter(|texto| !texto.is_empty());
+        let unidad = fila
+            .unidad
+            .as_deref()
+            .map(str::trim)
+            .filter(|texto| !texto.is_empty());
+
+        let insertado: Option<Uuid> = sqlx::query_scalar(
+            "INSERT INTO expedientes(numero, descripcion, unidad, anio, estado, version)
+             VALUES ($1, COALESCE($2, ''), $3, $4, 'ALMACEN', 1)
+             ON CONFLICT (numero) DO NOTHING
+             RETURNING id",
+        )
+        .bind(&numero)
+        .bind(descripcion)
+        .bind(unidad)
+        .bind(anio)
+        .fetch_optional(&mut *tx)
+        .await?;
+
+        let Some(expediente_id) = insertado else {
+            omitidos += 1;
+            continue;
+        };
+
+        importados += 1;
+        creados.push(json!({ "id": expediente_id, "numero": numero }));
+
+        sqlx::query(
+            "INSERT INTO movimientos(expediente_id, tipo, actor_id, detalle)
+             VALUES ($1,'ALTA',$2,'Importación masiva')",
+        )
+        .bind(expediente_id)
+        .bind(user.id)
+        .execute(&mut *tx)
+        .await?;
+
+        sync::global(
+            &mut tx,
+            "expediente",
+            expediente_id,
+            "CREAR",
+            1,
+            json!({
+                "id": expediente_id,
+                "numero": numero,
+                "descripcion": descripcion,
+                "estado": "ALMACEN",
+                "version": 1,
+            }),
+        )
+        .await?;
+    }
+
+    audit::registrar(
+        &mut tx,
+        Some(user.id),
+        "expedientes.importar",
+        "lote_expedientes",
+        Uuid::new_v4(),
+        "EXITO",
+        json!({ "importados": importados, "omitidos": omitidos, "errores": errores.len() }),
+    )
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(Json(json!({
+        "importados": importados,
+        "omitidos": omitidos,
+        "errores": errores,
+        "creados": creados,
+    })))
+}

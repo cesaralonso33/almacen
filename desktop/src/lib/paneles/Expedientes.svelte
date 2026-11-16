@@ -25,6 +25,76 @@
     let guardando = $state(false);
     let anioNuevo = $state<number | null>(new Date().getFullYear());
 
+    let importando = $state(false);
+    let textoImportacion = $state('');
+    let archivoNombre = $state('');
+    let procesandoImportacion = $state(false);
+    let resultadoImportacion = $state<any>(null);
+
+    function abrirImportacion() {
+        textoImportacion = '';
+        archivoNombre = '';
+        resultadoImportacion = null;
+        importando = true;
+    }
+
+    function parsearFilas(texto: string) {
+        return texto
+            .split(/\r?\n/)
+            .map((linea) => linea.trim())
+            .filter((linea) => linea.length > 0 && !linea.startsWith('#'))
+            .map((linea) => {
+                const partes = (linea.includes(';') ? linea.split(';') : linea.split(',')).map((parte) =>
+                    parte.trim()
+                );
+                const [numero, unidad, anio, ...resto] = partes;
+                const anioNumero = anio ? Number(anio) : null;
+                return {
+                    numero: numero ?? '',
+                    unidad: unidad || null,
+                    anio: anioNumero && Number.isFinite(anioNumero) ? anioNumero : null,
+                    descripcion: resto.join(', ').trim() || null
+                };
+            });
+    }
+
+    async function leerArchivo(evento: Event) {
+        const entrada = evento.currentTarget as HTMLInputElement;
+        const archivo = entrada.files?.[0];
+        if (!archivo) return;
+        archivoNombre = archivo.name;
+        textoImportacion = await archivo.text();
+    }
+
+    async function importarLista() {
+        const filas = parsearFilas(textoImportacion);
+        if (filas.length === 0) {
+            app.avisar('No hay filas para importar', 'error');
+            return;
+        }
+        if (filas.length > 500) {
+            app.avisar('El máximo por lote es 500 expedientes', 'error');
+            return;
+        }
+
+        procesandoImportacion = true;
+        resultadoImportacion = null;
+        try {
+            resultadoImportacion = await api('POST', '/api/v1/expedientes/importar', {
+                expedientes: filas
+            });
+            app.avisar(
+                `Importados ${resultadoImportacion.importados}; omitidos ${resultadoImportacion.omitidos}`
+            );
+            await cargar();
+            await app.sincronizar(true);
+        } catch (error) {
+            app.avisar(String(error), 'error');
+        } finally {
+            procesandoImportacion = false;
+        }
+    }
+
     function abrirAlta() {
         numeroNuevo = '';
         descripcionNueva = '';
@@ -114,6 +184,9 @@
         {#if app.permiso('expedientes:crear')}
             <button class="btn-primario" onclick={abrirAlta}>Nuevo expediente</button>
         {/if}
+        {#if app.permiso('expedientes:administrar')}
+            <button class="btn-secundario" onclick={abrirImportacion}>Importar lista</button>
+        {/if}
         <span class="text-sm text-slate-500">{expedientes.length} resultados</span>
     </div>
 
@@ -165,6 +238,56 @@
         />
     </div>
 </div>
+
+{#if importando}
+    <Modal titulo="Importar expedientes" oncerrar={() => (importando = false)}>
+        <div class="space-y-4">
+            <p class="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800">
+                Una fila por expediente: <code>numero;unidad;año;descripción</code>. Solo el número es
+                obligatorio; se completa a 8 caracteres antes de la barra y los duplicados se omiten.
+                Los expedientes importados quedan en <strong>almacén</strong>, sin custodia.
+            </p>
+
+            <label class="block text-sm">
+                <span class="mb-1 block font-medium text-slate-600">Archivo CSV o TXT (opcional)</span>
+                <input class="campo" type="file" accept=".csv,.txt" onchange={leerArchivo} />
+                {#if archivoNombre}
+                    <span class="mt-1 block text-xs text-slate-500">{archivoNombre}</span>
+                {/if}
+            </label>
+
+            <label class="block text-sm">
+                <span class="mb-1 block font-medium text-slate-600">O pegue la lista</span>
+                <textarea
+                    class="campo h-40 font-mono text-xs"
+                    bind:value={textoImportacion}
+                    placeholder={'5259/2026;JUZGADO 1;2026;Demanda laboral\n100/2026'}
+                ></textarea>
+            </label>
+
+            <button class="btn-primario" disabled={procesandoImportacion} onclick={importarLista}>
+                {procesandoImportacion ? 'Importando…' : 'Importar'}
+            </button>
+
+            {#if resultadoImportacion}
+                <div class="rounded-lg border border-slate-200 p-3 text-sm">
+                    <p>
+                        <strong>{resultadoImportacion.importados}</strong> importados ·
+                        <strong>{resultadoImportacion.omitidos}</strong> omitidos (duplicados) ·
+                        <strong>{resultadoImportacion.errores.length}</strong> con error
+                    </p>
+                    {#if resultadoImportacion.errores.length > 0}
+                        <ul class="mt-2 list-inside list-disc text-xs text-rose-700">
+                            {#each resultadoImportacion.errores.slice(0, 10) as error}
+                                <li>Fila {error.fila}: {error.motivo}</li>
+                            {/each}
+                        </ul>
+                    {/if}
+                </div>
+            {/if}
+        </div>
+    </Modal>
+{/if}
 
 {#if creando}
     <Modal titulo="Nuevo expediente" oncerrar={() => (creando = false)}>

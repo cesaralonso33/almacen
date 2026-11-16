@@ -10,7 +10,7 @@ Migraciones en `server/migrations` (SQLx, aplicadas al iniciar la API).
 | `roles`, `permisos`, `rol_permisos`, `usuario_roles` | RBAC | una asignación activa por usuario y rol |
 | `dispositivos`, `sesiones` | Equipos y refresh tokens | hash de refresh único; revocación |
 | `ubicaciones` | EDIFICIO → AREA → ESTANTE → CAJA | trigger de jerarquía; código único por padre |
-| `expedientes` | Inventario físico | número único por unidad y año; versión |
+| `expedientes` | Inventario físico | número único global; versión |
 | `pedidos`, `pedido_items` | Solicitudes | un expediente por pedido |
 | `reservas` | Bloqueo temporal de preparación | una activa por expediente; vencimiento |
 | `entregas`, `acuses` | Despacho y acuse | un acuse por entrega |
@@ -45,4 +45,4 @@ Migraciones en `server/migrations` (SQLx, aplicadas al iniciar la API).
 8. Al registrar un expediente, el creador queda como custodio inicial; solo lo pierde con una
    devolución confirmada por el almacén o una transferencia aceptada.
 9. El número se normaliza a 8 caracteres antes de la primera barra, rellenando con ceros a la
-   izquierda; la unicidad se evalúa sobre el valor normalizado.
+   izquierda; la unicidad es global y se evalúa sobre el valor normalizado.

@@ -138,6 +138,16 @@ async fn alta_respeta_permisos_y_unicidad() {
         &t.app,
         "POST",
         "/api/v1/expedientes",
+        Some(&tok_usuario),
+        Some(json!({ "numero": "EXP-2026-0300", "unidad": "JUZGADO 2", "anio": 2024 })),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::CONFLICT, "el número es único globalmente");
+
+    let (estado, _) = pedir(
+        &t.app,
+        "POST",
+        "/api/v1/expedientes",
         Some(&tok_consulta),
         Some(json!({ "numero": "EXP-2026-0301" })),
     )

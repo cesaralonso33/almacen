@@ -88,7 +88,7 @@ pub async fn crear(
                 .unwrap_or(false) =>
         {
             return Err(ApiError::conflicto(
-                "Ya existe un expediente con ese número en la misma unidad y año",
+                "Ya existe un expediente con ese número",
             ));
         }
         Err(error) => return Err(error.into()),

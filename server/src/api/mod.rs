@@ -30,6 +30,7 @@ pub fn router(estado: AppState) -> Router {
         .route("/api/v1/auth/password", post(auth::cambiar_password))
         .route("/api/v1/auth/me", get(auth::me))
         .route("/api/v1/admin/usuarios", get(admin::listar_usuarios).post(admin::crear_usuario))
+        .route("/api/v1/admin/usuarios/{id}", post(admin::editar_usuario))
         .route("/api/v1/admin/usuarios/{id}/activar", post(admin::activar))
         .route("/api/v1/admin/usuarios/{id}/desactivar", post(admin::desactivar))
         .route("/api/v1/admin/roles", get(admin::listar_roles))

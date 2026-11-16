@@ -2,6 +2,7 @@
     import { onMount } from 'svelte';
     import { api } from '../api';
     import { app } from '../estado.svelte';
+    import Modal from '../Modal.svelte';
     import Paginacion from '../Paginacion.svelte';
     import { POR_PAGINA, recortar, totalPaginas } from '../paginacion';
 
@@ -16,6 +17,41 @@
 
     const paginas = $derived(totalPaginas(usuarios.length, POR_PAGINA));
     const visibles = $derived(recortar(usuarios, pagina, POR_PAGINA));
+
+    let editando = $state<any>(null);
+    let nombreEdicion = $state('');
+    let correoEdicion = $state('');
+    let passwordEdicion = $state('');
+    let guardandoEdicion = $state(false);
+    let errorEdicion = $state('');
+
+    function abrirEdicion(usuario: any) {
+        editando = usuario;
+        nombreEdicion = usuario.nombre ?? '';
+        correoEdicion = usuario.correo ?? '';
+        passwordEdicion = '';
+        errorEdicion = '';
+    }
+
+    async function guardarEdicion() {
+        if (!editando) return;
+        guardandoEdicion = true;
+        errorEdicion = '';
+        try {
+            const cuerpo: Record<string, unknown> = { nombre: nombreEdicion };
+            if (correoEdicion.trim()) cuerpo.correo = correoEdicion.trim();
+            if (passwordEdicion) cuerpo.password = passwordEdicion;
+
+            await api('POST', `/api/v1/admin/usuarios/${editando.id}`, cuerpo);
+            app.avisar('Usuario actualizado');
+            editando = null;
+            await cargar();
+        } catch (error) {
+            errorEdicion = String(error);
+        } finally {
+            guardandoEdicion = false;
+        }
+    }
 
     onMount(cargar);
 
@@ -127,7 +163,10 @@
                                 {usuario.activo ? 'Activo' : 'Inactivo'}
                             </span>
                         </td>
-                        <td class="text-right">
+                        <td class="space-x-2 text-right">
+                            <button class="btn-secundario" onclick={() => abrirEdicion(usuario)}>
+                                Editar
+                            </button>
                             <button class="btn-secundario" onclick={() => cambiarEstado(usuario)}>
                                 {usuario.activo ? 'Desactivar' : 'Activar'}
                             </button>
@@ -152,3 +191,44 @@
         </div>
     </section>
 </div>
+
+{#if editando}
+    <Modal titulo="Editar usuario" oncerrar={() => (editando = null)}>
+        <form
+            class="space-y-4"
+            onsubmit={(evento) => {
+                evento.preventDefault();
+                guardarEdicion();
+            }}
+        >
+            <label class="block text-sm">
+                <span class="mb-1 block font-medium text-slate-600">Nombre</span>
+                <input class="campo" bind:value={nombreEdicion} required />
+            </label>
+
+            <label class="block text-sm">
+                <span class="mb-1 block font-medium text-slate-600">Correo</span>
+                <input class="campo" type="email" bind:value={correoEdicion} required />
+            </label>
+
+            <label class="block text-sm">
+                <span class="mb-1 block font-medium text-slate-600">Nueva contraseña</span>
+                <input class="campo" type="password" bind:value={passwordEdicion} autocomplete="new-password" />
+                <span class="mt-1 block text-xs text-slate-500">
+                    Déjala vacía para conservar la actual. Mínimo 12 caracteres; al cambiarla se
+                    cierran todas las sesiones del usuario.
+                </span>
+            </label>
+
+            {#if errorEdicion}
+                <p class="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">
+                    {errorEdicion}
+                </p>
+            {/if}
+
+            <button class="btn-primario" type="submit" disabled={guardandoEdicion}>
+                {guardandoEdicion ? 'Guardando…' : 'Guardar cambios'}
+            </button>
+        </form>
+    </Modal>
+{/if}

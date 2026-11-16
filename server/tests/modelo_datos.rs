@@ -463,23 +463,30 @@ async fn custodia_activa_sigue_siendo_unica() {
 }
 
 #[tokio::test]
-async fn numero_de_expediente_es_unico_por_unidad_y_anio() {
+async fn numero_de_expediente_es_unico_globalmente() {
     let db = setup().await;
 
     sqlx::query("INSERT INTO expedientes(numero, unidad, anio) VALUES ('A-1','JUZGADO 1',2026)")
         .execute(&db.pool)
         .await
         .expect("primer expediente");
-    sqlx::query("INSERT INTO expedientes(numero, unidad, anio) VALUES ('A-1','JUZGADO 2',2026)")
-        .execute(&db.pool)
-        .await
-        .expect("mismo número en otra unidad");
 
-    let duplicado =
-        sqlx::query("INSERT INTO expedientes(numero, unidad, anio) VALUES ('A-1','JUZGADO 1',2026)")
+    let otra_unidad =
+        sqlx::query("INSERT INTO expedientes(numero, unidad, anio) VALUES ('A-1','JUZGADO 2',2026)")
             .execute(&db.pool)
             .await;
-    assert!(duplicado.is_err(), "número repetido en la misma unidad y año");
+    assert!(otra_unidad.is_err(), "el número no se repite aunque cambie la unidad");
+
+    let otro_anio =
+        sqlx::query("INSERT INTO expedientes(numero, unidad, anio) VALUES ('A-1','JUZGADO 1',2027)")
+            .execute(&db.pool)
+            .await;
+    assert!(otro_anio.is_err(), "el número no se repite aunque cambie el año");
+
+    sqlx::query("INSERT INTO expedientes(numero, unidad, anio) VALUES ('B-1','JUZGADO 1',2026)")
+        .execute(&db.pool)
+        .await
+        .expect("un número distinto sí se registra");
 
     db.cerrar().await;
 }

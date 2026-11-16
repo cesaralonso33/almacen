@@ -228,3 +228,144 @@ pub async fn listar_roles(
 
     Ok(Json(json!({ "roles": roles })))
 }
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EditarUsuario {
+    pub nombre: Option<String>,
+    pub correo: Option<String>,
+    pub password: Option<String>,
+}
+
+pub async fn editar_usuario(
+    State(app): State<AppState>,
+    user: AuthUser,
+    Path(id): Path<Uuid>,
+    ApiJson(input): ApiJson<EditarUsuario>,
+) -> Result<Json<Value>, ApiError> {
+    user.exigir("admin:usuarios")?;
+
+    let nombre = match input.nombre.as_deref() {
+        Some(valor) => {
+            let limpio = valor.trim();
+            if limpio.is_empty() {
+                return Err(ApiError::inprocesable("El nombre no puede estar vacío"));
+            }
+            Some(limpio.to_string())
+        }
+        None => None,
+    };
+
+    let correo = match input.correo.as_deref() {
+        Some(valor) => {
+            let limpio = valor.trim().to_lowercase();
+            if !limpio.contains('@') || limpio.len() < 5 {
+                return Err(ApiError::inprocesable("El correo no es válido"));
+            }
+            Some(limpio)
+        }
+        None => None,
+    };
+
+    let password = match input.password.as_deref() {
+        Some(valor) => {
+            if valor.chars().count() < 12 {
+                return Err(ApiError::inprocesable(
+                    "La contraseña debe tener al menos 12 caracteres",
+                ));
+            }
+            Some(valor.to_string())
+        }
+        None => None,
+    };
+
+    if nombre.is_none() && correo.is_none() && password.is_none() {
+        return Err(ApiError::inprocesable("No hay cambios que aplicar"));
+    }
+
+    let hash = match password.as_deref() {
+        Some(valor) => Some(crate::auth::hash_password(valor).map_err(|error| {
+            tracing::error!(?error, "no fue posible calcular el hash de la contraseña");
+            ApiError::interno("No fue posible actualizar la contraseña")
+        })?),
+        None => None,
+    };
+
+    let mut tx = app.db.begin().await?;
+
+    if let Some(nuevo_correo) = &correo {
+        let ocupado: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM usuarios WHERE lower(correo) = $1 AND id <> $2)",
+        )
+        .bind(nuevo_correo)
+        .bind(id)
+        .fetch_one(&mut *tx)
+        .await?;
+        if ocupado {
+            return Err(ApiError::conflicto("Ya existe un usuario con ese correo"));
+        }
+    }
+
+    let actualizacion: Result<Option<Uuid>, sqlx::Error> = sqlx::query_scalar(
+        "UPDATE usuarios
+         SET nombre = COALESCE($2, nombre),
+             correo = COALESCE($3, correo),
+             password_hash = COALESCE($4::text, password_hash),
+             debe_cambiar_password = CASE WHEN $4::text IS NULL THEN debe_cambiar_password ELSE true END,
+             actualizado_en = now()
+         WHERE id = $1
+         RETURNING id",
+    )
+    .bind(id)
+    .bind(nombre.as_deref())
+    .bind(correo.as_deref())
+    .bind(hash.as_deref())
+    .fetch_optional(&mut *tx)
+    .await;
+
+    let actualizado = match actualizacion {
+        Ok(valor) => valor,
+        Err(error)
+            if error
+                .as_database_error()
+                .map(|base| base.is_unique_violation())
+                .unwrap_or(false) =>
+        {
+            return Err(ApiError::conflicto("Ya existe un usuario con ese correo"));
+        }
+        Err(error) => return Err(error.into()),
+    };
+
+    if actualizado.is_none() {
+        return Err(ApiError::no_encontrado("Usuario no encontrado"));
+    }
+
+    if hash.is_some() {
+        // Cambiar la contraseña cierra todas las sesiones del usuario.
+        sqlx::query(
+            "UPDATE sesiones SET revocada_en = now() WHERE usuario_id = $1 AND revocada_en IS NULL",
+        )
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    audit::registrar(
+        &mut tx,
+        Some(user.id),
+        "admin.usuarios.editar",
+        "usuarios",
+        id,
+        "EXITO",
+        json!({
+            "nombre": nombre,
+            "correo": correo,
+            "password_actualizada": hash.is_some(),
+        }),
+    )
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(Json(json!({ "usuario_id": id })))
+}

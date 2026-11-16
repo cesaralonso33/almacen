@@ -196,7 +196,7 @@
 
             <p class="text-xs text-slate-500">
                 El número se completa con ceros a la izquierda hasta 8 caracteres antes de la barra
-                (5259/2026 → 00005259/2026). Es único por unidad y año. Al registrarlo, el expediente
+                (5259/2026 → 00005259/2026). El número es único en todo el sistema. Al registrarlo, el expediente
                 queda bajo tu custodia hasta que lo devuelvas al almacén.
             </p>
 

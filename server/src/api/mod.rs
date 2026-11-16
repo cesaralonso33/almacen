@@ -1,5 +1,7 @@
 pub mod admin;
 pub mod auth;
+pub mod consultas;
+pub mod directorio;
 pub mod devoluciones;
 pub mod entrada;
 pub mod entregas;
@@ -30,7 +32,13 @@ pub fn router(estado: AppState) -> Router {
         .route("/api/v1/admin/usuarios/{id}/activar", post(admin::activar))
         .route("/api/v1/admin/usuarios/{id}/desactivar", post(admin::desactivar))
         .route("/api/v1/admin/roles", get(admin::listar_roles))
-        .route("/api/v1/pedidos", post(pedidos::crear))
+        .route("/api/v1/pedidos", get(consultas::listar_pedidos).post(pedidos::crear))
+        .route("/api/v1/dashboard", get(consultas::dashboard))
+        .route("/api/v1/usuarios/directorio", get(directorio::directorio))
+        .route("/api/v1/custodias", get(consultas::custodias))
+        .route("/api/v1/expedientes", get(consultas::buscar_expedientes))
+        .route("/api/v1/expedientes/{id}/historial", get(consultas::historial))
+        .route("/api/v1/entregas/pendientes", get(consultas::entregas_pendientes))
         .route("/api/v1/pedidos/{id}", get(pedidos::detalle))
         .route("/api/v1/pedidos/{id}/cancelar", post(pedidos::cancelar))
         .route("/api/v1/items/{id}/preparar", post(pedidos::preparar))
@@ -70,4 +78,6 @@ async fn metodo_no_permitido() -> ApiError {
         "Método no permitido para esta ruta",
     )
 }
+
+
 

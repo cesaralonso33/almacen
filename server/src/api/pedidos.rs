@@ -138,8 +138,12 @@ pub async fn detalle(
         return Err(ApiError::no_encontrado("Pedido no encontrado"));
     }
 
-    let filas: Vec<(Uuid, String)> = sqlx::query_as(
-        "SELECT id, estado FROM pedido_items WHERE pedido_id = $1 ORDER BY expediente_id",
+    let filas: Vec<(Uuid, String, Uuid, String, String)> = sqlx::query_as(
+        "SELECT i.id, i.estado, i.expediente_id, e.numero, e.descripcion
+         FROM pedido_items i
+         JOIN expedientes e ON e.id = i.expediente_id
+         WHERE i.pedido_id = $1
+         ORDER BY e.numero",
     )
     .bind(id)
     .fetch_all(&app.db)
@@ -168,7 +172,15 @@ pub async fn detalle(
 
     let items: Vec<Value> = filas
         .into_iter()
-        .map(|(item_id, estado_item)| json!({ "id": item_id, "estado": estado_item }))
+        .map(|(item_id, estado_item, expediente_id, numero, descripcion)| {
+            json!({
+                "id": item_id,
+                "estado": estado_item,
+                "expediente_id": expediente_id,
+                "numero": numero,
+                "descripcion": descripcion,
+            })
+        })
         .collect();
 
     Ok(Json(json!({

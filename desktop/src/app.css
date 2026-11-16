@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    html,
+    body {
+        @apply h-full bg-slate-100 text-slate-800 antialiased;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    a:focus-visible {
+        @apply outline-none ring-2 ring-institucional-500 ring-offset-2;
+    }
+}
+
+@layer components {
+    .btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50;
+    }
+
+    .btn-primario {
+        @apply btn bg-institucional-500 text-white hover:bg-institucional-600;
+    }
+
+    .btn-secundario {
+        @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+    }
+
+    .btn-peligro {
+        @apply btn bg-rose-600 text-white hover:bg-rose-700;
+    }
+
+    .campo {
+        @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm placeholder:text-slate-400;
+    }
+
+    .tarjeta {
+        @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+    }
+
+    .tabla {
+        @apply w-full border-collapse text-sm;
+    }
+
+    .tabla thead th {
+        @apply sticky top-0 bg-slate-50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500;
+    }
+
+    .tabla tbody td {
+        @apply border-t border-slate-100 px-3 py-2 align-middle;
+    }
+
+    .tabla tbody tr:hover {
+        @apply bg-slate-50/70;
+    }
+
+    .insignia {
+        @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold;
+    }
+}

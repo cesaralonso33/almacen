@@ -127,13 +127,24 @@ avanza en la misma transacción que aplica los cambios.
 ```bash
 cd desktop
 npm install
+npm run check        # svelte-check
 npm run build        # frontend
 npm run tauri dev    # aplicación de escritorio
 ```
 
-Variable `EXPEDIENTES_API_URL` (por omisión `http://127.0.0.1:3000`). La interfaz Svelte de la
-Fase 5 todavía no consume estos comandos; el motor de sincronización y el esquema local ya están
-implementados y probados.
+Variable `EXPEDIENTES_API_URL` (por omisión `http://127.0.0.1:3000`).
+
+La interfaz incluye:
+
+- Acceso con credenciales institucionales y sesión en memoria del proceso principal.
+- Navegación por permisos: Inicio, Expedientes, Mis pedidos, Almacén, Entregas, Mis custodias,
+  Devoluciones, Reportes y Administración.
+- Tablero con contadores, tabla de expedientes con búsqueda e historial, alta de pedidos múltiples,
+  bandeja de almacén con preparación y descarte, despacho, acuse de recepción, devoluciones,
+  transferencias, administración de usuarios y roles.
+- Estado de sincronización visible (`En línea`, `Sin conexión`, `Error`), pendientes y conflictos.
+- Sin conexión, la búsqueda de expedientes usa la copia local y los pedidos nuevos se guardan en el
+  outbox marcados como pendientes de sincronizar.
 
 Los iconos se generan con `powershell -File scripts/generar-iconos.ps1` y se versionan en
 `desktop/src-tauri/icons`.
@@ -149,7 +160,8 @@ Ver `docs/PLAN.md` y `docs/PROGRESO.md`.
   transferencias con acuse del receptor y cancelación de pedidos).
 - Fase 4: completada (push idempotente, pull incremental por permisos, snapshot y motor local
   con outbox y conflictos).
-- Fases 5–6: pendientes (interfaz Svelte y despliegue institucional).
+- Fase 5: completada (interfaz Svelte 5 con Tailwind, todos los paneles y estados de sincronización).
+- Fase 6: pendiente (despliegue institucional).
 
 ## Cadena de custodia
 

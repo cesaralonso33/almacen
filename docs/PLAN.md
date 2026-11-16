@@ -109,11 +109,23 @@ Criterio de salida: criterios 7, 8 y 10. **Cumplido** con 9 pruebas de servidor 
 
 ## Fase 5 — Interfaz Svelte 5
 
-Depende de: Fases 2–4.
+Depende de: Fases 2–4. Estado: **completada** (sin prueba E2E automatizada de la ventana Tauri).
 
-Trabajo: navegación lateral completa, panel de contadores, tabla de expedientes con filtros/virtualización/exportación, alta de pedidos múltiples, bandeja de almacén, entregas, custodias, devoluciones, reportes, administración, estados de conexión y conflictos.
+Implementado:
 
-Criterio de salida: flujos 1–6 ejecutables desde la UI con caché SQLite.
+- Tailwind CSS y sistema de componentes (`btn`, `campo`, `tarjeta`, `tabla`, `insignia`).
+- Login, cierre de sesión y guardia por permisos en la navegación.
+- Paneles: Inicio, Expedientes (búsqueda + historial), Mis pedidos (alta múltiple, detalle y
+  cancelación), Almacén (preparar/descartar/despachar), Entregas (acuse), Mis custodias
+  (devolución y transferencia), Devoluciones (acuse del almacén), Reportes y Administración.
+- Barra de sincronización con estado, pendientes y conflictos; sincronización manual y automática
+  cada 60 segundos.
+- Sin conexión: búsqueda sobre la copia local y alta de pedido en el outbox con aviso explícito.
+- Endpoints de consulta nuevos: `/dashboard`, `/pedidos` (GET), `/custodias`, `/expedientes`,
+  `/expedientes/{id}/historial`, `/entregas/pendientes`, `/usuarios/directorio`.
+
+Criterio de salida: flujos 1–6 desde la interfaz. **Cumplido a nivel de código y compilación**;
+la verificación funcional de la ventana queda pendiente para la Fase 6 (prueba de instalación).
 
 ## Fase 6 — Despliegue institucional
 

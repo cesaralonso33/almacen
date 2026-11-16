@@ -294,6 +294,33 @@ Limitaciones conocidas:
 - Los tokens viven en memoria del proceso; al reiniciar la aplicación se requiere iniciar sesión.
 - La interfaz Svelte todavía no consume los comandos (Fase 5).
 
+### Interfaz Svelte 5 (Fase 5)
+
+- Tailwind CSS 3 + PostCSS; `svelte.config.js` con `vitePreprocess`.
+- Componentes: `Login`, `Shell` (navegación por permisos, barra de sincronización, conflictos),
+  `Modal`, `Insignia` y nueve paneles.
+- Endpoints de consulta añadidos en el servidor: tablero, pedidos, custodias, expedientes,
+  historial, entregas pendientes y directorio de usuarios.
+- El detalle de pedido ahora incluye número y descripción del expediente de cada renglón.
+- Comando Tauri `peticion`: proxy autenticado con lista blanca de rutas `/api/v1/`; la interfaz
+  nunca recibe el token.
+- Sin conexión: la tabla de expedientes cae a la copia local con aviso; el alta de pedido se
+  guarda en el outbox y se marca como pendiente.
+
+Verificación:
+
+| Comprobación | Resultado |
+|---|---|
+| `npm run check` (svelte-check) | **0 errores, 0 advertencias** |
+| `npm run build` | OK, 85 kB JS y 19.5 kB CSS |
+| `cargo build` escritorio | OK |
+| `cargo test` servidor | **52 pruebas, 0 fallos** |
+| `cargo test` escritorio | **8 pruebas, 0 fallos** |
+
+Limitación honesta: no se ejecutó la ventana Tauri de forma automatizada, por lo que los flujos
+están verificados por compilación y por las pruebas de la API que consumen, no por una prueba E2E
+de interfaz. Queda para la Fase 6 junto con la instalación.
+
 ## Estado frente a las fases
 
 - Fase 0: **completada** (este documento y `docs/PLAN.md`).
@@ -304,7 +331,9 @@ Limitaciones conocidas:
   estados operativos.
 - Fase 4: **completada**. Push idempotente, pull incremental filtrado, snapshot y motor local con
   outbox y conflictos.
-- Fases 5–6: no iniciadas.
+- Fase 5: **completada**. Interfaz Svelte 5 con Tailwind, paneles por rol y estados de
+  sincronización; pendiente la prueba E2E de la ventana.
+- Fase 6: no iniciada.
 
 ## Siguiente acción recomendada
 

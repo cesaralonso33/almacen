@@ -26,6 +26,13 @@ struct EstadoApp {
 }
 
 #[derive(Serialize)]
+struct SesionInfo {
+    nombre: String,
+    usuario_id: String,
+    permisos: Vec<String>,
+}
+
+#[derive(Serialize)]
 struct Expediente {
     id: String,
     numero: String,
@@ -63,7 +70,7 @@ async fn login(
     correo: String,
     password: String,
     estado: tauri::State<'_, EstadoApp>,
-) -> Result<String, String> {
+) -> Result<SesionInfo, String> {
     let respuesta = api::ClienteHttp::login(&estado.base_url, &correo, &password).await?;
 
     let access_token = respuesta
@@ -102,9 +109,17 @@ async fn login(
     db::escribir_meta(&conexion, "dispositivo_actual", &dispositivo)
         .map_err(|error| error.to_string())?;
 
+    let permisos: Vec<String> = respuesta
+        .get("permisos")
+        .cloned()
+        .map(serde_json::from_value)
+        .transpose()
+        .map_err(|error| error.to_string())?
+        .unwrap_or_default();
+
     let mut guardia = estado.sesion.lock().map_err(|_| "sesión bloqueada".to_string())?;
-    *guardia = Some(Sesion { access_token, usuario_id, nombre: nombre.clone() });
-    Ok(nombre)
+    *guardia = Some(Sesion { access_token, usuario_id: usuario_id.clone(), nombre: nombre.clone() });
+    Ok(SesionInfo { nombre, usuario_id, permisos })
 }
 
 #[tauri::command]
@@ -264,6 +279,56 @@ fn listar_conflictos(estado: tauri::State<'_, EstadoApp>) -> Result<Vec<serde_js
         .map_err(|error| error.to_string())
 }
 
+/// Proxy autenticado hacia la API. La interfaz nunca maneja el token directamente.
+#[tauri::command]
+async fn peticion(
+    metodo: String,
+    ruta: String,
+    cuerpo: Option<serde_json::Value>,
+    estado: tauri::State<'_, EstadoApp>,
+) -> Result<serde_json::Value, String> {
+    let (token, _) = sesion_activa(&estado)?;
+
+    if !ruta.starts_with("/api/v1/") || ruta.contains("..") {
+        return Err("Ruta no permitida".to_string());
+    }
+
+    let cliente = reqwest::Client::new();
+    let url = format!("{}{}", estado.base_url.trim_end_matches('/'), ruta);
+    let constructor = match metodo.to_ascii_uppercase().as_str() {
+        "GET" => cliente.get(&url),
+        "POST" => cliente.post(&url),
+        otro => return Err(format!("Método no permitido: {otro}")),
+    };
+
+    let mut solicitud = constructor.bearer_auth(token);
+    if let Some(cuerpo) = cuerpo {
+        solicitud = solicitud.json(&cuerpo);
+    }
+
+    let respuesta = solicitud
+        .send()
+        .await
+        .map_err(|error| format!("Sin conexión con el servidor: {error}"))?;
+    let estado_http = respuesta.status();
+    let texto = respuesta.text().await.map_err(|error| error.to_string())?;
+
+    if !estado_http.is_success() {
+        let mensaje = serde_json::from_str::<serde_json::Value>(&texto)
+            .ok()
+            .and_then(|valor| {
+                valor
+                    .pointer("/error/message")
+                    .and_then(|m| m.as_str())
+                    .map(str::to_string)
+            })
+            .unwrap_or_else(|| format!("HTTP {estado_http}"));
+        return Err(mensaje);
+    }
+
+    serde_json::from_str(&texto).map_err(|error| error.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -290,7 +355,8 @@ pub fn run() {
             sincronizar,
             listar_expedientes,
             crear_pedido_local,
-            listar_conflictos
+            listar_conflictos,
+            peticion
         ])
         .run(tauri::generate_context!())
         .expect("error al iniciar Tauri");

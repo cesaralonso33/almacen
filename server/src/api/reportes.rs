@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Query, State},
+    extract::State,
     Json,
 };
 use chrono::{DateTime, NaiveDate, Utc};
@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use uuid::Uuid;
 
-use crate::{auth::AuthUser, error::ApiError, AppState};
+use crate::{api::entrada::ApiQuery, auth::AuthUser, error::ApiError, AppState};
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -23,7 +23,7 @@ pub struct ReporteQuery {
 pub async fn altas(
     State(app): State<AppState>,
     user: AuthUser,
-    Query(consulta): Query<ReporteQuery>,
+    ApiQuery(consulta): ApiQuery<ReporteQuery>,
 ) -> Result<Json<Value>, ApiError> {
     user.exigir("reportes:leer")?;
 

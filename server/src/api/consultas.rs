@@ -1,20 +1,24 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, State},
     Json,
 };
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use uuid::Uuid;
 
-use crate::{auth::AuthUser, error::ApiError, AppState};
+use crate::{api::entrada::ApiQuery, auth::AuthUser, error::ApiError, AppState};
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BusquedaExpedientes {
     pub buscar: Option<String>,
     pub estado: Option<String>,
-    pub limite: Option<i64>,
+    pub unidad: Option<String>,
+    pub anio: Option<i16>,
+    pub custodio: Option<String>,
+    pub pagina: Option<i64>,
+    pub tamano: Option<i64>,
 }
 
 pub async fn dashboard(
@@ -192,32 +196,112 @@ pub async fn custodias(
 pub async fn buscar_expedientes(
     State(app): State<AppState>,
     user: AuthUser,
-    Query(input): Query<BusquedaExpedientes>,
+    ApiQuery(input): ApiQuery<BusquedaExpedientes>,
 ) -> Result<Json<Value>, ApiError> {
     user.exigir("expedientes:leer")?;
 
-    let patron = format!("%{}%", input.buscar.unwrap_or_default().trim());
-    let limite = input.limite.unwrap_or(100).clamp(1, 500);
-    let estado = input.estado;
+    let patron = format!("%{}%", input.buscar.as_deref().unwrap_or_default().trim());
+    let estado = input
+        .estado
+        .as_deref()
+        .map(str::trim)
+        .filter(|valor| !valor.is_empty())
+        .map(str::to_string);
+    let unidad = input
+        .unidad
+        .as_deref()
+        .map(str::trim)
+        .filter(|valor| !valor.is_empty())
+        .map(str::to_string);
+    let custodio = input
+        .custodio
+        .as_deref()
+        .map(str::trim)
+        .filter(|valor| !valor.is_empty())
+        .map(|valor| format!("%{valor}%"));
 
-    let filas = sqlx::query_as::<_, (Uuid, String, String, String, Option<String>, i64)>(
-        "SELECT e.id, e.numero, e.descripcion, e.estado, u.nombre, e.version
+    let pagina = input.pagina.unwrap_or(1).max(1);
+    let tamano = input.tamano.unwrap_or(25).clamp(1, 100);
+    let offset = (pagina - 1) * tamano;
+
+    let total: i64 = sqlx::query_scalar(
+        "SELECT count(*)
          FROM expedientes e
          LEFT JOIN usuarios u ON u.id = e.custodio_id
          WHERE (e.numero ILIKE $1 OR e.descripcion ILIKE $1)
            AND ($2::text IS NULL OR e.estado = $2)
-         ORDER BY e.numero
-         LIMIT $3",
+           AND ($3::text IS NULL OR e.unidad = $3)
+           AND ($4::smallint IS NULL OR e.anio = $4)
+           AND ($5::text IS NULL OR u.nombre ILIKE $5)",
     )
     .bind(&patron)
     .bind(&estado)
-    .bind(limite)
+    .bind(&unidad)
+    .bind(input.anio)
+    .bind(&custodio)
+    .fetch_one(&app.db)
+    .await?;
+
+    let filas = sqlx::query_as::<_, (Uuid, String, String, String, Option<String>, i64, Option<String>, Option<i16>)>(
+        "SELECT e.id, e.numero, e.descripcion, e.estado, u.nombre, e.version, e.unidad, e.anio
+         FROM expedientes e
+         LEFT JOIN usuarios u ON u.id = e.custodio_id
+         WHERE (e.numero ILIKE $1 OR e.descripcion ILIKE $1)
+           AND ($2::text IS NULL OR e.estado = $2)
+           AND ($3::text IS NULL OR e.unidad = $3)
+           AND ($4::smallint IS NULL OR e.anio = $4)
+           AND ($5::text IS NULL OR u.nombre ILIKE $5)
+         ORDER BY e.numero
+         LIMIT $6 OFFSET $7",
+    )
+    .bind(&patron)
+    .bind(&estado)
+    .bind(&unidad)
+    .bind(input.anio)
+    .bind(&custodio)
+    .bind(tamano)
+    .bind(offset)
+    .fetch_all(&app.db)
+    .await?;
+
+    // Resumen por estado conservando los demás filtros (sin el de estado).
+    let resumen = sqlx::query_as::<_, (String, i64)>(
+        "SELECT e.estado, count(*)
+         FROM expedientes e
+         LEFT JOIN usuarios u ON u.id = e.custodio_id
+         WHERE (e.numero ILIKE $1 OR e.descripcion ILIKE $1)
+           AND ($2::text IS NULL OR e.unidad = $2)
+           AND ($3::smallint IS NULL OR e.anio = $3)
+           AND ($4::text IS NULL OR u.nombre ILIKE $4)
+         GROUP BY e.estado",
+    )
+    .bind(&patron)
+    .bind(&unidad)
+    .bind(input.anio)
+    .bind(&custodio)
+    .fetch_all(&app.db)
+    .await?;
+
+    let mut por_estado = Map::new();
+    for (estado_fila, cantidad) in resumen {
+        por_estado.insert(estado_fila, json!(cantidad));
+    }
+
+    let unidades: Vec<String> = sqlx::query_scalar(
+        "SELECT DISTINCT unidad FROM expedientes WHERE unidad IS NOT NULL ORDER BY unidad LIMIT 200",
+    )
+    .fetch_all(&app.db)
+    .await?;
+
+    let anios: Vec<i16> = sqlx::query_scalar(
+        "SELECT DISTINCT anio FROM expedientes WHERE anio IS NOT NULL ORDER BY anio DESC",
+    )
     .fetch_all(&app.db)
     .await?;
 
     let expedientes: Vec<Value> = filas
         .into_iter()
-        .map(|(id, numero, descripcion, estado, custodio, version)| {
+        .map(|(id, numero, descripcion, estado, custodio, version, unidad, anio)| {
             json!({
                 "id": id,
                 "numero": numero,
@@ -225,11 +309,21 @@ pub async fn buscar_expedientes(
                 "estado": estado,
                 "custodio": custodio,
                 "version": version,
+                "unidad": unidad,
+                "anio": anio,
             })
         })
         .collect();
 
-    Ok(Json(json!({ "expedientes": expedientes })))
+    Ok(Json(json!({
+        "expedientes": expedientes,
+        "total": total,
+        "pagina": pagina,
+        "tamano": tamano,
+        "por_estado": Value::Object(por_estado),
+        "unidades": unidades,
+        "anios": anios,
+    })))
 }
 
 pub async fn historial(

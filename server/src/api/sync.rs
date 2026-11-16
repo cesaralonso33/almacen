@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Query, State},
+    extract::State,
     Json,
 };
 use chrono::{DateTime, Utc};
@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::{api::entrada::ApiJson, audit, auth::AuthUser, error::ApiError, sync, AppState};
+use crate::{api::entrada::{ApiJson, ApiQuery}, audit, auth::AuthUser, error::ApiError, sync, AppState};
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -117,7 +117,7 @@ pub async fn push(
 pub async fn pull(
     State(app): State<AppState>,
     user: AuthUser,
-    Query(input): Query<PullQuery>,
+    ApiQuery(input): ApiQuery<PullQuery>,
 ) -> Result<Json<Value>, ApiError> {
     user.exigir("sync:pull")?;
     validar_dispositivo(&app.db, &user, input.dispositivo_id).await?;
@@ -201,7 +201,7 @@ pub async fn pull(
 pub async fn snapshot(
     State(app): State<AppState>,
     user: AuthUser,
-    Query(input): Query<SnapshotQuery>,
+    ApiQuery(input): ApiQuery<SnapshotQuery>,
 ) -> Result<Json<Value>, ApiError> {
     user.exigir("sync:pull")?;
     validar_dispositivo(&app.db, &user, input.dispositivo_id).await?;

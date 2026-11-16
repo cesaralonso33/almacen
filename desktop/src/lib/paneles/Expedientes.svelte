@@ -6,30 +6,147 @@
     import Insignia from '../Insignia.svelte';
     import Modal from '../Modal.svelte';
     import Paginacion from '../Paginacion.svelte';
-    import { POR_PAGINA, recortar, totalPaginas } from '../paginacion';
+    import { totalPaginas } from '../paginacion';
+
+    const TAMANO = 25;
 
     let buscar = $state('');
     let expedientes = $state<Expediente[]>([]);
+    let total = $state(0);
+    let porEstado = $state<Record<string, number>>({});
+    let unidades = $state<string[]>([]);
+    let anios = $state<number[]>([]);
+    let pagina = $state(1);
+    let local = $state(false);
+    let avanzado = $state(false);
+
+    let estadoFiltro = $state('');
+    let unidadFiltro = $state('');
+    let anioFiltro = $state('');
+    let custodioFiltro = $state('');
+
     let seleccionado = $state<any>(null);
     let historial = $state<any[]>([]);
-    let local = $state(false);
-    let pagina = $state(1);
-
-    const paginas = $derived(totalPaginas(expedientes.length, POR_PAGINA));
-    const visibles = $derived(recortar(expedientes, pagina, POR_PAGINA));
 
     let creando = $state(false);
     let numeroNuevo = $state('');
     let descripcionNueva = $state('');
     let unidadNueva = $state('');
-    let guardando = $state(false);
     let anioNuevo = $state<number | null>(new Date().getFullYear());
+    let guardando = $state(false);
 
     let importando = $state(false);
     let textoImportacion = $state('');
     let archivoNombre = $state('');
     let procesandoImportacion = $state(false);
     let resultadoImportacion = $state<any>(null);
+
+    const paginas = $derived(totalPaginas(total, TAMANO));
+
+    let temporizador: ReturnType<typeof setTimeout>;
+
+    onMount(cargar);
+
+    function conRetardo() {
+        clearTimeout(temporizador);
+        temporizador = setTimeout(() => {
+            pagina = 1;
+            cargar();
+        }, 250);
+    }
+
+    async function cargar() {
+        const parametros = new URLSearchParams();
+        if (buscar.trim()) parametros.set('buscar', buscar.trim());
+        if (estadoFiltro) parametros.set('estado', estadoFiltro);
+        if (unidadFiltro) parametros.set('unidad', unidadFiltro);
+        if (anioFiltro) parametros.set('anio', anioFiltro);
+        if (custodioFiltro.trim()) parametros.set('custodio', custodioFiltro.trim());
+        parametros.set('pagina', String(pagina));
+        parametros.set('tamano', String(TAMANO));
+
+        try {
+            const respuesta = await api<any>('GET', `/api/v1/expedientes?${parametros.toString()}`);
+            expedientes = respuesta.expedientes;
+            total = respuesta.total;
+            porEstado = respuesta.por_estado ?? {};
+            unidades = respuesta.unidades ?? [];
+            anios = respuesta.anios ?? [];
+            local = false;
+        } catch {
+            // Sin conexión: se consulta la proyección local autorizada.
+            try {
+                const cache = await invoke<any[]>('listar_expedientes', { filtro: buscar });
+                expedientes = cache.map((item) => ({
+                    ...item,
+                    custodio: item.custodio_id ? 'En custodia' : null
+                }));
+                total = cache.length;
+                porEstado = {};
+                local = true;
+            } catch (error) {
+                app.avisar(String(error), 'error');
+            }
+        }
+    }
+
+    function aplicarFiltros() {
+        pagina = 1;
+        cargar();
+    }
+
+    function limpiarFiltros() {
+        estadoFiltro = '';
+        unidadFiltro = '';
+        anioFiltro = '';
+        custodioFiltro = '';
+        pagina = 1;
+        cargar();
+    }
+
+    function alternarEstado(estado: string) {
+        estadoFiltro = estadoFiltro === estado ? '' : estado;
+        aplicarFiltros();
+    }
+
+    async function abrir(expediente: Expediente) {
+        try {
+            const respuesta = await api<any>('GET', `/api/v1/expedientes/${expediente.id}/historial`);
+            seleccionado = respuesta.expediente;
+            historial = respuesta.movimientos;
+        } catch (error) {
+            app.avisar(String(error), 'error');
+        }
+    }
+
+    function abrirAlta() {
+        numeroNuevo = '';
+        descripcionNueva = '';
+        unidadNueva = '';
+        anioNuevo = new Date().getFullYear();
+        creando = true;
+    }
+
+    async function crearExpediente() {
+        guardando = true;
+        try {
+            await api('POST', '/api/v1/expedientes', {
+                numero: numeroNuevo,
+                descripcion: descripcionNueva || null,
+                unidad: unidadNueva || null,
+                anio: anioNuevo || null
+            });
+            app.avisar('Expediente registrado; queda bajo tu custodia');
+            creando = false;
+            pagina = 1;
+            await cargar();
+            await app.sincronizar(true);
+        } catch (error) {
+            app.avisar(String(error), 'error');
+        } finally {
+            guardando = false;
+        }
+    }
 
     function abrirImportacion() {
         textoImportacion = '';
@@ -86,6 +203,7 @@
             app.avisar(
                 `Importados ${resultadoImportacion.importados}; omitidos ${resultadoImportacion.omitidos}`
             );
+            pagina = 1;
             await cargar();
             await app.sincronizar(true);
         } catch (error) {
@@ -94,85 +212,34 @@
             procesandoImportacion = false;
         }
     }
-
-    function abrirAlta() {
-        numeroNuevo = '';
-        descripcionNueva = '';
-        unidadNueva = '';
-        anioNuevo = new Date().getFullYear();
-        creando = true;
-    }
-
-    let temporizador: ReturnType<typeof setTimeout>;
-
-    onMount(cargar);
-
-    function conRetardo() {
-        clearTimeout(temporizador);
-        temporizador = setTimeout(cargar, 250);
-    }
-
-    async function cargar() {
-        try {
-            const respuesta = await api<{ expedientes: Expediente[] }>(
-                'GET',
-                `/api/v1/expedientes?buscar=${encodeURIComponent(buscar)}`
-            );
-            expedientes = respuesta.expedientes;
-            local = false;
-            pagina = 1;
-        } catch {
-            // Sin conexión: se consulta la proyección local autorizada previamente sincronizada.
-            try {
-                const cache = await invoke<any[]>('listar_expedientes', { filtro: buscar });
-                expedientes = cache.map((item) => ({
-                    ...item,
-                    custodio: item.custodio_id ? 'En custodia' : null
-                }));
-                pagina = 1;
-                local = true;
-            } catch (error) {
-                app.avisar(String(error), 'error');
-            }
-        }
-    }
-
-    async function crearExpediente() {
-        guardando = true;
-        try {
-            await api('POST', '/api/v1/expedientes', {
-                numero: numeroNuevo,
-                descripcion: descripcionNueva || null,
-                unidad: unidadNueva || null,
-                anio: anioNuevo || null
-            });
-            app.avisar('Expediente registrado; queda bajo tu custodia');
-            creando = false;
-            numeroNuevo = '';
-            descripcionNueva = '';
-            unidadNueva = '';
-            anioNuevo = new Date().getFullYear();
-            await cargar();
-            await app.sincronizar(true);
-        } catch (error) {
-            app.avisar(String(error), 'error');
-        } finally {
-            guardando = false;
-        }
-    }
-
-    async function abrir(expediente: Expediente) {
-        try {
-            const respuesta = await api<any>('GET', `/api/v1/expedientes/${expediente.id}/historial`);
-            seleccionado = respuesta.expediente;
-            historial = respuesta.movimientos;
-        } catch (error) {
-            app.avisar(String(error), 'error');
-        }
-    }
 </script>
 
 <div class="space-y-4">
+    <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+            <p class="text-2xl font-semibold text-slate-800">
+                {total.toLocaleString('es-MX')}
+                <span class="text-base font-normal text-slate-500">expedientes</span>
+            </p>
+            <p class="text-xs text-slate-500">
+                {#if local}
+                    Copia local · la información puede estar desactualizada
+                {:else}
+                    Inventario institucional
+                {/if}
+            </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            {#if app.permiso('expedientes:crear')}
+                <button class="btn-primario" onclick={abrirAlta}>Nuevo expediente</button>
+            {/if}
+            {#if app.permiso('expedientes:administrar')}
+                <button class="btn-secundario" onclick={abrirImportacion}>Importar lista</button>
+            {/if}
+            <button class="btn-secundario" onclick={cargar}>Actualizar</button>
+        </div>
+    </div>
+
     <div class="flex flex-wrap items-center gap-3">
         <input
             class="campo max-w-md"
@@ -180,25 +247,86 @@
             bind:value={buscar}
             oninput={conRetardo}
         />
-        <button class="btn-secundario" onclick={cargar}>Actualizar</button>
-        {#if app.permiso('expedientes:crear')}
-            <button class="btn-primario" onclick={abrirAlta}>Nuevo expediente</button>
+        <button class="btn-secundario" onclick={() => (avanzado = !avanzado)}>
+            {avanzado ? 'Ocultar filtros' : 'Filtros avanzados'}
+        </button>
+        {#if estadoFiltro || unidadFiltro || anioFiltro || custodioFiltro}
+            <button class="text-xs text-institucional-600 underline" onclick={limpiarFiltros}>
+                Limpiar filtros
+            </button>
         {/if}
-        {#if app.permiso('expedientes:administrar')}
-            <button class="btn-secundario" onclick={abrirImportacion}>Importar lista</button>
-        {/if}
-        <span class="text-sm text-slate-500">{expedientes.length} resultados</span>
     </div>
+
+    {#if Object.keys(porEstado).length > 0}
+        <div class="flex flex-wrap gap-2">
+            {#each Object.entries(porEstado) as [estado, cantidad]}
+                <button
+                    class="flex items-center gap-2 rounded-full border px-3 py-1 text-xs {estadoFiltro === estado
+                        ? 'border-institucional-500 bg-institucional-50'
+                        : 'border-slate-200 bg-white hover:bg-slate-50'}"
+                    onclick={() => alternarEstado(estado)}
+                >
+                    <Insignia {estado} />
+                    <span class="font-semibold text-slate-700">{cantidad}</span>
+                </button>
+            {/each}
+        </div>
+    {/if}
+
+    {#if avanzado}
+        <div class="tarjeta grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+            <label class="block text-sm">
+                <span class="mb-1 block font-medium text-slate-600">Estado</span>
+                <select class="campo" bind:value={estadoFiltro} onchange={aplicarFiltros}>
+                    <option value="">Todos</option>
+                    <option value="ALMACEN">Almacén</option>
+                    <option value="EN_CUSTODIA">En custodia</option>
+                    <option value="NO_LOCALIZADO">No localizado</option>
+                </select>
+            </label>
+
+            <label class="block text-sm">
+                <span class="mb-1 block font-medium text-slate-600">Unidad / órgano</span>
+                <select class="campo" bind:value={unidadFiltro} onchange={aplicarFiltros}>
+                    <option value="">Todas</option>
+                    {#each unidades as unidad}
+                        <option value={unidad}>{unidad}</option>
+                    {/each}
+                </select>
+            </label>
+
+            <label class="block text-sm">
+                <span class="mb-1 block font-medium text-slate-600">Año</span>
+                <select class="campo" bind:value={anioFiltro} onchange={aplicarFiltros}>
+                    <option value="">Todos</option>
+                    {#each anios as anio}
+                        <option value={String(anio)}>{anio}</option>
+                    {/each}
+                </select>
+            </label>
+
+            <label class="block text-sm">
+                <span class="mb-1 block font-medium text-slate-600">Custodio</span>
+                <input
+                    class="campo"
+                    placeholder="Nombre del custodio"
+                    bind:value={custodioFiltro}
+                    onchange={aplicarFiltros}
+                    onkeydown={(evento) => evento.key === 'Enter' && aplicarFiltros()}
+                />
+            </label>
+        </div>
+    {/if}
 
     {#if local}
         <p class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            Sin conexión: mostrando la copia local de expedientes. La información puede estar
-            desactualizada.
+            Sin conexión: mostrando la copia local de expedientes. Los filtros avanzados requieren
+            conexión con el servidor.
         </p>
     {/if}
 
     <div class="tarjeta overflow-hidden">
-        <div class="max-h-[65vh] overflow-auto">
+        <div class="max-h-[62vh] overflow-auto">
             <table class="tabla">
                 <thead>
                     <tr>
@@ -210,7 +338,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {#each visibles as expediente}
+                    {#each expedientes as expediente}
                         <tr
                             class="cursor-pointer"
                             onclick={() => abrir(expediente)}
@@ -233,8 +361,11 @@
         <Paginacion
             {pagina}
             {paginas}
-            total={expedientes.length}
-            onCambiar={(valor) => (pagina = valor)}
+            {total}
+            onCambiar={(valor) => {
+                pagina = valor;
+                cargar();
+            }}
         />
     </div>
 </div>
@@ -319,8 +450,8 @@
 
             <p class="text-xs text-slate-500">
                 El número se completa con ceros a la izquierda hasta 8 caracteres antes de la barra
-                (5259/2026 → 00005259/2026). El número es único en todo el sistema. Al registrarlo, el expediente
-                queda bajo tu custodia hasta que lo devuelvas al almacén.
+                (5259/2026 → 00005259/2026). El número es único en todo el sistema. Al registrarlo, el
+                expediente queda bajo tu custodia hasta que lo devuelvas al almacén.
             </p>
 
             <button class="btn-primario" type="submit" disabled={guardando}>

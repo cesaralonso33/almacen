@@ -23,8 +23,9 @@ Cada prueba crea una base PostgreSQL efímera, aplica todas las migraciones y la
 | `tests/admin.rs` | 2 | edición de nombre, correo y contraseña; revocación de sesiones |
 | `tests/importacion.rs` | 2 | importación masiva, normalización, duplicados, permisos y límite |
 | `tests/reportes.rs` | 2 | altas por usuario agrupadas por día, mes y año; permisos |
+| `tests/busqueda.rs` | 2 | total, filtros avanzados, resumen por estado y paginación |
 
-Total: **65 pruebas**.
+Total: **67 pruebas**.
 
 ## Escritorio (Rust)
 

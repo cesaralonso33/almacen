@@ -1,5 +1,5 @@
 use axum::{
-    extract::rejection::JsonRejection,
+    extract::rejection::{JsonRejection, QueryRejection},
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
@@ -85,5 +85,11 @@ impl From<sqlx::Error> for ApiError {
 impl From<JsonRejection> for ApiError {
     fn from(rechazo: JsonRejection) -> Self {
         ApiError::solicitud_invalida(format!("Cuerpo JSON inválido: {}", rechazo.body_text()))
+    }
+}
+
+impl From<QueryRejection> for ApiError {
+    fn from(rechazo: QueryRejection) -> Self {
+        ApiError::solicitud_invalida(format!("Parámetros inválidos: {}", rechazo.body_text()))
     }
 }

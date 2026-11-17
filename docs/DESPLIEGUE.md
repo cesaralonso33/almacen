@@ -159,14 +159,14 @@ falta instalar ninguna CA en los clientes.
 Programe el respaldo y cópielo fuera del VPS (almacenamiento institucional, `rclone` o `scp`):
 
 ```cron
-0 2,14 * * * cd /opt/expedientes/infra && ./backup/backup.sh >> backup/registro.log 2>&1
+0 2,14 * * * cd /opt/expedientes/infra && bash ./backup/backup.sh >> backup/registro.log 2>&1
 ```
 
 Actualizar:
 
 ```bash
 cd /opt/expedientes && git pull
-cd infra && ./backup/backup.sh && docker compose up -d --build
+cd infra && bash ./backup/backup.sh && docker compose up -d --build
 ```
 
 ### 9. Advertencia de datos
@@ -369,6 +369,7 @@ La dirección del servidor se guarda en la base local del equipo, no en el insta
 cd /opt/expedientes
 git pull
 cd infra
+chmod +x backup/backup.sh
 ./backup/backup.sh
 docker compose up -d --build
 ```

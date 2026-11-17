@@ -54,7 +54,7 @@ npm run build
 5. Entregar los 2 restantes y comprobar `COMPLETADO` (4 entregados + 1 descartado).
 6. Solicitar una devolución y confirmar que la custodia sigue activa hasta el acuse del almacén.
 7. Desconectar la red, crear un pedido, reconectar y sincronizar una sola vez.
-8. Ejecutar `./backup/backup.sh` y restaurar en una base de prueba.
+8. Ejecutar `chmod +x backup/backup.sh && ./backup/backup.sh` y restaurar en una base de prueba.
 
 ## Limitaciones conocidas
 

@@ -29,7 +29,7 @@ if [ "$confirmacion" != "RESTAURAR" ]; then
     exit 1
 fi
 
-./backup/backup.sh
+bash ./backup/backup.sh
 
 docker compose stop api
 docker compose exec -T postgres dropdb -U "$POSTGRES_USER" --force --if-exists "$POSTGRES_DB"

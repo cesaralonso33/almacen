@@ -141,4 +141,4 @@ fi
 
 echo
 echo "Respaldo sugerido en crontab -e:"
-echo "  0 2,14 * * * cd $(pwd) && ./backup/backup.sh >> backup/registro.log 2>&1"
+echo "  0 2,14 * * * cd $(pwd) && bash ./backup/backup.sh >> backup/registro.log 2>&1"

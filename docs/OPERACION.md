@@ -15,6 +15,7 @@
 
 ```bash
 cd /opt/expedientes/infra
+chmod +x backup/backup.sh restore/restore.sh
 ./backup/backup.sh
 ```
 - Salida: `infra/backup/salidas/expedientes_<UTC>.dump` (formato custom de PostgreSQL).
@@ -22,7 +23,7 @@ cd /opt/expedientes/infra
 - Programe con cron, por ejemplo a las 02:00 y 14:00:
 
 ```cron
-0 2,14 * * * cd /opt/expedientes/infra && ./backup/backup.sh >> backup/registro.log 2>&1
+0 2,14 * * * cd /opt/expedientes/infra && bash ./backup/backup.sh >> backup/registro.log 2>&1
 ```
 
 Copie los respaldos fuera del servidor (almacenamiento institucional). Un respaldo que solo vive
@@ -34,7 +35,7 @@ Para empezar de cero antes de cargar el inventario real:
 
 ```bash
 cd /opt/expedientes/infra
-chmod +x mantenimiento/limpiar-expedientes.sh
+chmod +x backup/backup.sh mantenimiento/limpiar-expedientes.sh
 ./mantenimiento/limpiar-expedientes.sh
 ```
 

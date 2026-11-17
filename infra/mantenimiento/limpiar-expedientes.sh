@@ -36,7 +36,7 @@ if [ "$confirmacion" != "BORRAR" ]; then
     exit 1
 fi
 
-./backup/backup.sh
+bash ./backup/backup.sh
 
 echo "Deteniendo la API..."
 docker compose stop api

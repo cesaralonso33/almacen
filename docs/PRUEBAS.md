@@ -46,6 +46,25 @@ npm run check   # svelte-check
 npm run build
 ```
 
+## Infraestructura
+
+```bash
+bash -n infra/preparar-vps.sh
+bash -n infra/verificar-tls.sh
+python -c "import yaml; yaml.safe_load(open('infra/docker-compose.yml'))"
+```
+
+- `preparar-vps.sh --portainer` se probó en una copia temporal: genera `.env` y
+  `portainer.env` con `API_IMAGE`, `CADDYFILE` y `CERTS_DIR` absolutos, normaliza `SITIO` y no
+  requiere Docker. Rechaza `--admin-*` en ese modo.
+- `verificar-tls.sh` se probó con Docker y curl simulados: detecta `Caddyfile.http` (código 3),
+  TLS local fallido (código 1), TLS correcto (código 0) y una ruta de montaje inexistente
+  (código 1).
+- `infra/docker-compose.portainer.yml` se parsea con PyYAML; no usa `build` ni rutas relativas de
+  Caddy.
+- La validación real de contenedores, certificados, firewall y despliegue del stack de Portainer
+  debe ejecutarse en el VPS; no está verificada en producción.
+
 ## Verificación manual de despliegue
 
 1. `docker compose up -d --build`.

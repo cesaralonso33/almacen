@@ -2,6 +2,19 @@ name: expedientes
 
 # Red institucional: solo Caddy publica puertos. PostgreSQL y la API quedan en la red
 # interna de contenedores y nunca se exponen al host ni a la LAN.
+#
+# Uso local/CLI: construye la imagen de la API desde ../server.
+# Para Portainer use `docker-compose.portainer.yml` con una imagen ya construida
+# y rutas absolutas del host; los stacks Git de Portainer no resuelven de forma
+# fiable los montajes relativos.
+# En Portainer use el nombre de stack `expedientes` para que los comandos
+# `docker compose` de esta carpeta operen sobre los mismos contenedores.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 services:
   postgres:
@@ -18,10 +31,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    stop_grace_period: 30s
+    logging: *logging
     networks:
       - interna
 
   api:
+    image: expedientes-api:local
     build:
       context: ../server
       dockerfile: Dockerfile
@@ -44,6 +60,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging
     networks:
       - interna
 
@@ -51,18 +71,22 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "${BIND_IP:-0.0.0.0}:80:80"
+      - "${BIND_IP:-0.0.0.0}:443:443"
     environment:
       SITIO: ${SITIO:?Defina SITIO en infra/.env}
     volumes:
       - ${CADDYFILE:-./Caddyfile}:/etc/caddy/Caddyfile:ro
-      - ./certs:/certs:ro
+      - ${CERTS_DIR:-./certs}:/certs:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
       api:
         condition: service_healthy
+    stop_grace_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging
     networks:
       - interna
 

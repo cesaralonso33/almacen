@@ -12,6 +12,7 @@ desktop/dist/
 .env.*
 !.env.example
 infra/.env
+infra/portainer.env
 
 # Bases locales y respaldos
 *.sqlite

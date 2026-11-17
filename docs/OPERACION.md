@@ -6,10 +6,14 @@
 |---|---|
 | Estado de servicios | `docker compose ps` |
 | Salud de la API | `set -a; . ./.env; set +a; curl -fsS "https://$SITIO/health"` |
+| Diagnóstico TLS | `bash ./verificar-tls.sh` (lee el `SITIO` del contenedor; no depende de `.env`) |
 | Logs de la API | `docker compose logs -f api` |
 | Logs del proxy | `infra/caddy_data` → `access.log` (rotación 10 MiB, 10 archivos) |
 | Pedidos y entregas | Panel «Inicio» de la aplicación |
 | Conflictos de sincronización | Botón «conflictos» en la barra superior |
+
+En un stack administrado por Portainer, las variables efectivas están en la UI del stack, no
+necesariamente en `infra/.env`. El diagnóstico TLS consulta el contenedor en ejecución.
 
 ## Respaldos
 

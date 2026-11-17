@@ -380,3 +380,30 @@ servidor Debian de destino.
 - No hay Docker en el equipo, por lo que el `docker-compose.yml` no se pudo validar.
 - La base de prueba quedó en `expedientes_review`; los datos son ficticios.
 - El escritorio no se pudo ejecutar por el fallo de compilación indicado.
+
+## Adecuación para VPS con Portainer (17/11/2026)
+
+- El VPS responde `http://129-121-117-177.sslip.io/health` con `{"ok":true}`, pero rechaza TLS en
+  443. Dentro del contenedor, `caddy validate` y los logs muestran `automatic HTTPS is completely
+  disabled` y un sitio `:80`: el contenedor quedó creado con `Caddyfile.http` aunque `.env` ya
+  declara `CADDYFILE=./Caddyfile.publico`. Si el stack lo administra Portainer, el valor efectivo
+  puede estar en la UI; actualícelo allí y use *Update the stack*. Recrear solo Caddy desde el host
+  corrige el contenedor de forma temporal, pero la próxima actualización puede revertirlo.
+- `docker-compose.yml` (CLI): `BIND_IP` opcional, `CERTS_DIR`, imagen local estable, límites de
+  logs, `no-new-privileges` y periodos de gracia. No se publica 443/udp para no anunciar HTTP/3 sin
+  abrir y verificar su firewall.
+- `docker-compose.portainer.yml`: stack para Portainer con **imagen ya construida** y rutas
+  **absolutas** de Caddy. No usa `build` ni montajes relativos, porque los stacks Git de Portainer
+  clonan el repositorio dentro de su contenedor y esos paths se resuelven en el host.
+- `preparar-vps.sh --portainer`: genera secretos, `infra/.env` e `infra/portainer.env` (600, ignorado
+  por Git) con `API_IMAGE`, `CADDYFILE` y `CERTS_DIR` absolutos; no levanta el stack ni crea el
+  administrador.
+- `verificar-tls.sh`: usa Docker directamente (sin exigir el plugin `compose`), lee el `SITIO`
+  efectivo del contenedor, separa el saludo TLS del estado de `/health`, revisa certificado, HTTP
+  en claro, rutas de montaje huérfanas y acceso externo.
+- Documentación de Portainer corregida: los puertos publicados por Docker no pasan por UFW; se
+  recomienda publicar 9443 solo en loopback con túnel SSH y retirar 8000 si no se usa Edge.
+- Validación local: `bash -n`, YAML con PyYAML, `--portainer` en copia temporal y `verificar-tls.sh`
+  con Docker/curl simulados (HTTP obsoleto, TLS fallido, TLS correcto y montaje huérfano).
+- **Pendiente:** desplegar y medir el flujo real en el VPS con Portainer; hasta entonces no se
+  afirma que el stack Repository esté verificado en producción.

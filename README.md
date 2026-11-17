@@ -205,8 +205,15 @@ curl -fsS "https://$SITIO/health"
 En un VPS con dominio público defina `CADDYFILE=./Caddyfile.publico` en `infra/.env` para TLS
 automático con Let's Encrypt. Si no es posible configurar TLS, existe `Caddyfile.http` para redes
 cerradas, con advertencia visible en la aplicación; el tráfico queda **sin cifrar**.
-Ver `docs/DESPLIEGUE.md` (secciones «Ruta rápida para VPS», «Sin TLS» y «Coexistencia con
-Portainer»), `docs/OPERACION.md` y `docs/SEGURIDAD.md`.
+
+En un VPS administrado con **Portainer**, construya primero la imagen
+(`docker compose -f docker-compose.yml build api`) y ejecute
+`./preparar-vps.sh --portainer --sitio <dominio>`. El script genera `infra/portainer.env` con
+`API_IMAGE`, `CADDYFILE` y `CERTS_DIR` en rutas absolutas; cree el stack *Repository* con
+`infra/docker-compose.portainer.yml`, nombre `expedientes` y esas variables. Portainer no compila
+la API en este flujo. Después compruebe el acceso con `bash ./verificar-tls.sh`. Ver
+`docs/DESPLIEGUE.md` (secciones «Ruta rápida para VPS», «Sin TLS» y «Coexistencia con Portainer»),
+`docs/OPERACION.md` y `docs/SEGURIDAD.md`.
 
 ## Documentación
 

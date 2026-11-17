@@ -272,3 +272,40 @@ async fn resolver(
         "custodio_id": destino_id,
     })))
 }
+
+/// Transferencias en las que el usuario es el destino y están pendientes de aceptar.
+pub async fn pendientes(
+    State(app): State<AppState>,
+    user: AuthUser,
+) -> Result<Json<Value>, ApiError> {
+    user.exigir("transferencias:aceptar")?;
+
+    let filas = sqlx::query_as::<_, (Uuid, Uuid, String, String, String, chrono::DateTime<chrono::Utc>, Option<String>)>(
+        "SELECT t.id, e.id, e.numero, e.descripcion, u.nombre, t.solicitada_en, t.observaciones
+         FROM transferencias t
+         JOIN expedientes e ON e.id = t.expediente_id
+         JOIN usuarios u ON u.id = t.origen_id
+         WHERE t.destino_id = $1 AND t.estado = 'SOLICITADA'
+         ORDER BY t.solicitada_en",
+    )
+    .bind(user.id)
+    .fetch_all(&app.db)
+    .await?;
+
+    let transferencias: Vec<Value> = filas
+        .into_iter()
+        .map(|(id, expediente_id, numero, descripcion, origen, solicitada_en, observaciones)| {
+            json!({
+                "id": id,
+                "expediente_id": expediente_id,
+                "numero": numero,
+                "descripcion": descripcion,
+                "origen": origen,
+                "solicitada_en": solicitada_en,
+                "observaciones": observaciones,
+            })
+        })
+        .collect();
+
+    Ok(Json(json!({ "transferencias": transferencias })))
+}

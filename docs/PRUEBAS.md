@@ -25,8 +25,9 @@ Cada prueba crea una base PostgreSQL efímera, aplica todas las migraciones y la
 | `tests/reportes.rs` | 2 | altas por usuario agrupadas por día, mes y año; permisos |
 | `tests/busqueda.rs` | 2 | total, filtros avanzados, resumen por estado y paginación |
 | `tests/sesion.rs` | 4 | duración de 18 h, inactividad, actividad reciente y exclusión de sync |
+| `tests/transferencias.rs` | 1 | bandeja de transferencias pendientes y aceptación |
 
-Total: **71 pruebas**.
+Total: **72 pruebas**.
 
 ## Escritorio (Rust)
 

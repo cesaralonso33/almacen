@@ -56,6 +56,7 @@ pub fn router(estado: AppState) -> Router {
         )
         .route("/api/v1/devoluciones/{id}/confirmar", post(devoluciones::confirmar))
         .route("/api/v1/transferencias", post(transferencias::solicitar))
+        .route("/api/v1/transferencias/pendientes", get(transferencias::pendientes))
         .route("/api/v1/transferencias/{id}/aceptar", post(transferencias::aceptar))
         .route("/api/v1/transferencias/{id}/rechazar", post(transferencias::rechazar))
         .route("/api/v1/sync/dispositivos", post(sync::registrar_dispositivo))

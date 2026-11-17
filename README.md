@@ -212,7 +212,7 @@ Portainer»), `docs/OPERACION.md` y `docs/SEGURIDAD.md`.
 
 `docs/PLAN.md`, `docs/PROGRESO.md`, `docs/ARQUITECTURA.md`, `docs/MODELO_DATOS.md`,
 `docs/SEGURIDAD.md`, `docs/SINCRONIZACION.md`, `docs/DESPLIEGUE.md`, `docs/OPERACION.md`,
-`docs/PRUEBAS.md`.
+`docs/PRUEBAS.md`, `docs/MANUAL_USUARIO.md`.
 
 ## Cadena de custodia
 

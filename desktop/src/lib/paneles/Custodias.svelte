@@ -8,6 +8,7 @@
     import { POR_PAGINA, recortar, totalPaginas } from '../paginacion';
 
     let custodias = $state<any[]>([]);
+    let pendientes = $state<any[]>([]);
     let transferencia = $state<any>(null);
     let directorio = $state<{ id: string; nombre: string }[]>([]);
     let destino = $state('');
@@ -24,7 +25,10 @@
     const paginas = $derived(totalPaginas(custodias.length, POR_PAGINA));
     const visibles = $derived(recortar(custodias, pagina, POR_PAGINA));
 
-    onMount(cargar);
+    onMount(() => {
+        cargar();
+        cargarPendientes();
+    });
 
     async function cargar() {
         try {
@@ -61,6 +65,37 @@
             app.avisar(String(error), 'error');
         } finally {
             guardando = false;
+        }
+    }
+
+    async function cargarPendientes() {
+        try {
+            const respuesta = await api<{ transferencias: any[] }>('GET', '/api/v1/transferencias/pendientes');
+            pendientes = respuesta.transferencias;
+        } catch {
+            pendientes = [];
+        }
+    }
+
+    async function aceptar(id: string) {
+        try {
+            await api('POST', `/api/v1/transferencias/${id}/aceptar`, {});
+            app.avisar('Transferencia aceptada; el expediente está en tu custodia');
+            await cargar();
+            await cargarPendientes();
+            await app.sincronizar(true);
+        } catch (error) {
+            app.avisar(String(error), 'error');
+        }
+    }
+
+    async function rechazar(id: string) {
+        try {
+            await api('POST', `/api/v1/transferencias/${id}/rechazar`, {});
+            app.avisar('Transferencia rechazada');
+            await cargarPendientes();
+        } catch (error) {
+            app.avisar(String(error), 'error');
         }
     }
 
@@ -116,6 +151,44 @@
             <button class="btn-secundario" onclick={cargar}>Actualizar</button>
         </div>
     </div>
+
+    {#if pendientes.length > 0}
+        <section class="tarjeta overflow-hidden">
+            <header class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                <h2 class="text-sm font-semibold text-slate-700">Transferencias por aceptar</h2>
+                <span class="insignia bg-amber-100 text-amber-700">{pendientes.length}</span>
+            </header>
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Expediente</th>
+                        <th>De</th>
+                        <th>Solicitada</th>
+                        <th class="text-right">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {#each pendientes as pendiente}
+                        <tr>
+                            <td class="font-medium">{pendiente.numero}</td>
+                            <td class="text-slate-600">{pendiente.origen}</td>
+                            <td class="text-slate-500">
+                                {new Date(pendiente.solicitada_en).toLocaleString('es-MX')}
+                            </td>
+                            <td class="space-x-2 text-right">
+                                <button class="btn-primario" onclick={() => aceptar(pendiente.id)}>
+                                    Aceptar
+                                </button>
+                                <button class="btn-secundario" onclick={() => rechazar(pendiente.id)}>
+                                    Rechazar
+                                </button>
+                            </td>
+                        </tr>
+                    {/each}
+                </tbody>
+            </table>
+        </section>
+    {/if}
 
     <div class="tarjeta overflow-hidden">
         <table class="tabla">

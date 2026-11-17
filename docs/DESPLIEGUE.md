@@ -356,7 +356,7 @@ los demás usuarios desde el panel de administración.
 
 ## Clientes
 
-1. Instale el paquete `Custodia Jurídica` (NSIS) generado con `npm run tauri build`.
+1. Instale el paquete `Custodia CradSystem` (NSIS) generado con `npm run tauri build`.
 2. Instale la CA institucional en el almacén de certificados de Windows.
 3. En la pantalla de acceso, la dirección viene precargada con `https://129-121-117-177.sslip.io`; cámbiela si su instalación usa otro nombre o HTTP.
 4. Verifique el estado `En línea` y realice una búsqueda de expedientes.

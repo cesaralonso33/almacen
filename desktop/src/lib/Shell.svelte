@@ -55,7 +55,7 @@
             <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-institucional-100/70">
                 Institución
             </p>
-            <h1 class="mt-1 text-base font-semibold text-white">Almacén y custodia</h1>
+            <h1 class="mt-1 text-base font-semibold text-white">Custodia CradSystem</h1>
         </div>
 
         <nav class="flex-1 space-y-1 px-3" aria-label="Navegación principal">

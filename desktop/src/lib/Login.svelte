@@ -34,7 +34,7 @@
             <p class="text-xs font-semibold uppercase tracking-widest text-institucional-500">
                 Institución
             </p>
-            <h1 class="mt-1 text-2xl font-semibold text-slate-800">Almacén y custodia</h1>
+            <h1 class="mt-1 text-2xl font-semibold text-slate-800">Custodia CradSystem</h1>
             <p class="mt-2 text-sm text-slate-500">
                 Expedientes jurídicos · acceso con credenciales institucionales
             </p>

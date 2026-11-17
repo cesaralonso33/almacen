@@ -1,9 +1,9 @@
-# Expedientes jurídicos — almacén y custodia
+# Custodia CradSystem
 
 Sistema para solicitud, entrega, devolución y cadena de custodia de expedientes jurídicos físicos.
-Estado actual: **prototipo funcional con autenticación**. La API autentica con Argon2id + JWT,
-aplica permisos por rol, registra auditoría y ejecuta el ciclo de pedidos y custodia. La interfaz
-Svelte todavía no consume la API (Fase 5).
+Estado actual: **funcional, con autenticación, RBAC, operación offline e interfaz de escritorio**.
+La API autentica con Argon2id + JWT, aplica permisos por rol, registra auditoría y ejecuta el ciclo
+de pedidos y custodia. La aplicación de escritorio consume la API y mantiene caché local.
 
 ## Requisitos
 
@@ -138,7 +138,7 @@ npm run tauri build
 El instalador queda en:
 
 ```
-desktop/src-tauri/target/release/bundle/nsis/Custodia Jurídica_0.1.0_x64-setup.exe
+desktop/src-tauri/target/release/bundle/nsis/Custodia CradSystem_0.1.0_x64-setup.exe
 ```
 
 ### Configurar el primer acceso

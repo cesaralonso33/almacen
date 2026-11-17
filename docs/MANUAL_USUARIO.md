@@ -1,4 +1,4 @@
-# Manual rápido de uso
+# Manual rápido de uso — Custodia CradSystem
 
 Guía breve para operar el sistema. Cada sección explica solo lo necesario.
 

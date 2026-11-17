@@ -1,5 +1,5 @@
 {
-  "productName": "Custodia Jurídica",
+  "productName": "Custodia CradSystem",
   "version": "0.1.0",
   "identifier": "mx.institucion.custodia",
   "build": {
@@ -9,7 +9,7 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [{ "title": "Almacén y custodia", "width": 1280, "height": 820 }],
+    "windows": [{ "title": "Custodia CradSystem", "width": 1280, "height": 820 }],
     "security": {
       "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost"
     }

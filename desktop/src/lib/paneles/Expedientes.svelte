@@ -164,12 +164,9 @@
                 const partes = (linea.includes(';') ? linea.split(';') : linea.split(',')).map((parte) =>
                     parte.trim()
                 );
-                const [numero, unidad, anio, ...resto] = partes;
-                const anioNumero = anio ? Number(anio) : null;
+                const [numero, ...resto] = partes;
                 return {
                     numero: numero ?? '',
-                    unidad: unidad || null,
-                    anio: anioNumero && Number.isFinite(anioNumero) ? anioNumero : null,
                     descripcion: resto.join(', ').trim() || null
                 };
             });
@@ -374,9 +371,9 @@
     <Modal titulo="Importar expedientes" oncerrar={() => (importando = false)}>
         <div class="space-y-4">
             <p class="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800">
-                Una fila por expediente: <code>numero;unidad;año;descripción</code>. Solo el número es
-                obligatorio; se completa a 8 caracteres antes de la barra y los duplicados se omiten.
-                Los expedientes importados quedan en <strong>almacén</strong>, sin custodia.
+                Una fila por expediente: <code>numero;descripción</code>. El número se completa a 8
+                caracteres antes de la barra y los duplicados se omiten. Los expedientes importados se
+                asignan al <strong>almacén</strong> (sin custodia) y usan el año en curso.
             </p>
 
             <label class="block text-sm">
@@ -392,7 +389,7 @@
                 <textarea
                     class="campo h-40 font-mono text-xs"
                     bind:value={textoImportacion}
-                    placeholder={'5259/2026;JUZGADO 1;2026;Demanda laboral\n100/2026'}
+                    placeholder={'5259/2026;Demanda laboral\n100/2026'}
                 ></textarea>
             </label>
 

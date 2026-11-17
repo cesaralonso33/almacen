@@ -163,7 +163,7 @@ manda la dirección guardada en la pantalla de acceso.
 - Navegación por permisos: Inicio, Expedientes, Mis pedidos, Almacén, Entregas, Mis custodias,
   Devoluciones, Reportes y Administración.
 - Alta de expedientes por cualquier usuario operativo: el creador queda como custodio inicial hasta que lo devuelva al almacén.
-- Importación masiva desde CSV/TXT para administración y almacén, con reporte de duplicados y errores.
+- Importación masiva desde CSV/TXT (`numero;descripcion`) para administración y almacén; los expedientes quedan en almacén y se reportan duplicados y errores.
 - Reporte de expedientes nuevos por usuario, agrupado por día, mes y año.
 - Expedientes con total, resumen por estado, filtros avanzados y paginación del servidor.
 - Sesión de 18 horas y cierre automático tras 30 minutos sin actividad.

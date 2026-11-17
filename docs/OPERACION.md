@@ -17,7 +17,6 @@
 cd /opt/expedientes/infra
 ./backup/backup.sh
 ```
-
 - Salida: `infra/backup/salidas/expedientes_<UTC>.dump` (formato custom de PostgreSQL).
 - Retención: `RETENCION_DIAS` (30 por omisión).
 - Programe con cron, por ejemplo a las 02:00 y 14:00:
@@ -28,6 +27,28 @@ cd /opt/expedientes/infra
 
 Copie los respaldos fuera del servidor (almacenamiento institucional). Un respaldo que solo vive
 en el mismo disco no protege contra fallo de hardware.
+
+## Limpieza de inventario (mantenimiento)
+
+Para empezar de cero antes de cargar el inventario real:
+
+```bash
+cd /opt/expedientes/infra
+chmod +x mantenimiento/limpiar-expedientes.sh
+./mantenimiento/limpiar-expedientes.sh
+```
+
+Pide escribir `BORRAR`, crea un respaldo previo y luego vacía:
+
+- expedientes, pedidos, renglones, reservas, entregas, acuses, custodias
+- movimientos, descartes, devoluciones, transferencias e incidencias
+- eventos de sincronización y claves de idempotencia (para que los clientes
+  reciban un snapshot vacío)
+
+**Conserva** usuarios, roles, permisos, ubicaciones y la bitácora de auditoría.
+
+Después de la limpieza, cada cliente debe pulsar **Sincronizar**; al detectar un
+cursor inválido pedirá el snapshot y borrará su caché local de expedientes.
 
 ## Restauración (probada)
 

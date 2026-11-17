@@ -168,8 +168,6 @@ mod pruebas {
 pub struct ExpedienteImportado {
     pub numero: String,
     pub descripcion: Option<String>,
-    pub unidad: Option<String>,
-    pub anio: Option<i16>,
 }
 
 #[derive(Deserialize)]
@@ -212,32 +210,22 @@ pub async fn importar(
             continue;
         }
 
-        let anio = fila.anio.unwrap_or_else(|| Utc::now().year() as i16);
-        if !(1900..=2200).contains(&anio) {
-            errores.push(json!({ "fila": indice + 1, "motivo": "Año fuera de rango" }));
-            continue;
-        }
+        let anio = Utc::now().year() as i16;
 
         let descripcion = fila
             .descripcion
             .as_deref()
             .map(str::trim)
             .filter(|texto| !texto.is_empty());
-        let unidad = fila
-            .unidad
-            .as_deref()
-            .map(str::trim)
-            .filter(|texto| !texto.is_empty());
 
         let insertado: Option<Uuid> = sqlx::query_scalar(
             "INSERT INTO expedientes(numero, descripcion, unidad, anio, estado, version)
-             VALUES ($1, COALESCE($2, ''), $3, $4, 'ALMACEN', 1)
+             VALUES ($1, COALESCE($2, ''), NULL, $3, 'ALMACEN', 1)
              ON CONFLICT (numero) DO NOTHING
              RETURNING id",
         )
         .bind(&numero)
         .bind(descripcion)
-        .bind(unidad)
         .bind(anio)
         .fetch_optional(&mut *tx)
         .await?;

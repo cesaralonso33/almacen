@@ -33,9 +33,9 @@ async fn importa_lista_normaliza_y_omite_duplicados() {
         Some(&tok),
         Some(json!({
             "expedientes": [
-                { "numero": "5259/2026", "unidad": "JUZGADO 1", "descripcion": "Demanda" },
+                { "numero": "5259/2026", "descripcion": "Demanda" },
                 { "numero": "100/2026" },
-                { "numero": "00000101/2026", "anio": 2020 },
+                { "numero": "00000101/2026" },
                 { "numero": "   " }
             ]
         })),

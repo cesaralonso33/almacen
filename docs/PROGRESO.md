@@ -455,8 +455,9 @@ servidor Debian de destino.
   cada 6 horas, y panel de actualización con confirmación antes de reiniciar.
 - La API publica `/updates` desde el volumen `UPDATES_DIR`; el manifiesto y el NSIS se generan con
   `scripts/publicar-actualizacion.ps1`.
-- Versión `0.1.2`: incluye P.A. sobre la base de updater/SQLCipher de `0.1.1`. Las instalaciones
-  anteriores a `0.1.1` requieren una instalación manual única.
+- Versión `0.1.3`: listado de años del alta de expedientes desde 2020 hasta el año en curso.
+  Incluye P.A. sobre la base de updater/SQLCipher de `0.1.1`; las instalaciones anteriores a
+  `0.1.1` requieren una instalación manual única.
 - CI añadido para pruebas del servidor y escritorio; release de escritorio en tag `desktop-v*`.
 - Firma Authenticode pendiente de certificado institucional.
 

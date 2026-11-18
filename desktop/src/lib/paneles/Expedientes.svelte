@@ -9,6 +9,7 @@
     import { totalPaginas } from '../paginacion';
 
     const TAMANO = 25;
+    const ANIO_INICIAL = 2020;
 
     let buscar = $state('');
     let expedientes = $state<Expediente[]>([]);
@@ -32,7 +33,13 @@
     let numeroNuevo = $state('');
     let descripcionNueva = $state('');
     let unidadNueva = $state('');
-    let anioNuevo = $state<number | null>(new Date().getFullYear());
+    let anioActual = $state(new Date().getFullYear());
+    let anioNuevo = $state(String(new Date().getFullYear()));
+    const aniosDisponibles = $derived(
+        Array.from({ length: Math.max(0, anioActual - ANIO_INICIAL + 1) }, (_, indice) =>
+            String(anioActual - indice)
+        )
+    );
     let guardando = $state(false);
 
     let importando = $state(false);
@@ -123,7 +130,8 @@
         numeroNuevo = '';
         descripcionNueva = '';
         unidadNueva = '';
-        anioNuevo = new Date().getFullYear();
+        anioActual = new Date().getFullYear();
+        anioNuevo = String(anioActual);
         creando = true;
     }
 
@@ -134,7 +142,7 @@
                 numero: numeroNuevo,
                 descripcion: descripcionNueva || null,
                 unidad: unidadNueva || null,
-                anio: anioNuevo || null
+                anio: anioNuevo ? Number(anioNuevo) : null
             });
             app.avisar('Expediente registrado; queda bajo tu custodia');
             creando = false;
@@ -437,7 +445,11 @@
                 </label>
                 <label class="block text-sm">
                     <span class="mb-1 block font-medium text-slate-600">Año</span>
-                    <input class="campo" type="number" min="1900" max="2200" bind:value={anioNuevo} />
+                    <select class="campo" bind:value={anioNuevo}>
+                        {#each aniosDisponibles as anio}
+                            <option value={anio}>{anio}</option>
+                        {/each}
+                    </select>
                 </label>
                 <label class="block text-sm sm:col-span-2">
                     <span class="mb-1 block font-medium text-slate-600">Descripción</span>

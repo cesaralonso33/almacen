@@ -35,7 +35,7 @@ Trabajo pendiente:
 
 - Migración `0002` con: `roles`, `permisos`, `usuario_roles`, `sesiones`, `dispositivos`, `ubicaciones` jerárquicas, catálogos de estado, `reservas`, `acuses`, `incidencias`, `descartes`, `auditoria`, `sync_events`, `sync_devices`, `operaciones_idempotentes`.
 - Rehacer `pedidos`/`pedido_items`/`entregas` para soportar `RESERVADO`, `CANCELADO`, `DESPACHADA`, `RECIBIDA`, `INCIDENCIA` y descartes con catálogo de motivos.
-- Unicidad de `expedientes.numero` parametrizada por unidad/año (no UNIQUE global).
+- Unicidad **global** de `expedientes.numero` (decisión institucional del 18/11/2026), respaldada por un índice único global.
 - Índice único parcial de custodia activa ya existe: conservarlo y probarlo.
 - Semillas de desarrollo con contraseñas de demostración documentadas.
 

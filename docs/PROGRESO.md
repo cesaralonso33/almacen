@@ -459,3 +459,18 @@ servidor Debian de destino.
   una instalación manual única.
 - CI añadido para pruebas del servidor y escritorio; release de escritorio en tag `desktop-v*`.
 - Firma Authenticode pendiente de certificado institucional.
+
+## Decisión de numeración (18/11/2026)
+
+- El número de expediente es **único en todo el sistema**, no por unidad/año.
+- La migración `0006_numero_expediente_unico.sql` crea el índice único global
+  `expedientes_numero_global`; el alta y la importación rechazan u omiten duplicados.
+- La prueba `numero_de_expediente_es_unico_globalmente` verifica la restricción.
+
+## Rol CONSULTA y sincronización (18/11/2026)
+
+- El registro del dispositivo ahora exige `sync:pull`, no `sync:push`: un usuario de consulta
+  puede descargar la caché autorizada sin poder enviar operaciones.
+- La migración `0010_consulta_sync_pull.sql` concede `sync:pull` al rol `CONSULTA`.
+- El push de operaciones sigue exigiendo `sync:push`; la prueba
+  `consulta_registra_dispositivo_y_descarga_pero_no_envia` cubre ambos casos.

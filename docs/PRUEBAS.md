@@ -15,7 +15,7 @@ Cada prueba crea una base PostgreSQL efímera, aplica todas las migraciones y la
 | `tests/modelo_datos.rs` | 12 | RBAC, ubicaciones, reservas, descartes, auditoría inmutable, sync, idempotencia, custodia única, numeración |
 | `tests/auth_rbac.rs` | 16 | login, refresh rotativo, logout, cambio de contraseña, 401/403, identidad del token, administración |
 | `tests/custodia.rs` | 8 | devoluciones con acuse, transferencias, concurrencia, cancelación |
-| `tests/sync.rs` | 9 | snapshot, push idempotente, pull filtrado, cursores, operación no permitida |
+| `tests/sync.rs` | 10 | snapshot, push idempotente, pull filtrado, cursores, operación no permitida y CONSULTA de solo lectura |
 | `tests/consultas.rs` | 7 | tablero, listados por rol, custodias, historial, directorio |
 | `tests/bootstrap.rs` | 2 | creación del administrador inicial, duplicados y contraseña corta |
 | `tests/expedientes.rs` | 4 | alta con custodia del creador, año actual, devolución, permisos y formato del número |
@@ -29,7 +29,7 @@ Cada prueba crea una base PostgreSQL efímera, aplica todas las migraciones y la
 | `tests/asignacion.rs` | 3 | pedido masivo a nombre de otro usuario, permiso y rechazos |
 | `tests/seguridad.rs` | 3 | cabeceras, límite de cuerpo y credenciales de longitud abusiva |
 
-Total: **80 pruebas**.
+Total: **81 pruebas**.
 
 ## Escritorio (Rust)
 

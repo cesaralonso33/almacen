@@ -53,7 +53,9 @@ pub async fn registrar_dispositivo(
     user: AuthUser,
     ApiJson(input): ApiJson<NuevoDispositivo>,
 ) -> Result<Json<Value>, ApiError> {
-    user.exigir("sync:push")?;
+    // Registrar el equipo es requisito para descargar eventos, incluso para
+    // usuarios de solo consulta; no concede permiso para enviar operaciones.
+    user.exigir("sync:pull")?;
 
     let nombre = input.nombre.trim();
     if nombre.is_empty() {

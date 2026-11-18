@@ -306,3 +306,34 @@ async fn no_se_puede_usar_un_dispositivo_ajeno() {
 
     t.cerrar().await;
 }
+
+#[tokio::test]
+async fn consulta_registra_dispositivo_y_descarga_pero_no_envia() {
+    let t = setup().await;
+    crear_usuario(&t.db, "consulta@test.mx", "CONSULTA").await;
+    let exp = crear_expediente(&t.db, "EXP-SYNC-6").await;
+    let s = preparar(&t, "consulta@test.mx").await;
+
+    let (estado, cuerpo) = pedir(
+        &t.app,
+        "GET",
+        &format!("/api/v1/sync/pull?dispositivo_id={}&cursor=0&limite=10", s.dispositivo),
+        Some(&s.token),
+        None,
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK, "{cuerpo}");
+
+    let (estado, cuerpo) = push_operacion(
+        &t.app,
+        &s.token,
+        &s.dispositivo,
+        Uuid::new_v4(),
+        "CREAR_PEDIDO",
+        json!({ "expedientes": [exp] }),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::FORBIDDEN, "{cuerpo}");
+
+    t.cerrar().await;
+}

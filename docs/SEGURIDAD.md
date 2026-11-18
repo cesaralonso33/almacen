@@ -24,6 +24,8 @@
   prohibidos en los cuerpos (`deny_unknown_fields` → 400).
 - El receptor de una entrega y el custodio de un expediente se comparan contra la sesión.
 - Un usuario sin `pedidos:preparar` no ve pedidos ajenos (404, sin filtrar existencia).
+- El rol `CONSULTA` puede registrar su dispositivo y descargar eventos (`sync:pull`), pero no
+  enviar operaciones (`sync:push`).
 
 ## Transporte y secretos
 

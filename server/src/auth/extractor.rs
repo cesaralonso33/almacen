@@ -79,7 +79,7 @@ impl FromRequestParts<AppState> for AuthUser {
         let es_sincronizacion = parts.uri.path().starts_with("/api/v1/sync/");
         if !es_sincronizacion {
             let inactividad = chrono::Duration::from_std(estado.config.idle_ttl)
-                .unwrap_or_else(|_| chrono::Duration::minutes(30));
+                .unwrap_or_else(|_| chrono::Duration::hours(18));
             if Utc::now() - ultima_actividad > inactividad {
                 sqlx::query(
                     "UPDATE sesiones SET revocada_en = now() WHERE id = $1 AND revocada_en IS NULL",

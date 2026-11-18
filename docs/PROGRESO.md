@@ -158,7 +158,7 @@ server/src/
   bin/seed_demo.rs
 ```
 
-- Argon2id, JWT HS256 de 15 minutos ligado a `sesiones.id`, refresh opaco rotativo con hash SHA-256
+- Argon2id, JWT HS256 de 18 horas ligado a `sesiones.id`, refresh opaco rotativo con hash SHA-256
   y detección de reuso (el refresh anterior devuelve 401 tras rotar).
 - Extraer identidad del token: se eliminaron `actor_id`, `solicitante_id` y `receptor_id` de los
   cuerpos; `deny_unknown_fields` hace que enviarlos devuelva 400.
@@ -407,3 +407,55 @@ servidor Debian de destino.
   con Docker/curl simulados (HTTP obsoleto, TLS fallido, TLS correcto y montaje huérfano).
 - **Pendiente:** desplegar y medir el flujo real en el VPS con Portainer; hasta entonces no se
   afirma que el stack Repository esté verificado en producción.
+
+## Sesión extendida (17/11/2026)
+
+- Valores predeterminados: `ACCESS_TTL_MINUTOS=1080`, `REFRESH_TTL_MINUTOS=1440` e
+  `IDLE_TTL_MINUTOS=1080` (24 horas máximas, 18 horas sin actividad). El escritorio renueva el
+  token de acceso automáticamente.
+- El escritorio usa el mismo límite de 18 horas en `INACTIVIDAD_MS`; si solo se cambiara el
+  servidor, la aplicación seguiría cerrando antes.
+- Las pruebas de sesión ahora cubren 24 horas de duración, cierre tras 19 horas sin actividad,
+  actividad reciente a las 17 horas y exclusión de la sincronización.
+- Las instalaciones existentes deben actualizar su `.env` o las variables de Portainer; el cambio
+  de valores predeterminados no modifica archivos `.env` ya creados.
+
+## Asignación masiva de pedidos (17/11/2026)
+
+- El permiso `pedidos:asignar` permite al administrador crear un pedido a nombre de otro usuario
+  desde un listado de expedientes.
+- La custodia no cambia en la asignación: el pedido entra al flujo normal de almacén y el
+  destinatario confirma la recepción con su acuse.
+- La operación valida usuario destino activo y con permiso de lectura de pedidos, rechaza
+  duplicados y expedientes inexistentes, y registra `pedidos.asignar` en auditoría.
+- La interfaz añade el panel **Asignaciones**, con búsqueda, filtro de disponibilidad y selección
+  múltiple. Las pruebas nuevas cubren el flujo, el permiso y los rechazos.
+
+## Endurecimiento de la API (17/11/2026)
+
+- Límite de cuerpo de 2 MiB, timeout de 60 segundos y `CatchPanicLayer`.
+- Cabeceras de seguridad en todas las respuestas, incluidas las de error.
+- Límites de longitud para correo y contraseña.
+- El limitador de login sigue siendo por correo y en memoria; el límite por IP corresponde al
+  proxy/firewall.
+- Pruebas nuevas: cabeceras, rechazo de cuerpos grandes y credenciales abusivas.
+
+## Rendimiento integrado (18/11/2026)
+
+- Se incorporaron los índices trigram para búsqueda parcial (`0008`), el tablero en una sola
+  consulta, las cargas concurrentes de inicio/reportes y el single-flight de sincronización.
+- `server/build.rs` fuerza recompilar los binarios cuando cambian las migraciones embebidas.
+- Pruebas: búsqueda con Unicode/comodines/índices y coordinación de sincronización.
+
+## Actualización firmada y SQLCipher (18/11/2026)
+
+- SQLite local cifrada con SQLCipher; la clave se guarda en el Administrador de credenciales de
+  Windows (DPAPI). La migración desde una base plana conserva los datos y elimina la copia plana.
+- Tauri updater configurado con firma minisign, `createUpdaterArtifacts`, revisión al iniciar y
+  cada 6 horas, y panel de actualización con confirmación antes de reiniciar.
+- La API publica `/updates` desde el volumen `UPDATES_DIR`; el manifiesto y el NSIS se generan con
+  `scripts/publicar-actualizacion.ps1`.
+- Versión `0.1.1`: primera versión con updater y SQLCipher. Las instalaciones anteriores requieren
+  una instalación manual única.
+- CI añadido para pruebas del servidor y escritorio; release de escritorio en tag `desktop-v*`.
+- Firma Authenticode pendiente de certificado institucional.

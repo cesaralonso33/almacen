@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { Sincronizacion } from './api';
+import { SingleFlight } from './singleFlight.js';
 
 export type SesionInfo = {
     nombre: string;
@@ -14,6 +15,7 @@ class EstadoApp {
     servidor = $state('');
     mensaje = $state<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
     ocupado = $state(false);
+    private sincronizacionEnVuelo = new SingleFlight();
 
     get inseguro(): boolean {
         return this.servidor.startsWith('http://');
@@ -71,14 +73,32 @@ class EstadoApp {
 
     async sincronizar(silencioso = false) {
         this.ocupado = true;
+        const yaHabiaUna = this.sincronizacionEnVuelo.running;
         try {
-            await invoke('sincronizar');
-            if (!silencioso) this.avisar('Sincronización completada');
-        } catch (error) {
-            this.avisar(`Sin conexión: ${String(error)}`, 'error');
+            const resultado = await this.sincronizacionEnVuelo.run(async () => {
+                let exitosa = false;
+                try {
+                    await invoke('sincronizar');
+                    exitosa = true;
+                    if (!silencioso) this.avisar('Sincronización completada');
+                } catch (error) {
+                    const texto = String(error);
+                    if (texto.includes('SESION_EXPIRADA')) {
+                        this.cerrarSesionLocal();
+                        this.avisar('La sesión expiró; vuelve a iniciar sesión', 'error');
+                    } else {
+                        this.avisar(`Sin conexión: ${texto}`, 'error');
+                    }
+                } finally {
+                    await this.refrescarSync();
+                }
+                return { exitosa, notificada: !silencioso };
+            });
+            if (yaHabiaUna && !silencioso && resultado.exitosa && !resultado.notificada) {
+                this.avisar('Sincronización completada');
+            }
         } finally {
             this.ocupado = false;
-            await this.refrescarSync();
         }
     }
 }

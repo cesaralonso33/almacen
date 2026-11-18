@@ -23,8 +23,8 @@ impl Config {
             bail!("JWT_SECRET debe tener al menos 32 caracteres");
         }
         let access_ttl = minutos("ACCESS_TTL_MINUTOS", 18 * 60)?;
-        let refresh_ttl = minutos("REFRESH_TTL_MINUTOS", 18 * 60)?;
-        let idle_ttl = minutos("IDLE_TTL_MINUTOS", 30)?;
+        let refresh_ttl = minutos("REFRESH_TTL_MINUTOS", 24 * 60)?;
+        let idle_ttl = minutos("IDLE_TTL_MINUTOS", 18 * 60)?;
         let reserva_ttl = minutos("RESERVA_TTL_MINUTOS", 30)?;
         let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3000".to_string());
 
@@ -37,8 +37,8 @@ impl Config {
             database_url,
             jwt_secret: "secreto-de-pruebas-con-mas-de-32-caracteres".to_string(),
             access_ttl: Duration::from_secs(18 * 60 * 60),
-            refresh_ttl: Duration::from_secs(18 * 60 * 60),
-            idle_ttl: Duration::from_secs(30 * 60),
+            refresh_ttl: Duration::from_secs(24 * 60 * 60),
+            idle_ttl: Duration::from_secs(18 * 60 * 60),
             reserva_ttl: Duration::from_secs(30 * 60),
             bind_addr: "127.0.0.1:0".to_string(),
         }

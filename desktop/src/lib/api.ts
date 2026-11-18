@@ -6,7 +6,15 @@ export async function api<T = any>(
     ruta: string,
     cuerpo?: unknown
 ): Promise<T> {
-    return invoke<T>('peticion', { metodo, ruta, cuerpo: cuerpo ?? null });
+    try {
+        return await invoke<T>('peticion', { metodo, ruta, cuerpo: cuerpo ?? null });
+    } catch (error) {
+        const texto = String(error);
+        if (texto.startsWith('SESION_EXPIRADA')) {
+            window.dispatchEvent(new Event('sesion-expirada'));
+        }
+        throw error;
+    }
 }
 
 export type Sincronizacion = {

@@ -7,7 +7,7 @@ use axum::http::StatusCode;
 use common::*;
 
 #[tokio::test]
-async fn la_sesion_dura_dicciocho_horas() {
+async fn la_sesion_dura_veinticuatro_horas() {
     let t = setup().await;
     crear_usuario(&t.db, "usuario@test.mx", "USUARIO").await;
     let (_access, _refresh) = iniciar_sesion(&t.app, "usuario@test.mx").await;
@@ -21,8 +21,8 @@ async fn la_sesion_dura_dicciocho_horas() {
     .unwrap();
 
     assert!(
-        (horas - 18.0).abs() < 0.5,
-        "la sesión debe durar 18 horas, dura {horas}"
+        (horas - 24.0).abs() < 0.5,
+        "la sesión debe durar 24 horas, dura {horas}"
     );
 
     t.cerrar().await;
@@ -37,7 +37,7 @@ async fn la_inactividad_cierra_y_revoca_la_sesion() {
     let (estado, _) = pedir(&t.app, "GET", "/api/v1/auth/me", Some(&access), None).await;
     assert_eq!(estado, StatusCode::OK);
 
-    sqlx::query("UPDATE sesiones SET ultima_actividad_en = now() - interval '31 minutes'")
+    sqlx::query("UPDATE sesiones SET ultima_actividad_en = now() - interval '19 hours'")
         .execute(&t.db)
         .await
         .unwrap();
@@ -61,7 +61,7 @@ async fn la_actividad_reciente_mantiene_la_sesion() {
     crear_usuario(&t.db, "usuario@test.mx", "USUARIO").await;
     let (access, _) = iniciar_sesion(&t.app, "usuario@test.mx").await;
 
-    sqlx::query("UPDATE sesiones SET ultima_actividad_en = now() - interval '10 minutes'")
+    sqlx::query("UPDATE sesiones SET ultima_actividad_en = now() - interval '17 hours'")
         .execute(&t.db)
         .await
         .unwrap();
@@ -87,7 +87,7 @@ async fn la_sincronizacion_no_cuenta_como_actividad() {
     let (access, _) = iniciar_sesion(&t.app, "usuario@test.mx").await;
     let dispositivo = registrar_dispositivo(&t.app, &access, "Equipo de pruebas").await;
 
-    sqlx::query("UPDATE sesiones SET ultima_actividad_en = now() - interval '31 minutes'")
+    sqlx::query("UPDATE sesiones SET ultima_actividad_en = now() - interval '19 hours'")
         .execute(&t.db)
         .await
         .unwrap();

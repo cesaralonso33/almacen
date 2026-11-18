@@ -23,11 +23,13 @@ Cada prueba crea una base PostgreSQL efímera, aplica todas las migraciones y la
 | `tests/admin.rs` | 2 | edición de nombre, correo y contraseña; revocación de sesiones |
 | `tests/importacion.rs` | 2 | importación masiva, normalización, duplicados, permisos y límite |
 | `tests/reportes.rs` | 2 | altas por usuario agrupadas por día, mes y año; permisos |
-| `tests/busqueda.rs` | 2 | total, filtros avanzados, resumen por estado y paginación |
-| `tests/sesion.rs` | 4 | duración de 18 h, inactividad, actividad reciente y exclusión de sync |
+| `tests/busqueda.rs` | 4 | total, filtros avanzados, Unicode, comodines, paginación e índices trigram |
+| `tests/sesion.rs` | 4 | duración de 24 h, inactividad de 18 h, actividad reciente y exclusión de sync |
 | `tests/transferencias.rs` | 1 | bandeja de transferencias pendientes y aceptación |
+| `tests/asignacion.rs` | 3 | pedido masivo a nombre de otro usuario, permiso y rechazos |
+| `tests/seguridad.rs` | 3 | cabeceras, límite de cuerpo y credenciales de longitud abusiva |
 
-Total: **72 pruebas**.
+Total: **80 pruebas**.
 
 ## Escritorio (Rust)
 
@@ -36,15 +38,18 @@ cd desktop/src-tauri
 cargo test
 ```
 
-8 pruebas del motor de sincronización sobre SQLite en memoria.
+10 pruebas: 8 del motor de sincronización y 2 de cifrado SQLCipher (creación, reapertura, clave incorrecta y migración desde SQLite plana).
 
 ## Interfaz
 
 ```bash
 cd desktop
+npm test        # coordinación de cargas y single-flight
 npm run check   # svelte-check
 npm run build
 ```
+
+`npm test` ejecuta 3 pruebas con el runner de Node.js.
 
 ## Infraestructura
 

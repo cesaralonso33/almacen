@@ -17,6 +17,13 @@ pub struct CrearPedido {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct AsignarPedido {
+    pub destino_id: Uuid,
+    pub expedientes: Vec<Uuid>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DescarteInput {
     pub motivo_clave: String,
     pub detalle: Option<String>,
@@ -34,17 +41,76 @@ pub async fn crear(
     ApiJson(input): ApiJson<CrearPedido>,
 ) -> Result<Json<Value>, ApiError> {
     user.exigir("pedidos:crear")?;
+    crear_para(&app, &user, user.id, input.expedientes, "pedidos.crear").await
+}
 
-    if input.expedientes.is_empty() || input.expedientes.len() > 100 {
+/// Permite a un administrador crear un pedido a nombre de otro usuario.
+/// La custodia no cambia aquí: almacén prepara y el destinatario confirma la recepción.
+pub async fn asignar(
+    State(app): State<AppState>,
+    user: AuthUser,
+    ApiJson(input): ApiJson<AsignarPedido>,
+) -> Result<Json<Value>, ApiError> {
+    user.exigir("pedidos:asignar")?;
+
+    let destino: Option<(bool, bool)> = sqlx::query_as(
+        "SELECT u.activo,
+                EXISTS(
+                    SELECT 1
+                    FROM usuario_roles ur
+                    JOIN rol_permisos rp ON rp.rol_id = ur.rol_id
+                    JOIN permisos p ON p.id = rp.permiso_id
+                    WHERE ur.usuario_id = u.id
+                      AND ur.revocado_en IS NULL
+                      AND p.clave = 'pedidos:leer'
+                )
+         FROM usuarios u
+         WHERE u.id = $1",
+    )
+    .bind(input.destino_id)
+    .fetch_optional(&app.db)
+    .await?;
+
+    match destino {
+        Some((true, true)) => {}
+        Some((true, false)) => {
+            return Err(ApiError::inprocesable(
+                "El usuario destino no tiene permiso para consultar pedidos",
+            ))
+        }
+        Some((false, _)) => {
+            return Err(ApiError::inprocesable("El usuario destino está inactivo"))
+        }
+        None => return Err(ApiError::inprocesable("El usuario destino no existe")),
+    }
+
+    crear_para(
+        &app,
+        &user,
+        input.destino_id,
+        input.expedientes,
+        "pedidos.asignar",
+    )
+    .await
+}
+
+async fn crear_para(
+    app: &AppState,
+    actor: &AuthUser,
+    solicitante_id: Uuid,
+    expedientes: Vec<Uuid>,
+    accion: &str,
+) -> Result<Json<Value>, ApiError> {
+    if expedientes.is_empty() || expedientes.len() > 100 {
         return Err(ApiError::solicitud_invalida(
             "Debe solicitar entre 1 y 100 expedientes",
         ));
     }
 
-    let mut ids = input.expedientes.clone();
+    let mut ids = expedientes.clone();
     ids.sort();
     ids.dedup();
-    if ids.len() != input.expedientes.len() {
+    if ids.len() != expedientes.len() {
         return Err(ApiError::solicitud_invalida("Expedientes duplicados en la solicitud"));
     }
 
@@ -60,7 +126,7 @@ pub async fn crear(
     let pedido_id: Uuid = sqlx::query_scalar(
         "INSERT INTO pedidos(solicitante_id, version) VALUES ($1,1) RETURNING id",
     )
-    .bind(user.id)
+    .bind(solicitante_id)
     .fetch_one(&mut *tx)
     .await?;
 
@@ -81,9 +147,9 @@ pub async fn crear(
         "pedido",
         pedido_id,
         "CREAR",
-        user.id,
+        solicitante_id,
         1,
-        json!({ "id": pedido_id, "solicitante_id": user.id, "estado": "PENDIENTE", "version": 1 }),
+        json!({ "id": pedido_id, "solicitante_id": solicitante_id, "estado": "PENDIENTE", "version": 1 }),
     )
     .await?;
 
@@ -93,7 +159,7 @@ pub async fn crear(
             "pedido_item",
             *item_id,
             "CREAR",
-            user.id,
+            solicitante_id,
             1,
             json!({ "id": item_id, "pedido_id": pedido_id, "expediente_id": expediente, "estado": "PENDIENTE" }),
         )
@@ -102,17 +168,21 @@ pub async fn crear(
 
     audit::registrar(
         &mut tx,
-        Some(user.id),
-        "pedidos.crear",
+        Some(actor.id),
+        accion,
         "pedidos",
         pedido_id,
         "EXITO",
-        json!({ "expedientes": ids }),
+        json!({ "solicitante_id": solicitante_id, "expedientes": ids }),
     )
     .await?;
 
     tx.commit().await?;
-    Ok(Json(json!({ "pedido_id": pedido_id })))
+    Ok(Json(json!({
+        "pedido_id": pedido_id,
+        "solicitante_id": solicitante_id,
+        "total": ids.len(),
+    })))
 }
 
 pub async fn detalle(

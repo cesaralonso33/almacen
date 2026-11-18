@@ -35,6 +35,8 @@ infra/certs/*
 !infra/certs/LEEME.md
 infra/backup/salidas/*
 !infra/backup/salidas/.gitkeep
+infra/updates/*
+!infra/updates/README.md
 
 # Sistema
 .DS_Store

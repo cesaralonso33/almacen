@@ -2,19 +2,25 @@
 
 mod api;
 mod db;
+mod seguridad;
 mod sync;
 
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+use chrono::{DateTime, Utc};
 use rusqlite::params;
 use serde::Serialize;
-use serde_json::json;
+use serde_json::{json, Value};
 use tauri::Manager;
 use uuid::Uuid;
 
+#[derive(Clone)]
 struct Sesion {
     access_token: String,
+    access_expira_en: DateTime<Utc>,
+    refresh_token: String,
+    refresh_expira_en: DateTime<Utc>,
     usuario_id: String,
     nombre: String,
 }
@@ -23,6 +29,7 @@ struct EstadoApp {
     ruta_db: PathBuf,
     base_url: Mutex<String>,
     sesion: Mutex<Option<Sesion>>,
+    refresco: tokio::sync::Mutex<()>,
 }
 
 #[derive(Serialize)]
@@ -65,12 +72,33 @@ fn base_url(estado: &EstadoApp) -> Result<String, String> {
         .map_err(|_| "configuración bloqueada".to_string())
 }
 
-fn sesion_activa(estado: &EstadoApp) -> Result<(String, String), String> {
+fn sesion_actual(estado: &EstadoApp) -> Result<Sesion, String> {
     let guardia = estado.sesion.lock().map_err(|_| "sesión bloqueada".to_string())?;
-    let sesion = guardia
+    guardia
         .as_ref()
-        .ok_or_else(|| "No hay una sesión iniciada".to_string())?;
-    Ok((sesion.access_token.clone(), sesion.usuario_id.clone()))
+        .cloned()
+        .ok_or_else(|| "No hay una sesión iniciada".to_string())
+}
+
+fn guardar_sesion(estado: &EstadoApp, sesion: Sesion) -> Result<(), String> {
+    let mut guardia = estado.sesion.lock().map_err(|_| "sesión bloqueada".to_string())?;
+    *guardia = Some(sesion);
+    Ok(())
+}
+
+fn limpiar_sesion(estado: &EstadoApp) -> Result<(), String> {
+    let mut guardia = estado.sesion.lock().map_err(|_| "sesión bloqueada".to_string())?;
+    *guardia = None;
+    Ok(())
+}
+
+fn fecha_campo(valor: &Value, campo: &str) -> Result<DateTime<Utc>, String> {
+    valor
+        .get(campo)
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("La respuesta no incluye {campo}"))?
+        .parse::<DateTime<Utc>>()
+        .map_err(|_| format!("{campo} no tiene un formato de fecha válido"))
 }
 
 #[tauri::command]
@@ -87,6 +115,16 @@ async fn login(
         .and_then(|v| v.as_str())
         .ok_or_else(|| "La respuesta no incluye access_token".to_string())?
         .to_string();
+    // Compatibilidad con servidores anteriores que no informaban la expiración.
+    let access_expira_en = fecha_campo(&respuesta, "access_expira_en")
+        .unwrap_or_else(|_| Utc::now() + chrono::Duration::minutes(18 * 60 - 5));
+    let refresh_token = respuesta
+        .get("refresh_token")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "La respuesta no incluye refresh_token".to_string())?
+        .to_string();
+    let refresh_expira_en = fecha_campo(&respuesta, "refresh_expira_en")
+        .unwrap_or_else(|_| Utc::now() + chrono::Duration::hours(23));
     let usuario_id = respuesta
         .pointer("/usuario/id")
         .and_then(|v| v.as_str())
@@ -126,16 +164,33 @@ async fn login(
         .map_err(|error| error.to_string())?
         .unwrap_or_default();
 
-    let mut guardia = estado.sesion.lock().map_err(|_| "sesión bloqueada".to_string())?;
-    *guardia = Some(Sesion { access_token, usuario_id: usuario_id.clone(), nombre: nombre.clone() });
+    guardar_sesion(
+        &estado,
+        Sesion {
+            access_token,
+            access_expira_en,
+            refresh_token,
+            refresh_expira_en,
+            usuario_id: usuario_id.clone(),
+            nombre: nombre.clone(),
+        },
+    )?;
     Ok(SesionInfo { nombre, usuario_id, permisos })
 }
 
 #[tauri::command]
-fn logout(estado: tauri::State<'_, EstadoApp>) -> Result<(), String> {
-    let mut guardia = estado.sesion.lock().map_err(|_| "sesión bloqueada".to_string())?;
-    *guardia = None;
-    Ok(())
+async fn logout(estado: tauri::State<'_, EstadoApp>) -> Result<(), String> {
+    if let (Ok(base), Ok(sesion)) = (base_url(&estado), sesion_actual(&estado)) {
+        let token = token_actual(&estado, &base)
+            .await
+            .unwrap_or_else(|_| sesion.access_token.clone());
+        let _ = reqwest::Client::new()
+            .post(format!("{}/api/v1/auth/logout", base.trim_end_matches('/')))
+            .bearer_auth(token)
+            .send()
+            .await;
+    }
+    limpiar_sesion(&estado)
 }
 
 #[tauri::command]
@@ -176,15 +231,24 @@ fn estado_sync(estado: tauri::State<'_, EstadoApp>) -> Result<EstadoSync, String
 
 #[tauri::command]
 async fn sincronizar(estado: tauri::State<'_, EstadoApp>) -> Result<serde_json::Value, String> {
-    let (token, usuario_id) = sesion_activa(&estado)?;
+    let base = base_url(&estado)?;
+    let usuario_id = sesion_actual(&estado)?.usuario_id;
     let mut conexion = abrir(&estado)?;
     let dispositivo = db::leer_meta(&conexion, &format!("dispositivo:{usuario_id}"))
         .or_else(|| db::leer_meta(&conexion, "dispositivo_actual"))
         .ok_or_else(|| "El dispositivo no está registrado".to_string())?;
 
-    let base = base_url(&estado)?;
-    let transporte = api::ClienteHttp::nuevo(&base, token);
-    let resumen = sync::sincronizar(&mut conexion, &transporte, &dispositivo).await?;
+    let token = token_actual(&estado, &base).await?;
+    let transporte = api::ClienteHttp::nuevo(&base, token.clone());
+    let resumen = match sync::sincronizar(&mut conexion, &transporte, &dispositivo).await {
+        Ok(resumen) => resumen,
+        Err(error) if error.contains("401") => {
+            let token_nuevo = renovar_sesion(&estado, &base, Some(&token)).await?;
+            let transporte = api::ClienteHttp::nuevo(&base, token_nuevo);
+            sync::sincronizar(&mut conexion, &transporte, &dispositivo).await?
+        }
+        Err(error) => return Err(error),
+    };
     serde_json::to_value(resumen).map_err(|error| error.to_string())
 }
 
@@ -234,7 +298,7 @@ fn crear_pedido_local(
     if expedientes.is_empty() {
         return Err("Seleccione al menos un expediente".to_string());
     }
-    let (_, usuario_id) = sesion_activa(&estado)?;
+    let usuario_id = sesion_actual(&estado)?.usuario_id;
     let mut conexion = abrir(&estado)?;
     let tx = conexion.transaction().map_err(|error| error.to_string())?;
 
@@ -289,22 +353,88 @@ fn listar_conflictos(estado: tauri::State<'_, EstadoApp>) -> Result<Vec<serde_js
         .map_err(|error| error.to_string())
 }
 
-/// Proxy autenticado hacia la API. La interfaz nunca maneja el token directamente.
-#[tauri::command]
-async fn peticion(
-    metodo: String,
-    ruta: String,
-    cuerpo: Option<serde_json::Value>,
-    estado: tauri::State<'_, EstadoApp>,
-) -> Result<serde_json::Value, String> {
-    let (token, _) = sesion_activa(&estado)?;
+async fn token_actual(estado: &EstadoApp, base: &str) -> Result<String, String> {
+    let sesion = sesion_actual(estado)?;
+    if sesion.access_expira_en > Utc::now() + chrono::Duration::minutes(5) {
+        return Ok(sesion.access_token);
+    }
+    renovar_sesion(estado, base, None).await
+}
 
-    if !ruta.starts_with("/api/v1/") || ruta.contains("..") {
-        return Err("Ruta no permitida".to_string());
+/// Renueva el refresh token de forma serializada. Varias peticiones que reciben
+/// 401 al mismo tiempo comparten una sola rotación.
+async fn renovar_sesion(
+    estado: &EstadoApp,
+    base: &str,
+    token_fallido: Option<&str>,
+) -> Result<String, String> {
+    let _guardia = estado.refresco.lock().await;
+    let sesion = sesion_actual(estado)?;
+
+    if let Some(fallido) = token_fallido {
+        if sesion.access_token != fallido && sesion.access_expira_en > Utc::now() {
+            return Ok(sesion.access_token);
+        }
     }
 
+    if sesion.refresh_expira_en <= Utc::now() {
+        limpiar_sesion(estado)?;
+        return Err("SESION_EXPIRADA: la sesión expiró".to_string());
+    }
+
+    let respuesta = reqwest::Client::new()
+        .post(format!("{}/api/v1/auth/refresh", base.trim_end_matches('/')))
+        .json(&json!({ "refresh_token": sesion.refresh_token }))
+        .send()
+        .await
+        .map_err(api::describir)?;
+
+    let estado_http = respuesta.status();
+    if !estado_http.is_success() {
+        limpiar_sesion(estado)?;
+        return Err(format!(
+            "SESION_EXPIRADA: no fue posible renovar la sesión (HTTP {estado_http})"
+        ));
+    }
+
+    let cuerpo: Value = respuesta.json().await.map_err(|error| error.to_string())?;
+    let access_token = cuerpo
+        .get("access_token")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "La renovación no incluye access_token".to_string())?
+        .to_string();
+    let refresh_token = cuerpo
+        .get("refresh_token")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "La renovación no incluye refresh_token".to_string())?
+        .to_string();
+    let access_expira_en = fecha_campo(&cuerpo, "access_expira_en")
+        .unwrap_or_else(|_| Utc::now() + chrono::Duration::minutes(18 * 60 - 5));
+    let refresh_expira_en = fecha_campo(&cuerpo, "refresh_expira_en")
+        .unwrap_or_else(|_| Utc::now() + chrono::Duration::hours(23));
+
+    guardar_sesion(
+        estado,
+        Sesion {
+            access_token: access_token.clone(),
+            access_expira_en,
+            refresh_token,
+            refresh_expira_en,
+            usuario_id: sesion.usuario_id,
+            nombre: sesion.nombre,
+        },
+    )?;
+    Ok(access_token)
+}
+
+async fn enviar_api(
+    base: &str,
+    metodo: &str,
+    ruta: &str,
+    cuerpo: Option<Value>,
+    token: &str,
+) -> Result<(reqwest::StatusCode, String), String> {
     let cliente = reqwest::Client::new();
-    let base = base_url(&estado)?;
     let url = format!("{}{}", base.trim_end_matches('/'), ruta);
     let constructor = match metodo.to_ascii_uppercase().as_str() {
         "GET" => cliente.get(&url),
@@ -317,15 +447,37 @@ async fn peticion(
         solicitud = solicitud.json(&cuerpo);
     }
 
-    let respuesta = solicitud
-        .send()
-        .await
-        .map_err(api::describir)?;
+    let respuesta = solicitud.send().await.map_err(api::describir)?;
     let estado_http = respuesta.status();
     let texto = respuesta.text().await.map_err(|error| error.to_string())?;
+    Ok((estado_http, texto))
+}
+
+/// Proxy autenticado hacia la API. La interfaz nunca maneja el token directamente.
+#[tauri::command]
+async fn peticion(
+    metodo: String,
+    ruta: String,
+    cuerpo: Option<serde_json::Value>,
+    estado: tauri::State<'_, EstadoApp>,
+) -> Result<serde_json::Value, String> {
+    if !ruta.starts_with("/api/v1/") || ruta.contains("..") {
+        return Err("Ruta no permitida".to_string());
+    }
+
+    let base = base_url(&estado)?;
+    let token = token_actual(&estado, &base).await?;
+    let (mut estado_http, mut texto) =
+        enviar_api(&base, &metodo, &ruta, cuerpo.clone(), &token).await?;
+
+    if estado_http == reqwest::StatusCode::UNAUTHORIZED {
+        let token_nuevo = renovar_sesion(&estado, &base, Some(&token)).await?;
+        (estado_http, texto) =
+            enviar_api(&base, &metodo, &ruta, cuerpo, &token_nuevo).await?;
+    }
 
     if !estado_http.is_success() {
-        let mensaje = serde_json::from_str::<serde_json::Value>(&texto)
+        let mensaje = serde_json::from_str::<Value>(&texto)
             .ok()
             .and_then(|valor| {
                 valor
@@ -334,6 +486,10 @@ async fn peticion(
                     .map(str::to_string)
             })
             .unwrap_or_else(|| format!("HTTP {estado_http}"));
+        if estado_http == reqwest::StatusCode::UNAUTHORIZED {
+            limpiar_sesion(&estado)?;
+            return Err(format!("SESION_EXPIRADA: {mensaje}"));
+        }
         return Err(mensaje);
     }
 
@@ -367,6 +523,8 @@ fn configurar_servidor(url: String, estado: tauri::State<'_, EstadoApp>) -> Resu
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let directorio = app.path().app_data_dir()?;
             std::fs::create_dir_all(&directorio)?;
@@ -381,6 +539,7 @@ pub fn run() {
                 ruta_db,
                 base_url: Mutex::new(base_inicial),
                 sesion: Mutex::new(None),
+                refresco: tokio::sync::Mutex::new(()),
             });
             Ok(())
         })

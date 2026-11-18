@@ -1,0 +1,70 @@
+name: Release escritorio
+
+on:
+  push:
+    tags:
+      - "desktop-v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  construir:
+    runs-on: windows-latest
+    env:
+      OPENSSL_NO_ASM: "1"
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      UPDATE_BASE_URL: ${{ vars.UPDATE_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Asegurar Strawberry Perl en PATH
+        shell: pwsh
+        run: |
+          $perl = "C:\Strawberry\perl\bin"
+          if (-not (Test-Path $perl)) { choco install strawberryperl -y --no-progress }
+          $perl | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Dependencias
+        working-directory: desktop
+        run: npm ci
+
+      - name: Determinar versión
+        id: version
+        shell: pwsh
+        run: |
+          $ref = "${{ github.ref_name }}"
+          if ($ref -like "desktop-v*") {
+            $version = $ref.Substring("desktop-v".Length)
+          } else {
+            $version = (Get-Content desktop/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          }
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "version=$version`n")
+
+      - name: Compilar y firmar
+        working-directory: desktop
+        run: npm run tauri build
+
+      - name: Generar manifiesto
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $parametros = @("-Version", $version)
+          if ($env:UPDATE_BASE_URL) { $parametros += @("-BaseUrl", $env:UPDATE_BASE_URL) }
+          & powershell -ExecutionPolicy Bypass -File scripts/publicar-actualizacion.ps1 @parametros
+
+      - name: Publicar artefactos
+        uses: actions/upload-artifact@v4
+        with:
+          name: actualizacion-${{ steps.version.outputs.version }}
+          path: |
+            infra/updates/latest.json
+            infra/updates/*.exe
+            infra/updates/*.sig
+          if-no-files-found: error

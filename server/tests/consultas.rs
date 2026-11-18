@@ -11,10 +11,12 @@ use common::*;
 async fn dashboard_refleja_los_conteos_operativos() {
     let t = setup().await;
     crear_usuario(&t.db, "solicitante@test.mx", "USUARIO").await;
+    crear_usuario(&t.db, "vacio@test.mx", "USUARIO").await;
     crear_usuario(&t.db, "almacen@test.mx", "ALMACEN").await;
     let exp = crear_expediente(&t.db, "EXP-CON-1").await;
     let tok_sol = poner_en_custodia(&t, "solicitante@test.mx", exp).await.0;
     let (tok_alm, _) = iniciar_sesion(&t.app, "almacen@test.mx").await;
+    let (tok_vacio, _) = iniciar_sesion(&t.app, "vacio@test.mx").await;
 
     let otro = crear_expediente(&t.db, "EXP-CON-2").await;
     pedir(
@@ -29,11 +31,34 @@ async fn dashboard_refleja_los_conteos_operativos() {
     let (estado, cuerpo) = pedir(&t.app, "GET", "/api/v1/dashboard", Some(&tok_alm), None).await;
 
     assert_eq!(estado, StatusCode::OK, "{cuerpo}");
-    assert!(cuerpo["custodias_activas"].as_i64().unwrap() >= 1);
-    assert!(cuerpo["pedidos_pendientes"].as_i64().unwrap() >= 1);
-    assert!(cuerpo["pedidos_por_preparar"].as_i64().unwrap() >= 1);
-    assert!(cuerpo["en_entrega"].as_i64().unwrap() >= 0);
-    assert!(cuerpo["incidencias"].as_i64().is_some());
+    assert_eq!(cuerpo["custodias_activas"], 1);
+    assert_eq!(cuerpo["pedidos_pendientes"], 1);
+    assert_eq!(cuerpo["pedidos_por_preparar"], 1);
+    assert_eq!(cuerpo["en_entrega"], 0);
+    assert_eq!(cuerpo["incidencias"], 0);
+    assert_eq!(cuerpo["no_localizados"], 0);
+    assert_eq!(cuerpo["devoluciones_pendientes"], 0);
+
+    let (estado, propio) = pedir(&t.app, "GET", "/api/v1/dashboard", Some(&tok_sol), None).await;
+    assert_eq!(estado, StatusCode::OK, "{propio}");
+    assert_eq!(propio["custodias_activas"], 1);
+    assert_eq!(propio["pedidos_pendientes"], 1);
+    assert_eq!(propio["pedidos_por_preparar"], 1);
+    assert_eq!(propio["en_entrega"], 0);
+
+    let (estado, vacio) = pedir(&t.app, "GET", "/api/v1/dashboard", Some(&tok_vacio), None).await;
+    assert_eq!(estado, StatusCode::OK, "{vacio}");
+    for metrica in [
+        "pedidos_pendientes",
+        "pedidos_por_preparar",
+        "en_entrega",
+        "custodias_activas",
+        "incidencias",
+        "no_localizados",
+        "devoluciones_pendientes",
+    ] {
+        assert_eq!(vacio[metrica], 0, "métrica {metrica}: {vacio}");
+    }
 
     t.cerrar().await;
 }

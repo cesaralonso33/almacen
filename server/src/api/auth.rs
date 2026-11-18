@@ -41,6 +41,11 @@ pub async fn login(
     if correo.is_empty() || input.password.is_empty() {
         return Err(ApiError::solicitud_invalida("Correo y contraseña son obligatorios"));
     }
+    if correo.len() > 254 || input.password.len() > 512 {
+        return Err(ApiError::solicitud_invalida(
+            "Correo o contraseña exceden la longitud permitida",
+        ));
+    }
 
     if !app.limitador.permitir(&correo) {
         return Err(ApiError::demasiadas_solicitudes(
@@ -73,7 +78,7 @@ pub async fn login(
 
     app.limitador.limpiar(&correo);
 
-    let (access, refresh, expira_refresh, sesion_id) =
+    let (access, refresh, expira_access, expira_refresh, sesion_id) =
         abrir_sesion(&app.db, &app.config, usuario_id).await?;
 
     let mut tx = app.db.begin().await?;
@@ -93,6 +98,7 @@ pub async fn login(
 
     Ok(Json(json!({
         "access_token": access,
+        "access_expira_en": expira_access,
         "refresh_token": refresh,
         "refresh_expira_en": expira_refresh,
         "usuario": { "id": usuario_id, "nombre": nombre, "correo": correo_bd },
@@ -110,6 +116,11 @@ pub async fn cambiar_password(
     if input.nueva.chars().count() < 12 {
         return Err(ApiError::inprocesable(
             "La nueva contraseña debe tener al menos 12 caracteres",
+        ));
+    }
+    if input.actual.len() > 512 || input.nueva.len() > 512 {
+        return Err(ApiError::inprocesable(
+            "La contraseña no puede exceder 512 caracteres",
         ));
     }
     if input.nueva == input.actual {
@@ -234,7 +245,7 @@ pub async fn refresh(
     .await?;
     tx.commit().await?;
 
-    let (access, _) = tokens::emitir_access(
+    let (access, expira_access) = tokens::emitir_access(
         &app.config.jwt_secret,
         usuario_id,
         sesion_nueva,
@@ -243,6 +254,7 @@ pub async fn refresh(
 
     Ok(Json(json!({
         "access_token": access,
+        "access_expira_en": expira_access,
         "refresh_token": nuevo_refresh,
         "refresh_expira_en": expira,
         "usuario": { "id": usuario_id, "nombre": nombre, "correo": correo },
@@ -288,7 +300,7 @@ async fn abrir_sesion(
     db: &PgPool,
     config: &crate::config::Config,
     usuario_id: Uuid,
-) -> Result<(String, String, DateTime<Utc>, Uuid), ApiError> {
+) -> Result<(String, String, DateTime<Utc>, DateTime<Utc>, Uuid), ApiError> {
     let refresh = tokens::nuevo_refresh();
     let hash = tokens::hash_token(&refresh);
     let expira = expira_refresh(config);
@@ -303,14 +315,14 @@ async fn abrir_sesion(
     .fetch_one(db)
     .await?;
 
-    let (access, _) = tokens::emitir_access(
+    let (access, expira_access) = tokens::emitir_access(
         &config.jwt_secret,
         usuario_id,
         sesion_id,
         config.access_ttl,
     )?;
 
-    Ok((access, refresh, expira, sesion_id))
+    Ok((access, refresh, expira_access, expira, sesion_id))
 }
 
 fn expira_refresh(config: &crate::config::Config) -> DateTime<Utc> {

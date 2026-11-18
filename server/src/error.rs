@@ -84,6 +84,13 @@ impl From<sqlx::Error> for ApiError {
 
 impl From<JsonRejection> for ApiError {
     fn from(rechazo: JsonRejection) -> Self {
+        if rechazo.status() == StatusCode::PAYLOAD_TOO_LARGE {
+            return ApiError::nuevo(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "CUERPO_DEMASIADO_GRANDE",
+                "El cuerpo de la solicitud excede el límite permitido",
+            );
+        }
         ApiError::solicitud_invalida(format!("Cuerpo JSON inválido: {}", rechazo.body_text()))
     }
 }

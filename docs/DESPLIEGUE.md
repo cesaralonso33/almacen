@@ -254,6 +254,11 @@ chmod 600 .env
 
 Edite `.env` con `SITIO`, credenciales y rutas de certificados. **Nunca** versione `.env`.
 
+La sesión usa `ACCESS_TTL_MINUTOS=1080`, `REFRESH_TTL_MINUTOS=1440` e `IDLE_TTL_MINUTOS=1080`:
+24 horas máximas y cierre tras 18 horas sin actividad. Si actualiza una instalación existente,
+cámbielos también en su `.env` o en las variables del stack de Portainer; los valores anteriores
+no se sustituyen automáticamente.
+
 ### Certificados
 
 - Institucional: copie `tls.crt` y `tls.key` en `infra/certs/` (ver `certs/LEEME.md`).
@@ -445,6 +450,53 @@ los demás usuarios desde el panel de administración.
 4. Verifique el estado `En línea` y realice una búsqueda de expedientes.
 
 La dirección del servidor se guarda en la base local del equipo, no en el instalador.
+
+### Actualizaciones firmadas del escritorio
+
+La versión `0.1.1` es la primera con el updater de Tauri. Una instalación anterior a esa versión
+requiere **una instalación manual única**; a partir de `0.1.1` la aplicación revisa al iniciar y
+cada 6 horas.
+
+La llave pública está en `desktop/src-tauri/tauri.conf.json`. La privada **no se versiona**:
+
+```bash
+cd desktop
+npx tauri signer generate --ci -w ~/.tauri/custodia-updater.key
+```
+
+Compile y firme con la llave privada:
+
+```bash
+export TAURI_SIGNING_PRIVATE_KEY="$HOME/.tauri/custodia-updater.key"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
+npm run tauri build
+```
+
+Genere el manifiesto y copie los artefactos:
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/publicar-actualizacion.ps1 \
+  -Version 0.1.1 \
+  -BaseUrl https://129-121-117-177.sslip.io
+```
+
+La API sirve `infra/updates` en `/updates`; el Compose monta ese directorio como
+`${UPDATES_DIR:-./updates}`. En Portainer, `preparar-vps.sh --portainer` genera la ruta absoluta.
+Suba `latest.json`, el `.exe` y el `.exe.sig` al VPS.
+
+No publique un manifiesto sin firma: el updater rechaza el artefacto. Si necesita detener una
+actualización, retire `latest.json`; la aplicación seguirá funcionando y reintentará más tarde.
+
+### Integración continua y release
+
+`.github/workflows/ci.yml` ejecuta las pruebas del servidor con PostgreSQL 17 y las del escritorio
+en Windows. `.github/workflows/release-escritorio.yml` se activa con un tag `desktop-vX.Y.Z` y
+genera el NSIS firmado y `latest.json`.
+
+Configure en GitHub los secretos `TAURI_SIGNING_PRIVATE_KEY` y
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, y la variable `UPDATE_BASE_URL`. El workflow deja el paquete
+como artefacto descargable; cópielo a `infra/updates` en el VPS. No guarde la llave privada en el
+repositorio.
 
 ## Actualización
 

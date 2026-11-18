@@ -151,6 +151,8 @@ if [ "$PORTAINER" -eq 1 ]; then
         /*) certs_abs="$certs_valor" ;;
         *) certs_abs="$infra_abs/${certs_valor#./}" ;;
     esac
+    updates_abs="$infra_abs/updates"
+    mkdir -p "$updates_abs"
     api_image="$(valor API_IMAGE)"
     api_image="${api_image:-expedientes-api:local}"
     bind_ip="$(valor BIND_IP)"
@@ -177,6 +179,7 @@ if [ "$PORTAINER" -eq 1 ]; then
         printf 'SITIO=%s\n' "$SITIO"
         printf 'CADDYFILE=%s\n' "$caddy_abs"
         printf 'CERTS_DIR=%s\n' "$certs_abs"
+        printf 'UPDATES_DIR=%s\n' "$updates_abs"
         printf 'API_IMAGE=%s\n' "$api_image"
         printf 'BIND_IP=%s\n' "$bind_ip"
         for clave in \

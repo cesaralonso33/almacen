@@ -388,6 +388,10 @@ async fn refresh_rota_el_token_y_el_anterior_deja_de_servir() {
     .await;
     assert_eq!(estado, StatusCode::OK, "{nuevo}");
     assert_ne!(nuevo["refresh_token"].as_str().unwrap(), refresh);
+    assert!(
+        nuevo["access_expira_en"].as_str().is_some(),
+        "la renovación debe informar la expiración del access token: {nuevo}"
+    );
 
     let (estado, _) = pedir(
         &t.app,

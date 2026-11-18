@@ -27,67 +27,41 @@ pub async fn dashboard(
 ) -> Result<Json<Value>, ApiError> {
     let todas = user.puede("pedidos:preparar");
 
-    let pedidos_pendientes: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM pedidos p
-         WHERE p.cancelado_en IS NULL
-           AND ($1::bool OR p.solicitante_id = $2)
-           AND NOT EXISTS (
-               SELECT 1 FROM pedido_items i
-               WHERE i.pedido_id = p.id AND i.estado <> 'PENDIENTE'
-           )",
+    let (
+        pedidos_pendientes,
+        pedidos_por_preparar,
+        en_entrega,
+        custodias_activas,
+        incidencias,
+        no_localizados,
+        devoluciones_pendientes,
+    ): (i64, i64, i64, i64, i64, i64, i64) = sqlx::query_as(
+        "SELECT
+            (SELECT count(*) FROM pedidos p
+             WHERE p.cancelado_en IS NULL
+               AND ($1::bool OR p.solicitante_id = $2)
+               AND NOT EXISTS (
+                   SELECT 1 FROM pedido_items i
+                   WHERE i.pedido_id = p.id AND i.estado <> 'PENDIENTE'
+               )),
+            (SELECT count(*) FROM pedido_items i
+             JOIN pedidos p ON p.id = i.pedido_id
+             WHERE i.estado = 'PENDIENTE' AND p.cancelado_en IS NULL
+               AND ($1::bool OR p.solicitante_id = $2)),
+            (SELECT count(*) FROM pedido_items i
+             JOIN pedidos p ON p.id = i.pedido_id
+             WHERE i.estado = 'EN_ENTREGA'
+               AND ($1::bool OR p.solicitante_id = $2)),
+            (SELECT count(*) FROM custodias
+             WHERE fin IS NULL AND ($1::bool OR usuario_id = $2)),
+            (SELECT count(*) FROM incidencias WHERE estado = 'ABIERTA'),
+            (SELECT count(*) FROM expedientes WHERE estado = 'NO_LOCALIZADO'),
+            (SELECT count(*) FROM devoluciones WHERE estado = 'SOLICITADA')",
     )
     .bind(todas)
     .bind(user.id)
     .fetch_one(&app.db)
     .await?;
-
-    let pedidos_por_preparar: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM pedido_items i
-         JOIN pedidos p ON p.id = i.pedido_id
-         WHERE i.estado = 'PENDIENTE' AND p.cancelado_en IS NULL
-           AND ($1::bool OR p.solicitante_id = $2)",
-    )
-    .bind(todas)
-    .bind(user.id)
-    .fetch_one(&app.db)
-    .await?;
-
-    let en_entrega: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM pedido_items i
-         JOIN pedidos p ON p.id = i.pedido_id
-         WHERE i.estado = 'EN_ENTREGA'
-           AND ($1::bool OR p.solicitante_id = $2)",
-    )
-    .bind(todas)
-    .bind(user.id)
-    .fetch_one(&app.db)
-    .await?;
-
-    let custodias_activas: i64 = if todas {
-        sqlx::query_scalar("SELECT count(*) FROM custodias WHERE fin IS NULL")
-            .fetch_one(&app.db)
-            .await?
-    } else {
-        sqlx::query_scalar("SELECT count(*) FROM custodias WHERE fin IS NULL AND usuario_id = $1")
-            .bind(user.id)
-            .fetch_one(&app.db)
-            .await?
-    };
-
-    let incidencias: i64 =
-        sqlx::query_scalar("SELECT count(*) FROM incidencias WHERE estado = 'ABIERTA'")
-            .fetch_one(&app.db)
-            .await?;
-
-    let no_localizados: i64 =
-        sqlx::query_scalar("SELECT count(*) FROM expedientes WHERE estado = 'NO_LOCALIZADO'")
-            .fetch_one(&app.db)
-            .await?;
-
-    let devoluciones_pendientes: i64 =
-        sqlx::query_scalar("SELECT count(*) FROM devoluciones WHERE estado = 'SOLICITADA'")
-            .fetch_one(&app.db)
-            .await?;
 
     Ok(Json(json!({
         "pedidos_pendientes": pedidos_pendientes,

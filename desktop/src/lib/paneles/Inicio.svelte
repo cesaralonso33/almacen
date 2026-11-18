@@ -4,6 +4,7 @@
     import { app } from '../estado.svelte';
     import Insignia from '../Insignia.svelte';
     import Paginacion from '../Paginacion.svelte';
+    import { allSettledConcurrent } from '../allSettledConcurrent.js';
     import { POR_PAGINA, recortar, totalPaginas } from '../paginacion';
 
     let tablero = $state<Record<string, number> | null>(null);
@@ -16,14 +17,23 @@
     onMount(cargar);
 
     async function cargar() {
-        try {
-            tablero = await api<Record<string, number>>('GET', '/api/v1/dashboard');
-            const respuesta = await api<{ pedidos: any[] }>('GET', '/api/v1/pedidos');
-            pedidos = respuesta.pedidos;
-            pagina = 1;
-        } catch (error) {
-            app.avisar(String(error), 'error');
+        const [resultadoTablero, resultadoPedidos] = await allSettledConcurrent(
+            () => api<Record<string, number>>('GET', '/api/v1/dashboard'),
+            () => api<{ pedidos: any[] }>('GET', '/api/v1/pedidos')
+        );
+
+        if (resultadoTablero.status === 'fulfilled') {
+            tablero = resultadoTablero.value;
         }
+        if (resultadoPedidos.status === 'fulfilled') {
+            pedidos = resultadoPedidos.value.pedidos;
+            pagina = 1;
+        }
+
+        const error = [resultadoTablero, resultadoPedidos].find(
+            (resultado) => resultado.status === 'rejected'
+        );
+        if (error?.status === 'rejected') app.avisar(String(error.reason), 'error');
     }
 
     const tarjetas = [

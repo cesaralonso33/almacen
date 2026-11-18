@@ -1,6 +1,6 @@
 {
   "productName": "Custodia CradSystem",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "mx.institucion.custodia",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -17,6 +17,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
     "publisher": "Institución",
     "copyright": "Uso institucional",
     "category": "Business",
@@ -31,6 +32,15 @@
     "windows": {
       "nsis": {
         "installMode": "perMachine"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEEwQzk3MzM1RUNDQkM4MUYKUldRZnlNdnNOWFBKb05kaFdYUVVjcDE0RnJCZVlTVU8xZE9JY2R3NDR2QnN1QkdOL3hEWG0vMC8K",
+      "endpoints": ["https://129-121-117-177.sslip.io/updates/latest.json"],
+      "windows": {
+        "installMode": "passive"
       }
     }
   }

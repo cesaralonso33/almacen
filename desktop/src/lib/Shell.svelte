@@ -6,6 +6,7 @@
     import Inicio from './paneles/Inicio.svelte';
     import Expedientes from './paneles/Expedientes.svelte';
     import Pedidos from './paneles/Pedidos.svelte';
+    import Asignaciones from './paneles/Asignaciones.svelte';
     import Almacen from './paneles/Almacen.svelte';
     import Entregas from './paneles/Entregas.svelte';
     import Custodias from './paneles/Custodias.svelte';
@@ -17,6 +18,7 @@
         { id: 'inicio', etiqueta: 'Inicio', permiso: null },
         { id: 'expedientes', etiqueta: 'Expedientes', permiso: 'expedientes:leer' },
         { id: 'pedidos', etiqueta: 'Mis pedidos', permiso: 'pedidos:leer' },
+        { id: 'asignaciones', etiqueta: 'Asignaciones', permiso: 'pedidos:asignar' },
         { id: 'almacen', etiqueta: 'Almacén', permiso: 'pedidos:preparar' },
         { id: 'entregas', etiqueta: 'Entregas', permiso: 'entregas:confirmar' },
         { id: 'custodias', etiqueta: 'Mis custodias', permiso: 'expedientes:leer' },
@@ -120,6 +122,7 @@
             {#if app.panel === 'inicio'}<Inicio />{/if}
             {#if app.panel === 'expedientes'}<Expedientes />{/if}
             {#if app.panel === 'pedidos'}<Pedidos />{/if}
+            {#if app.panel === 'asignaciones'}<Asignaciones />{/if}
             {#if app.panel === 'almacen'}<Almacen />{/if}
             {#if app.panel === 'entregas'}<Entregas />{/if}
             {#if app.panel === 'custodias'}<Custodias />{/if}

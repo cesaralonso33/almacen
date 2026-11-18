@@ -21,7 +21,7 @@ Guía breve para operar el sistema. Cada sección explica solo lo necesario.
 2. Pulsa **Iniciar sesión**.
 3. Arriba a la derecha verás el estado: **En línea**, **Sin conexión** o **Error**.
 
-La sesión dura **18 horas**. Si pasan **30 minutos sin usar** teclado o ratón, se cierra sola y vuelve al acceso.
+La sesión dura **24 horas**. Si pasan **18 horas sin usar** teclado o ratón, se cierra sola y vuelve al acceso.
 
 ## 2. Registrar un expediente
 

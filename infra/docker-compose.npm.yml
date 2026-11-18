@@ -44,11 +44,13 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-expedientes}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-expedientes}
       JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET}
       ACCESS_TTL_MINUTOS: ${ACCESS_TTL_MINUTOS:-1080}
-      REFRESH_TTL_MINUTOS: ${REFRESH_TTL_MINUTOS:-1080}
-      IDLE_TTL_MINUTOS: ${IDLE_TTL_MINUTOS:-30}
+      REFRESH_TTL_MINUTOS: ${REFRESH_TTL_MINUTOS:-1440}
+      IDLE_TTL_MINUTOS: ${IDLE_TTL_MINUTOS:-1080}
       RESERVA_TTL_MINUTOS: ${RESERVA_TTL_MINUTOS:-30}
       BIND_ADDR: 0.0.0.0:3000
       RUST_LOG: ${RUST_LOG:-info}
+    volumes:
+      - ${UPDATES_DIR:-./updates}:/updates:ro
     depends_on:
       postgres:
         condition: service_healthy

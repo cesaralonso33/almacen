@@ -3,9 +3,10 @@
     import { invoke } from '@tauri-apps/api/core';
     import Login from './lib/Login.svelte';
     import Shell from './lib/Shell.svelte';
+    import Actualizacion from './lib/Actualizacion.svelte';
     import { app } from './lib/estado.svelte';
 
-    const INACTIVIDAD_MS = 30 * 60 * 1000;
+    const INACTIVIDAD_MS = 18 * 60 * 60 * 1000;
     const EVENTOS_ACTIVIDAD = ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'] as const;
 
     let ultimaActividad = Date.now();
@@ -17,6 +18,12 @@
         for (const evento of EVENTOS_ACTIVIDAD) {
             window.addEventListener(evento, marcarActividad, { passive: true });
         }
+
+        const sesionExpirada = () => {
+            app.cerrarSesionLocal();
+            app.avisar('La sesión expiró; vuelve a iniciar sesión', 'error');
+        };
+        window.addEventListener('sesion-expirada', sesionExpirada);
 
         let cerrando = false;
         const sincronizacion = window.setInterval(() => {
@@ -48,6 +55,7 @@
             for (const evento of EVENTOS_ACTIVIDAD) {
                 window.removeEventListener(evento, marcarActividad);
             }
+            window.removeEventListener('sesion-expirada', sesionExpirada);
             window.clearInterval(sincronizacion);
             window.clearInterval(vigilante);
         };
@@ -59,6 +67,8 @@
 {:else}
     <Login />
 {/if}
+
+<Actualizacion />
 
 {#if app.mensaje}
     <div

@@ -39,9 +39,9 @@ cargo run                      # escucha en http://localhost:3000
 cargo run --bin seed_demo      # opcional: cuentas y expedientes de demostración
 ```
 
-Variables reconocidas: `DATABASE_URL`, `JWT_SECRET` (obligatorias), `ACCESS_TTL_MINUTOS` (15),
-`REFRESH_TTL_MINUTOS` (10080), `RESERVA_TTL_MINUTOS` (30), `BIND_ADDR` (`0.0.0.0:3000`),
-`RUST_LOG`. Ver `server/.env.example`.
+Variables reconocidas: `DATABASE_URL`, `JWT_SECRET` (obligatorias), `ACCESS_TTL_MINUTOS` (1080),
+`REFRESH_TTL_MINUTOS` (1440), `IDLE_TTL_MINUTOS` (1080), `RESERVA_TTL_MINUTOS` (30),
+`BIND_ADDR` (`0.0.0.0:3000`), `RUST_LOG`. Ver `server/.env.example`.
 
 `GET /health` comprueba la base de datos.
 
@@ -76,8 +76,8 @@ descartes catalogados, auditoría append-only, sincronización, idempotencia y c
 - `POST /api/v1/auth/password` `{ "actual", "nueva" }` → cambia la contraseña y revoca todas las sesiones.
 - `GET /api/v1/auth/me` → identidad, roles y permisos.
 
-Las rutas protegidas exigen `Authorization: Bearer <access_token>`. El token de acceso dura 15
-minutos; el refresh es opaco, se guarda como hash SHA-256, dura 7 días y rota en cada uso.
+Las rutas protegidas exigen `Authorization: Bearer <access_token>`. El token de acceso dura 18
+horas; el refresh es opaco, se guarda como hash SHA-256, dura 24 horas y rota en cada uso.
 Las contraseñas se almacenan con Argon2id. Los errores tienen la forma
 `{"error": {"code", "message", "correlacion_id"}}`.
 
@@ -132,13 +132,18 @@ Requisitos: Rust estable, Node.js 20+, Microsoft C++ Build Tools y WebView2 (inc
 cd desktop
 npm install
 npm run check        # svelte-check
+
+# La compilación de producción exige la llave de firma del updater
+export TAURI_SIGNING_PRIVATE_KEY="$HOME/.tauri/custodia-updater.key"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
 npm run tauri build
 ```
 
-El instalador queda en:
+La llave privada no se versiona. Si se genera una nueva, hay que reemplazar la llave pública en
+`desktop/src-tauri/tauri.conf.json` antes de distribuir. El instalador queda en:
 
 ```
-desktop/src-tauri/target/release/bundle/nsis/Custodia CradSystem_0.1.0_x64-setup.exe
+desktop/src-tauri/target/release/bundle/nsis/Custodia CradSystem_0.1.1_x64-setup.exe
 ```
 
 ### Configurar el primer acceso
@@ -162,11 +167,15 @@ manda la dirección guardada en la pantalla de acceso.
 
 - Navegación por permisos: Inicio, Expedientes, Mis pedidos, Almacén, Entregas, Mis custodias,
   Devoluciones, Reportes y Administración.
+- Asignación masiva: un administrador selecciona un listado de expedientes y crea un pedido a nombre de otro usuario; almacén lo prepara y el destinatario confirma la recepción.
 - Alta de expedientes por cualquier usuario operativo: el creador queda como custodio inicial hasta que lo devuelva al almacén.
 - Importación masiva desde CSV/TXT (`numero;descripcion`) para administración y almacén; los expedientes quedan en almacén y se reportan duplicados y errores.
 - Reporte de expedientes nuevos por usuario, agrupado por día, mes y año.
 - Expedientes con total, resumen por estado, filtros avanzados y paginación del servidor.
-- Sesión de 18 horas y cierre automático tras 30 minutos sin actividad.
+- Sesión de 24 horas y cierre automático tras 18 horas sin actividad. El escritorio renueva el token de acceso automáticamente.
+- Actualización firmada del escritorio desde `https://<dominio>/updates/latest.json`.
+- SQLite local cifrada con SQLCipher y clave protegida por Windows/DPAPI.
+- CI para pruebas del servidor y escritorio; release firmado para tags `desktop-v*`.
 - Tablero con contadores, búsqueda de expedientes con historial, alta de pedidos múltiples,
   preparación y descarte, despacho, acuse, devoluciones, transferencias y administración.
 - Todas las tablas tienen paginación (15 registros por página; 8 en los buscadores de los modales).

@@ -5,6 +5,7 @@
     import CambiarPassword from './CambiarPassword.svelte';
     import Inicio from './paneles/Inicio.svelte';
     import Expedientes from './paneles/Expedientes.svelte';
+    import Pa from './paneles/Pa.svelte';
     import Pedidos from './paneles/Pedidos.svelte';
     import Asignaciones from './paneles/Asignaciones.svelte';
     import Almacen from './paneles/Almacen.svelte';
@@ -17,6 +18,7 @@
     const items = [
         { id: 'inicio', etiqueta: 'Inicio', permiso: null },
         { id: 'expedientes', etiqueta: 'Expedientes', permiso: 'expedientes:leer' },
+        { id: 'pa', etiqueta: 'P.A.', permiso: 'pa:leer' },
         { id: 'pedidos', etiqueta: 'Mis pedidos', permiso: 'pedidos:leer' },
         { id: 'asignaciones', etiqueta: 'Asignaciones', permiso: 'pedidos:asignar' },
         { id: 'almacen', etiqueta: 'Almacén', permiso: 'pedidos:preparar' },
@@ -121,6 +123,7 @@
         <main class="flex-1 overflow-y-auto p-6">
             {#if app.panel === 'inicio'}<Inicio />{/if}
             {#if app.panel === 'expedientes'}<Expedientes />{/if}
+            {#if app.panel === 'pa'}<Pa />{/if}
             {#if app.panel === 'pedidos'}<Pedidos />{/if}
             {#if app.panel === 'asignaciones'}<Asignaciones />{/if}
             {#if app.panel === 'almacen'}<Almacen />{/if}

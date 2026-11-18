@@ -28,8 +28,9 @@ Cada prueba crea una base PostgreSQL efímera, aplica todas las migraciones y la
 | `tests/transferencias.rs` | 1 | bandeja de transferencias pendientes y aceptación |
 | `tests/asignacion.rs` | 3 | pedido masivo a nombre de otro usuario, permiso y rechazos |
 | `tests/seguridad.rs` | 3 | cabeceras, límite de cuerpo y credenciales de longitud abusiva |
+| `tests/pa.rs` | 3 | CRUD P.A., folio anual, campos libres, filtros, permisos y PDF |
 
-Total: **81 pruebas**.
+Total: **84 pruebas**.
 
 ## Escritorio (Rust)
 

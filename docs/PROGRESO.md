@@ -455,8 +455,8 @@ servidor Debian de destino.
   cada 6 horas, y panel de actualización con confirmación antes de reiniciar.
 - La API publica `/updates` desde el volumen `UPDATES_DIR`; el manifiesto y el NSIS se generan con
   `scripts/publicar-actualizacion.ps1`.
-- Versión `0.1.1`: primera versión con updater y SQLCipher. Las instalaciones anteriores requieren
-  una instalación manual única.
+- Versión `0.1.2`: incluye P.A. sobre la base de updater/SQLCipher de `0.1.1`. Las instalaciones
+  anteriores a `0.1.1` requieren una instalación manual única.
 - CI añadido para pruebas del servidor y escritorio; release de escritorio en tag `desktop-v*`.
 - Firma Authenticode pendiente de certificado institucional.
 
@@ -474,3 +474,12 @@ servidor Debian de destino.
 - La migración `0010_consulta_sync_pull.sql` concede `sync:pull` al rol `CONSULTA`.
 - El push de operaciones sigue exigiendo `sync:push`; la prueba
   `consulta_registra_dispositivo_y_descarga_pero_no_envia` cubre ambos casos.
+
+## Módulo P.A. (18/11/2026)
+
+- Tablas `pa_folios` y `pa_registros`; folio `PA-<año>-<consecutivo>` generado en transacción.
+- Campos FECHA, CURP, NOMBRE, GÉNERO, MUNICIPIO, EDAD, OBSERVACIONES y campos adicionales JSONB.
+- Permisos `pa:leer`, `pa:crear`, `pa:editar`, `pa:eliminar`; borrado lógico y auditoría.
+- Filtros por fecha, folio, CURP, nombre, género, municipio, edad y campos adicionales.
+- Constancia PDF generada al crear/editar y almacenada; descarga desde la app.
+- Fuente Noto Sans incluida en `server/assets` con licencia OFL.

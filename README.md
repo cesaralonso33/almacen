@@ -143,7 +143,7 @@ La llave privada no se versiona. Si se genera una nueva, hay que reemplazar la l
 `desktop/src-tauri/tauri.conf.json` antes de distribuir. El instalador queda en:
 
 ```
-desktop/src-tauri/target/release/bundle/nsis/Custodia CradSystem_0.1.1_x64-setup.exe
+desktop/src-tauri/target/release/bundle/nsis/Custodia CradSystem_0.1.2_x64-setup.exe
 ```
 
 ### Configurar el primer acceso
@@ -167,6 +167,7 @@ manda la dirección guardada en la pantalla de acceso.
 
 - Navegación por permisos: Inicio, Expedientes, Mis pedidos, Almacén, Entregas, Mis custodias,
   Devoluciones, Reportes y Administración.
+- Módulo **P.A.**: CRUD de personas con folio consecutivo por año, campos adicionales libres, filtros avanzados y constancia PDF generada al guardar.
 - Asignación masiva: un administrador selecciona un listado de expedientes y crea un pedido a nombre de otro usuario; almacén lo prepara y el destinatario confirma la recepción.
 - Alta de expedientes por cualquier usuario operativo: el creador queda como custodio inicial hasta que lo devuelva al almacén.
 - Importación masiva desde CSV/TXT (`numero;descripcion`) para administración y almacén; los expedientes quedan en almacén y se reportan duplicados y errores.

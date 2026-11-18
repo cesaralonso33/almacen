@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 
 /// Llama a la API a través del proceso principal de Tauri, que conserva el token en memoria.
 export async function api<T = any>(
-    metodo: 'GET' | 'POST',
+    metodo: 'GET' | 'POST' | 'PUT' | 'DELETE',
     ruta: string,
     cuerpo?: unknown
 ): Promise<T> {

@@ -6,6 +6,7 @@ pub mod devoluciones;
 pub mod entrada;
 pub mod entregas;
 pub mod expedientes;
+pub mod pa;
 pub mod pedidos;
 pub mod reportes;
 pub mod sync;
@@ -75,6 +76,12 @@ pub fn router(estado: AppState) -> Router {
         .route("/api/v1/admin/usuarios/{id}/activar", post(admin::activar))
         .route("/api/v1/admin/usuarios/{id}/desactivar", post(admin::desactivar))
         .route("/api/v1/admin/roles", get(admin::listar_roles))
+        .route("/api/v1/pa", get(pa::listar).post(pa::crear))
+        .route(
+            "/api/v1/pa/{id}",
+            get(pa::detalle).put(pa::actualizar).delete(pa::eliminar),
+        )
+        .route("/api/v1/pa/{id}/documento", get(pa::documento))
         .route("/api/v1/pedidos", get(consultas::listar_pedidos).post(pedidos::crear))
         .route("/api/v1/pedidos/asignar", post(pedidos::asignar))
         .route("/api/v1/dashboard", get(consultas::dashboard))

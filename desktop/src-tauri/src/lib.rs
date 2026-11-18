@@ -439,6 +439,8 @@ async fn enviar_api(
     let constructor = match metodo.to_ascii_uppercase().as_str() {
         "GET" => cliente.get(&url),
         "POST" => cliente.post(&url),
+        "PUT" => cliente.put(&url),
+        "DELETE" => cliente.delete(&url),
         otro => return Err(format!("Método no permitido: {otro}")),
     };
 
@@ -497,6 +499,51 @@ async fn peticion(
 }
 
 #[tauri::command]
+async fn guardar_documento_pa(
+    id: String,
+    app: tauri::AppHandle,
+    estado: tauri::State<'_, EstadoApp>,
+) -> Result<String, String> {
+    Uuid::parse_str(&id).map_err(|_| "Identificador P.A. inválido".to_string())?;
+    let base = base_url(&estado)?;
+    let token = token_actual(&estado, &base).await?;
+    let respuesta = reqwest::Client::new()
+        .get(format!("{}/api/v1/pa/{id}/documento", base.trim_end_matches('/')))
+        .bearer_auth(token)
+        .send()
+        .await
+        .map_err(api::describir)?;
+
+    if !respuesta.status().is_success() {
+        return Err(format!("No se pudo obtener el documento (HTTP {})", respuesta.status()));
+    }
+
+    let nombre = respuesta
+        .headers()
+        .get("content-disposition")
+        .and_then(|valor| valor.to_str().ok())
+        .and_then(|valor| valor.split("filename=\"").nth(1))
+        .and_then(|valor| valor.split('"').next())
+        .unwrap_or("documento-pa.pdf")
+        .replace('/', "_")
+        .replace('\\', "_");
+    let bytes = respuesta.bytes().await.map_err(|error| error.to_string())?;
+    let directorio = app
+        .path()
+        .download_dir()
+        .or_else(|_| app.path().app_data_dir())
+        .map_err(|error| error.to_string())?;
+    std::fs::create_dir_all(&directorio).map_err(|error| error.to_string())?;
+    let ruta = directorio.join(if nombre.ends_with(".pdf") {
+        nombre
+    } else {
+        format!("{nombre}.pdf")
+    });
+    std::fs::write(&ruta, &bytes).map_err(|error| error.to_string())?;
+    Ok(ruta.to_string_lossy().to_string())
+}
+
+#[tauri::command]
 fn servidor_actual(estado: tauri::State<'_, EstadoApp>) -> Result<String, String> {
     base_url(&estado)
 }
@@ -552,6 +599,7 @@ pub fn run() {
             crear_pedido_local,
             listar_conflictos,
             peticion,
+            guardar_documento_pa,
             servidor_actual,
             configurar_servidor
         ])

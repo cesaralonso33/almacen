@@ -26,6 +26,9 @@
 - Un usuario sin `pedidos:preparar` no ve pedidos ajenos (404, sin filtrar existencia).
 - El rol `CONSULTA` puede registrar su dispositivo y descargar eventos (`sync:pull`), pero no
   enviar operaciones (`sync:push`).
+- P.A. contiene datos personales sensibles. `pa:leer` se asigna a todos los roles; crear/editar a
+  Administración, Almacén y Usuario; eliminar solo a Administración. Cada mutación y cada consulta
+  de documento requieren sesión y quedan sujetas a auditoría.
 
 ## Transporte y secretos
 

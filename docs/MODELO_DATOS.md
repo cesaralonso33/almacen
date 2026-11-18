@@ -11,6 +11,7 @@ Migraciones en `server/migrations` (SQLx, aplicadas al iniciar la API).
 | `dispositivos`, `sesiones` | Equipos y refresh tokens | hash de refresh único; revocación |
 | `ubicaciones` | EDIFICIO → AREA → ESTANTE → CAJA | trigger de jerarquía; código único por padre |
 | `expedientes` | Inventario físico | número único global; versión |
+| `pa_folios`, `pa_registros` | Módulo P.A. | folio anual, datos personales y PDF; borrado lógico |
 | `pedidos`, `pedido_items` | Solicitudes | un expediente por pedido |
 | `reservas` | Bloqueo temporal de preparación | una activa por expediente; vencimiento |
 | `entregas`, `acuses` | Despacho y acuse | un acuse por entrega |

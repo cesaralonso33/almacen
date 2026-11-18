@@ -9,6 +9,7 @@ WORKDIR /app
 COPY Cargo.toml Cargo.lock build.rs ./
 COPY src ./src
 COPY migrations ./migrations
+COPY assets ./assets
 
 RUN cargo build --release --locked \
     && strip target/release/expedientes-api

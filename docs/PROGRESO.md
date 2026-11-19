@@ -536,7 +536,13 @@ servidor Debian de destino.
   expediente, detalle `1 DE 3` para canastas y fecha del DARFE), encabezado con CEEAVI y pie de
   página institucional. El formulario agrega el botón **Duplicar**, que abre un nuevo DARFE con los
   mismos datos y el número de DARFE en blanco.
+- Versión `0.1.11`: el catálogo de tipo de apoyo agrega `APOYO PARA VIÁTICOS`, `MEDICAMENTO`,
+  `OTRAS AYUDAS`, `VIATICOS`, `AYUDAS EN MATERIA DE SALUD` y
+  `GASTOS DE TRASLADO, HOSPEDAJE (VIATICOS)`. El recibo usa las variables de la plantilla
+  `plantilla_AYUDA.docx`: folio, año/mes actuales, tipo, beneficiario, monto y No. DARFE en el
+  campo EXPEDIENTE. La migración `0017_darfe_tipos_apoyo.sql` amplía el catálogo, mantiene único el
+  número para los tipos distintos de canasta y agrega `formato_fecha`.
 - Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
-  `infra/updates/`. **Pendiente**: publicar `0.1.10` en el VPS; el servidor responde por HTTPS y
+  `infra/updates/`. **Pendiente**: publicar `0.1.11` en el VPS; el servidor responde por HTTPS y
   sigue sirviendo `0.1.4`, pero el puerto SSH `2702` presenta una clave de host distinta a la
   registrada, por lo que no se desplegó sin validarla.

@@ -336,7 +336,7 @@ async fn genera_recibo_pdf_con_folio_consecutivo() {
         if folios.is_empty() {
             let texto = pdf_extract::extract_text_from_mem(&pdf).expect("texto del recibo");
             assert!(texto.contains("557"), "{texto}");
-            assert!(texto.contains("EXP-DARFE-1"), "{texto}");
+            assert!(texto.contains("DARFE-F-1"), "{texto}");
             assert!(texto.contains("1,500.50"), "{texto}");
         }
         let disposicion = encabezados
@@ -367,6 +367,69 @@ async fn genera_recibo_pdf_con_folio_consecutivo() {
         .and_then(|valor| valor.to_str().ok())
         .unwrap_or_default();
     assert!(disposicion.contains("Recibo-557.pdf"), "{disposicion}");
+
+    t.cerrar().await;
+}
+
+#[tokio::test]
+async fn genera_recibo_con_tipo_de_apoyo() {
+    let t = setup().await;
+    crear_usuario(&t.db, "admin@test.mx", "ADMINISTRATIVO").await;
+    let (tok, _) = iniciar_sesion(&t.app, "admin@test.mx").await;
+
+    let mut cuerpo = darfe("DARFE-MED-1", "Persona Medicamento");
+    cuerpo["tipo"] = json!("MEDICAMENTO");
+    cuerpo["descripcion"] = json!("Compra de medicamentos");
+    let (estado, creado) = pedir(
+        &t.app,
+        "POST",
+        "/api/v1/darfes",
+        Some(&tok),
+        Some(cuerpo.clone()),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK, "{creado}");
+    assert_eq!(creado["tipo"], "MEDICAMENTO");
+    let id = creado["id"].as_str().unwrap();
+
+    let (estado, _, pdf) = descargar_encabezados(
+        &t,
+        &tok,
+        "POST",
+        &format!("/api/v1/darfes/{id}/formato"),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK);
+    let texto = pdf_extract::extract_text_from_mem(&pdf).expect("texto del recibo");
+    assert!(texto.contains("MEDICAMENTO"), "{texto}");
+    assert!(texto.contains("OTRAS AYUDAS"), "{texto}");
+    assert!(texto.contains("DARFE-MED-1"), "{texto}");
+
+    // El número sigue siendo único para los tipos que no son canasta.
+    let (estado, _) = pedir(
+        &t.app,
+        "POST",
+        "/api/v1/darfes",
+        Some(&tok),
+        Some(cuerpo),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::CONFLICT);
+
+    // Un tipo fuera del catálogo se rechaza.
+    let (estado, _) = pedir(
+        &t.app,
+        "POST",
+        "/api/v1/darfes",
+        Some(&tok),
+        Some({
+            let mut invalido = darfe("DARFE-MAL-1", "Persona Inválida");
+            invalido["tipo"] = json!("NO EXISTE");
+            invalido
+        }),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::UNPROCESSABLE_ENTITY);
 
     t.cerrar().await;
 }

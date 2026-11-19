@@ -39,6 +39,16 @@ const CAMPOS_DOCUMENTO: [&str; 7] = [
 ];
 const LIMITE_DOCUMENTO: usize = 8 * 1024 * 1024;
 const DESCRIPCIONES_CANASTA: [&str; 3] = ["1ra canasta 3", "2da canasta de 3", "3ra canasta de 3"];
+const TIPOS_DARFE: [&str; 8] = [
+    "CANASTA",
+    "REEMBOLSO",
+    "APOYO PARA VIÁTICOS",
+    "MEDICAMENTO",
+    "OTRAS AYUDAS",
+    "VIATICOS",
+    "AYUDAS EN MATERIA DE SALUD",
+    "GASTOS DE TRASLADO, HOSPEDAJE (VIATICOS)",
+];
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -190,7 +200,7 @@ pub async fn crear(
         &mut tx,
         &datos,
         &datos.descripcion,
-        "REEMBOLSO",
+        &datos.tipo,
         None,
         None,
         user.id,
@@ -942,9 +952,9 @@ fn validar(input: DarfeInput) -> Result<DatosDarfe, ApiError> {
         ));
     }
     let tipo = input.tipo.trim().to_uppercase();
-    if !["CANASTA", "REEMBOLSO"].contains(&tipo.as_str()) {
+    if !TIPOS_DARFE.contains(&tipo.as_str()) {
         return Err(ApiError::inprocesable(
-            "El tipo debe ser CANASTA o REEMBOLSO",
+            "El tipo de apoyo no está permitido",
         ));
     }
     let estatus = input.estatus.trim().to_uppercase();
@@ -1059,30 +1069,30 @@ pub async fn generar_formato(
     let mut tx = app.db.begin().await?;
     let fila: Option<(
         String,
+        String,
         f64,
         String,
         String,
-        String,
         Option<i16>,
-        NaiveDate,
+        Option<NaiveDate>,
         Option<i32>,
         Option<i32>,
     )> = sqlx::query_as(
-        "SELECT nombre, monto::float8, expediente, descripcion, tipo, item_canasta, fecha,
-                folio_formato, folio_anio
+        "SELECT numero_darfe, nombre, monto::float8, descripcion, tipo, item_canasta,
+                formato_fecha, folio_formato, folio_anio
          FROM darfes WHERE id=$1 AND eliminado_en IS NULL FOR UPDATE",
     )
     .bind(id)
     .fetch_optional(&mut *tx)
     .await?;
     let Some((
+        numero_darfe,
         nombre,
         monto,
-        expediente,
         descripcion,
         tipo,
         item_canasta,
-        fecha,
+        formato_fecha,
         folio_actual,
         anio_actual,
     )) = fila
@@ -1103,28 +1113,31 @@ pub async fn generar_formato(
             .await?;
             sqlx::query(
                 "UPDATE darfes
-                 SET folio_formato=$2, folio_anio=$3, actualizado_por=$4, actualizado_en=now()
+                 SET folio_formato=$2, folio_anio=$3, formato_fecha=$4,
+                     actualizado_por=$5, actualizado_en=now()
                  WHERE id=$1",
             )
             .bind(id)
             .bind(folio)
             .bind(anio)
+            .bind(fecha_recibo)
             .bind(user.id)
             .execute(&mut *tx)
             .await?;
             (folio, anio)
         }
     };
+    let fecha_formato = formato_fecha.unwrap_or(fecha_recibo);
 
     let pdf = generar_formato_pdf(
         folio,
+        &numero_darfe,
         &nombre,
         monto,
-        &expediente,
         &descripcion,
         &tipo,
         item_canasta,
-        fecha,
+        fecha_formato,
     )?;
 
     audit::registrar(
@@ -1158,9 +1171,9 @@ pub async fn generar_formato(
 #[allow(clippy::too_many_arguments)]
 fn generar_formato_pdf(
     folio: i32,
+    numero_darfe: &str,
     nombre: &str,
     monto: f64,
-    expediente: &str,
     descripcion: &str,
     tipo: &str,
     item_canasta: Option<i16>,
@@ -1231,10 +1244,10 @@ fn generar_formato_pdf(
     } else {
         (
             "OTRAS AYUDAS",
-            if descripcion.trim().is_empty() {
-                "APOYO".to_string()
-            } else {
+            if tipo == "REEMBOLSO" && !descripcion.trim().is_empty() {
                 descripcion.trim().to_string()
+            } else {
+                tipo.to_string()
             },
         )
     };
@@ -1255,7 +1268,7 @@ fn generar_formato_pdf(
         monto_con_comas(monto)
     )));
     documento.push(Paragraph::new(""));
-    documento.push(Paragraph::new(format!("EXPEDIENTE: {expediente}")));
+    documento.push(Paragraph::new(format!("EXPEDIENTE: {numero_darfe}")));
     documento.push(Paragraph::new(""));
     documento.push(Paragraph::new(""));
 

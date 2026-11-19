@@ -9,6 +9,16 @@
 
     const TAMANO = 25;
     const ESTATUS = ['PENDIENTE', 'INCOMPLETO', 'COMPLETO'];
+    const TIPOS = [
+        'CANASTA',
+        'REEMBOLSO',
+        'APOYO PARA VIÁTICOS',
+        'MEDICAMENTO',
+        'OTRAS AYUDAS',
+        'VIATICOS',
+        'AYUDAS EN MATERIA DE SALUD',
+        'GASTOS DE TRASLADO, HOSPEDAJE (VIATICOS)'
+    ];
     const CAMPOS_DOCUMENTO = [
         { clave: 'CURP', etiqueta: 'CURP' },
         { clave: 'RFC', etiqueta: 'RFC' },
@@ -573,8 +583,9 @@
                         <span class="mb-1 block font-medium text-slate-600">Tipo</span>
                         <select class="campo" bind:value={filtros.tipo}>
                             <option value="">Todos</option>
-                            <option value="CANASTA">CANASTA</option>
-                            <option value="REEMBOLSO">REEMBOLSO</option>
+                            {#each TIPOS as tipo}
+                                <option value={tipo}>{tipo}</option>
+                            {/each}
                         </select>
                     </label>
                     <div class="flex items-end gap-2 md:col-span-5">
@@ -833,8 +844,9 @@
                     <label class="block text-sm">
                         <span class="mb-1 block font-medium text-slate-600">Tipo</span>
                         <select class="campo" bind:value={form.tipo} disabled={Boolean(editandoId)}>
-                            <option value="REEMBOLSO">REEMBOLSO</option>
-                            <option value="CANASTA">CANASTA</option>
+                            {#each TIPOS as tipo}
+                                <option value={tipo}>{tipo}</option>
+                            {/each}
                         </select>
                         {#if form.tipo === 'CANASTA' && !editandoId}
                             <span class="mt-1 block text-xs text-slate-500">

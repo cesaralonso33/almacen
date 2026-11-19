@@ -18,8 +18,9 @@
 >
     <div
         class="mt-8 w-full rounded-xl bg-white shadow-2xl"
+        class:modal-amplio={Boolean(ancho)}
         style:width={ancho ? `${ancho}%` : undefined}
-        style:max-width={ancho ? 'none' : undefined}
+        style:max-width={ancho ? '100%' : undefined}
         class:max-w-3xl={!ancho}
         role="dialog"
         aria-modal="true"

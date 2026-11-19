@@ -29,7 +29,7 @@ Cada prueba crea una base PostgreSQL efímera, aplica todas las migraciones y la
 | `tests/asignacion.rs` | 3 | pedido masivo a nombre de otro usuario, permiso y rechazos |
 | `tests/seguridad.rs` | 3 | cabeceras, límite de cuerpo y credenciales de longitud abusiva |
 | `tests/pa.rs` | 3 | CRUD P.A., folio anual, campos libres, filtros, permisos y PDF |
-| `tests/darfes.rs` | 3 | CRUD DARFES, documentos, PDF de depósito, canasta de 3 registros, Excel, reportes y permisos |
+| `tests/darfes.rs` | 3 | CRUD DARFES, contacto, documentos (incluido escrito libre), PDF de depósito, canasta de 3 registros, Excel, reportes y permisos |
 | `src/api/darfes.rs` (unitarias) | 4 | extracción del PDF de depósito y del reporte SPEI: coincidencia y diferencias de cuenta, monto y nombre |
 
 Total: **91 pruebas**.

@@ -28,12 +28,12 @@ Migraciones en `server/migrations` (SQLx, aplicadas al iniciar la API).
 ### DARFES
 
 - `darfes` guarda número, fecha, nombre, expediente, registro, estado de cuenta, banco,
-  identificación, CURP, RFC, descripción, monto, número de cuenta, tipo (`CANASTA` o `REEMBOLSO`),
-  estatus, campos adicionales JSONB y borrado lógico.
+  identificación, CURP, RFC, teléfono, correo, descripción, monto, número de cuenta, tipo
+  (`CANASTA` o `REEMBOLSO`), estatus, campos adicionales JSONB y borrado lógico.
 - El número de DARFE es único entre los reembolsos activos. Los tres registros de una canasta
   comparten número y se agrupan por `grupo_canasta` + `item_canasta` (índice único parcial).
 - `darfe_documentos` almacena un archivo por campo (`CURP`, `RFC`, `REGISTRO`, `IDENTIFICACION`,
-  `ESTADO_CUENTA`, `DEPOSITO`) como `bytea` (máximo 8 MiB). Para `DEPOSITO` guarda
+  `ESTADO_CUENTA`, `DEPOSITO`, `ESCRITO_LIBRE`) como `bytea` (máximo 8 MiB). Para `DEPOSITO` guarda
   `datos_extraidos` y `coincide`, resultado de comparar cuenta, monto y nombre del PDF contra lo
   capturado.
 - El listado se ordena por `creado_en` descendente; el índice parcial `darfes_creado_en`

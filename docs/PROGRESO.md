@@ -522,7 +522,12 @@ servidor Debian de destino.
   líneas separadas; selector de columnas visibles; orden por fecha de creación y semáforo de
   estatus (PENDIENTE rojo, INCOMPLETO ámbar, COMPLETO verde). La migración
   `0014_darfes_orden_creacion.sql` agrega el índice por `creado_en`.
+- Versión `0.1.8`: formulario DARFE al 85 % del ancho y organizado en tarjetas (identificación,
+  datos de pago, datos personales y contacto, documentos y campos adicionales); teléfono y correo;
+  documento `ESCRITO_LIBRE`; columna «Número de cuenta»; Registro, CURP y RFC bajo el No. DARFE; la
+  selección de columnas se guarda por usuario en el equipo. La migración
+  `0015_darfes_contacto_escrito.sql` agrega teléfono, correo y el campo de escrito libre.
 - Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
-  `infra/updates/`. **Pendiente**: publicar `0.1.7` en el VPS; el servidor responde por HTTPS y
+  `infra/updates/`. **Pendiente**: publicar `0.1.8` en el VPS; el servidor responde por HTTPS y
   sigue sirviendo `0.1.4`, pero el puerto SSH `2702` presenta una clave de host distinta a la
   registrada, por lo que no se desplegó sin validarla.

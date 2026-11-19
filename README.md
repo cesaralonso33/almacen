@@ -143,7 +143,7 @@ La llave privada no se versiona. Si se genera una nueva, hay que reemplazar la l
 `desktop/src-tauri/tauri.conf.json` antes de distribuir. El instalador queda en:
 
 ```
-desktop/src-tauri/target/release/bundle/nsis/Custodia CradSystem_0.1.7_x64-setup.exe
+desktop/src-tauri/target/release/bundle/nsis/Custodia CradSystem_0.1.8_x64-setup.exe
 ```
 
 ### Configurar el primer acceso
@@ -169,7 +169,7 @@ manda la dirección guardada en la pantalla de acceso.
 - Navegación por permisos: Inicio, Expedientes, Mis pedidos, Almacén, Entregas, Mis custodias,
   Devoluciones, Reportes y Administración.
 - Módulo **P.A.**: CRUD de personas con folio consecutivo por año, campos adicionales libres, filtros avanzados y constancia PDF generada al guardar.
-- Módulo **DARFES** para el perfil Administrativo: CRUD, documentos adjuntos (incluido el PDF de depósito con validación de cuenta, monto y nombre), exportación a Excel, buscador, campos libres y reportes/indicadores.
+- Módulo **DARFES** para el perfil Administrativo: CRUD con formulario en tarjetas, documentos adjuntos (incluidos el PDF de depósito validado y el escrito libre), teléfono y correo, exportación a Excel, buscador, campos libres, columnas configurables por usuario y reportes/indicadores.
 - DARFES con tipo **REEMBOLSO** o **CANASTA**: al guardar una canasta se generan tres registros mensuales con descripción automática (`1ra canasta 3`, `2da canasta de 3`, `3ra canasta de 3`). Los campos de archivo aceptan arrastrar y soltar.
 - Asignación masiva: un administrador selecciona un listado de expedientes y crea un pedido a nombre de otro usuario; almacén lo prepara y el destinatario confirma la recepción.
 - Alta de expedientes por cualquier usuario operativo: el creador queda como custodio inicial hasta que lo devuelva al almacén.

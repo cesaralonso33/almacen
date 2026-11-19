@@ -22,13 +22,14 @@ use crate::{
     AppState,
 };
 
-const CAMPOS_DOCUMENTO: [&str; 6] = [
+const CAMPOS_DOCUMENTO: [&str; 7] = [
     "CURP",
     "RFC",
     "REGISTRO",
     "IDENTIFICACION",
     "ESTADO_CUENTA",
     "DEPOSITO",
+    "ESCRITO_LIBRE",
 ];
 const LIMITE_DOCUMENTO: usize = 8 * 1024 * 1024;
 const DESCRIPCIONES_CANASTA: [&str; 3] = ["1ra canasta 3", "2da canasta de 3", "3ra canasta de 3"];
@@ -60,6 +61,10 @@ pub struct DarfeInput {
     pub curp: String,
     #[serde(default)]
     pub rfc: String,
+    #[serde(default)]
+    pub telefono: String,
+    #[serde(default)]
+    pub correo: String,
     #[serde(default)]
     pub descripcion: String,
     pub monto: f64,
@@ -114,6 +119,8 @@ struct FilaDarfe {
     identificacion: String,
     curp: String,
     rfc: String,
+    telefono: String,
+    correo: String,
     tipo: String,
     estatus: String,
     campos_extra: Value,
@@ -133,6 +140,8 @@ struct DatosDarfe {
     identificacion: String,
     curp: String,
     rfc: String,
+    telefono: String,
+    correo: String,
     descripcion: String,
     monto: f64,
     numero_cuenta: String,
@@ -228,6 +237,8 @@ async fn crear_canasta(
             identificacion: datos.identificacion.clone(),
             curp: datos.curp.clone(),
             rfc: datos.rfc.clone(),
+            telefono: datos.telefono.clone(),
+            correo: datos.correo.clone(),
             descripcion: (*descripcion).to_string(),
             monto: datos.monto,
             numero_cuenta: datos.numero_cuenta.clone(),
@@ -288,8 +299,9 @@ async fn insertar(
         "INSERT INTO darfes
             (numero_darfe, fecha, nombre, descripcion, monto, numero_cuenta, tipo,
              grupo_canasta, item_canasta, expediente, registro, estado_cuenta, banco,
-             identificacion, curp, rfc, estatus, campos_extra, creado_por, actualizado_por)
-         VALUES ($1,$2,$3,$4,$5::numeric,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$19)
+             identificacion, curp, rfc, telefono, correo, estatus, campos_extra,
+             creado_por, actualizado_por)
+         VALUES ($1,$2,$3,$4,$5::numeric,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$21)
          RETURNING id",
     )
     .bind(&datos.numero_darfe)
@@ -308,6 +320,8 @@ async fn insertar(
     .bind(&datos.identificacion)
     .bind(&datos.curp)
     .bind(&datos.rfc)
+    .bind(&datos.telefono)
+    .bind(&datos.correo)
     .bind(&datos.estatus)
     .bind(&extra)
     .bind(usuario)
@@ -355,8 +369,8 @@ pub async fn actualizar(
          SET numero_darfe=$2, fecha=$3, nombre=$4, descripcion=$5, monto=$6::numeric,
              numero_cuenta=$7, tipo=$8, grupo_canasta=$9, item_canasta=$10,
              expediente=$11, registro=$12, estado_cuenta=$13, banco=$14,
-             identificacion=$15, curp=$16, rfc=$17, estatus=$18,
-             campos_extra=$19, actualizado_por=$20, actualizado_en=now()
+             identificacion=$15, curp=$16, rfc=$17, telefono=$18, correo=$19,
+             estatus=$20, campos_extra=$21, actualizado_por=$22, actualizado_en=now()
          WHERE id=$1",
     )
     .bind(id)
@@ -376,6 +390,8 @@ pub async fn actualizar(
     .bind(&datos.identificacion)
     .bind(&datos.curp)
     .bind(&datos.rfc)
+    .bind(&datos.telefono)
+    .bind(&datos.correo)
     .bind(&datos.estatus)
     .bind(&extra)
     .bind(user.id)
@@ -606,6 +622,8 @@ pub async fn exportar(
         "ESTADO CUENTA",
         "BANCO",
         "IDENTIFICACIÓN",
+        "TELÉFONO",
+        "CORREO",
         "CURP",
         "RFC",
         "TIPO",
@@ -620,51 +638,58 @@ pub async fn exportar(
             .map_err(error_excel)?;
     }
 
+    let posicion = |titulo: &str| -> u16 {
+        columnas
+            .iter()
+            .position(|columna| *columna == titulo)
+            .unwrap_or(0) as u16
+    };
     for (fila, registro) in registros.iter().enumerate() {
         let renglon = fila as u32 + 1;
-        for (columna, clave) in ["numero_darfe", "fecha", "nombre", "descripcion"]
-            .iter()
-            .enumerate()
-        {
+        let textos = [
+            ("NO. DARFE", "numero_darfe"),
+            ("FECHA", "fecha"),
+            ("NOMBRE", "nombre"),
+            ("DESCRIPCIÓN", "descripcion"),
+            ("NO. CUENTA", "numero_cuenta"),
+            ("EXPEDIENTE", "expediente"),
+            ("REGISTRO", "registro"),
+            ("ESTADO CUENTA", "estado_cuenta"),
+            ("BANCO", "banco"),
+            ("IDENTIFICACIÓN", "identificacion"),
+            ("TELÉFONO", "telefono"),
+            ("CORREO", "correo"),
+            ("CURP", "curp"),
+            ("RFC", "rfc"),
+            ("TIPO", "tipo"),
+            ("ESTATUS", "estatus"),
+        ];
+        for (titulo, clave) in textos {
             hoja.write_string(
                 renglon,
-                columna as u16,
-                registro[*clave].as_str().unwrap_or(""),
+                posicion(titulo),
+                registro[clave].as_str().unwrap_or(""),
             )
             .map_err(error_excel)?;
         }
-        hoja.write_number(renglon, 4, registro["monto"].as_f64().unwrap_or(0.0))
-            .map_err(error_excel)?;
-        for (indice, clave) in [
-            "numero_cuenta",
-            "expediente",
-            "registro",
-            "estado_cuenta",
-            "banco",
-            "identificacion",
-            "curp",
-            "rfc",
-            "tipo",
-            "estatus",
-        ]
-        .iter()
-        .enumerate()
-        {
-            hoja.write_string(
-                renglon,
-                indice as u16 + 5,
-                registro[*clave].as_str().unwrap_or(""),
-            )
-            .map_err(error_excel)?;
-        }
-        hoja.write_string(renglon, 15, &registro["campos_extra"].to_string())
-            .map_err(error_excel)?;
+        hoja.write_number(
+            renglon,
+            posicion("MONTO"),
+            registro["monto"].as_f64().unwrap_or(0.0),
+        )
+        .map_err(error_excel)?;
+        hoja.write_string(
+            renglon,
+            posicion("CAMPOS ADICIONALES"),
+            &registro["campos_extra"].to_string(),
+        )
+        .map_err(error_excel)?;
         let deposito = match registro["deposito_coincide"].as_bool() {
             Some(true) => "SÍ",
             Some(false) => "NO",
             None => "",
         };
-        hoja.write_string(renglon, 16, deposito)
+        hoja.write_string(renglon, posicion("DEPÓSITO COINCIDE"), deposito)
             .map_err(error_excel)?;
     }
 
@@ -794,6 +819,7 @@ async fn consultar_lista(
            AND ($1::text IS NULL OR (numero_darfe ILIKE $1 OR nombre ILIKE $1 OR descripcion ILIKE $1
                 OR expediente ILIKE $1 OR registro ILIKE $1 OR estado_cuenta ILIKE $1
                 OR banco ILIKE $1 OR identificacion ILIKE $1 OR curp ILIKE $1 OR rfc ILIKE $1
+                OR telefono ILIKE $1 OR correo ILIKE $1
                 OR numero_cuenta ILIKE $1 OR tipo ILIKE $1))
            AND ($2::date IS NULL OR fecha >= $2)
            AND ($3::date IS NULL OR fecha <= $3)
@@ -814,7 +840,7 @@ async fn consultar_lista(
         "SELECT d.id, d.numero_darfe, d.fecha, d.nombre, d.descripcion,
                 d.monto::float8, d.numero_cuenta, d.expediente, d.registro,
                 d.estado_cuenta, d.banco, d.identificacion, d.curp, d.rfc,
-                d.tipo, d.estatus, d.campos_extra,
+                d.telefono, d.correo, d.tipo, d.estatus, d.campos_extra,
                 ARRAY(SELECT campo FROM darfe_documentos WHERE darfe_id=d.id ORDER BY campo) AS documentos,
                 (SELECT coincide FROM darfe_documentos WHERE darfe_id=d.id AND campo='DEPOSITO') AS deposito_coincide,
                 d.actualizado_en
@@ -823,6 +849,7 @@ async fn consultar_lista(
            AND ($1::text IS NULL OR (d.numero_darfe ILIKE $1 OR d.nombre ILIKE $1 OR d.descripcion ILIKE $1
                 OR d.expediente ILIKE $1 OR d.registro ILIKE $1 OR d.estado_cuenta ILIKE $1
                 OR d.banco ILIKE $1 OR d.identificacion ILIKE $1 OR d.curp ILIKE $1 OR d.rfc ILIKE $1
+                OR d.telefono ILIKE $1 OR d.correo ILIKE $1
                 OR d.numero_cuenta ILIKE $1 OR d.tipo ILIKE $1))
            AND ($2::date IS NULL OR d.fecha >= $2)
            AND ($3::date IS NULL OR d.fecha <= $3)
@@ -861,6 +888,8 @@ async fn consultar_lista(
                 "identificacion": fila.identificacion,
                 "curp": fila.curp,
                 "rfc": fila.rfc,
+                "telefono": fila.telefono,
+                "correo": fila.correo,
                 "tipo": fila.tipo,
                 "estatus": fila.estatus,
                 "campos_extra": fila.campos_extra,
@@ -877,7 +906,7 @@ async fn consultar(app: &AppState, id: Uuid) -> Result<Value, ApiError> {
         "SELECT d.id, d.numero_darfe, d.fecha, d.nombre, d.descripcion,
                 d.monto::float8, d.numero_cuenta, d.expediente, d.registro,
                 d.estado_cuenta, d.banco, d.identificacion, d.curp, d.rfc,
-                d.tipo, d.estatus, d.campos_extra,
+                d.telefono, d.correo, d.tipo, d.estatus, d.campos_extra,
                 ARRAY(SELECT campo FROM darfe_documentos WHERE darfe_id=d.id ORDER BY campo) AS documentos,
                 (SELECT coincide FROM darfe_documentos WHERE darfe_id=d.id AND campo='DEPOSITO') AS deposito_coincide,
                 d.actualizado_en
@@ -904,6 +933,8 @@ async fn consultar(app: &AppState, id: Uuid) -> Result<Value, ApiError> {
         "identificacion": fila.identificacion,
         "curp": fila.curp,
         "rfc": fila.rfc,
+        "telefono": fila.telefono,
+        "correo": fila.correo,
         "tipo": fila.tipo,
         "estatus": fila.estatus,
         "campos_extra": fila.campos_extra,
@@ -975,6 +1006,18 @@ fn validar(input: DarfeInput) -> Result<DatosDarfe, ApiError> {
         });
     }
 
+    let correo = campo(input.correo, 200, "El correo")?;
+    if !correo.is_empty()
+        && (correo.contains(char::is_whitespace)
+            || !correo.contains('@')
+            || correo.starts_with('@')
+            || correo.ends_with('@'))
+    {
+        return Err(ApiError::inprocesable(
+            "El correo no tiene un formato válido",
+        ));
+    }
+
     Ok(DatosDarfe {
         numero_darfe,
         fecha: input.fecha,
@@ -986,6 +1029,8 @@ fn validar(input: DarfeInput) -> Result<DatosDarfe, ApiError> {
         identificacion: campo(input.identificacion, 100, "La identificación")?,
         curp: campo(input.curp.to_uppercase(), 18, "La CURP")?,
         rfc: campo(input.rfc.to_uppercase(), 13, "El RFC")?,
+        telefono: campo(input.telefono, 30, "El teléfono")?,
+        correo: correo,
         descripcion: campo(input.descripcion, 500, "La descripción")?,
         monto,
         numero_cuenta: campo(input.numero_cuenta, 50, "El número de cuenta")?,

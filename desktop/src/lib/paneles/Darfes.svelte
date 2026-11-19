@@ -15,7 +15,8 @@
         { clave: 'REGISTRO', etiqueta: 'Registro' },
         { clave: 'IDENTIFICACION', etiqueta: 'Identificación' },
         { clave: 'ESTADO_CUENTA', etiqueta: 'Estado de cuenta' },
-        { clave: 'DEPOSITO', etiqueta: 'Depósito' }
+        { clave: 'DEPOSITO', etiqueta: 'Depósito' },
+        { clave: 'ESCRITO_LIBRE', etiqueta: 'Escrito libre' }
     ];
 
     const COLUMNAS = [
@@ -25,6 +26,7 @@
         { clave: 'expediente', etiqueta: 'Número de expediente' },
         { clave: 'descripcion', etiqueta: 'Descripción' },
         { clave: 'monto', etiqueta: 'Monto' },
+        { clave: 'numero_cuenta', etiqueta: 'Número de cuenta' },
         { clave: 'tipo', etiqueta: 'Tipo' },
         { clave: 'banco', etiqueta: 'Banco' },
         { clave: 'estatus', etiqueta: 'Estatus' },
@@ -32,6 +34,20 @@
     ] as const;
 
     type ClaveColumna = (typeof COLUMNAS)[number]['clave'];
+
+    const COLUMNAS_PREDETERMINADAS: Record<ClaveColumna, boolean> = {
+        numero_darfe: true,
+        fecha: true,
+        nombre: true,
+        expediente: true,
+        descripcion: true,
+        monto: true,
+        numero_cuenta: true,
+        tipo: true,
+        banco: true,
+        estatus: true,
+        documentos: true
+    };
 
     type CampoExtra = { nombre: string; valor: string };
     type Archivos = Record<string, File | null>;
@@ -57,18 +73,7 @@
     let errorFormulario = $state('');
     let documentosExistentes = $state<string[]>([]);
     let archivos = $state<Archivos>(vacioArchivos());
-    let columnas = $state<Record<ClaveColumna, boolean>>({
-        numero_darfe: true,
-        fecha: true,
-        nombre: true,
-        expediente: true,
-        descripcion: true,
-        monto: true,
-        tipo: true,
-        banco: true,
-        estatus: true,
-        documentos: true
-    });
+    let columnas = $state<Record<ClaveColumna, boolean>>({ ...COLUMNAS_PREDETERMINADAS });
     let menuColumnas = $state(false);
     let menuColumnasEl = $state<HTMLDivElement | undefined>(undefined);
     let form = $state({
@@ -82,6 +87,8 @@
         identificacion: '',
         curp: '',
         rfc: '',
+        telefono: '',
+        correo: '',
         descripcion: '',
         monto: '',
         numero_cuenta: '',
@@ -95,7 +102,10 @@
         COLUMNAS.filter((columna) => columnas[columna.clave]).length
     );
 
-    onMount(cargar);
+    onMount(() => {
+        cargarColumnas();
+        cargar();
+    });
 
     function fechaHoy(): string {
         const hoy = new Date();
@@ -173,6 +183,8 @@
             identificacion: '',
             curp: '',
             rfc: '',
+            telefono: '',
+            correo: '',
             descripcion: '',
             monto: '',
             numero_cuenta: '',
@@ -199,6 +211,8 @@
             identificacion: registro.identificacion ?? '',
             curp: registro.curp ?? '',
             rfc: registro.rfc ?? '',
+            telefono: registro.telefono ?? '',
+            correo: registro.correo ?? '',
             descripcion: registro.descripcion ?? '',
             monto: String(registro.monto ?? ''),
             numero_cuenta: registro.numero_cuenta ?? '',
@@ -254,6 +268,8 @@
                 identificacion: form.identificacion,
                 curp: form.curp,
                 rfc: form.rfc,
+                telefono: form.telefono,
+                correo: form.correo,
                 descripcion: form.descripcion,
                 monto: Number(form.monto),
                 numero_cuenta: form.numero_cuenta,
@@ -354,6 +370,36 @@
     function alternarColumna(clave: ClaveColumna, visible: boolean) {
         if (!visible && columnasVisibles === 1) return;
         columnas = { ...columnas, [clave]: visible };
+        guardarColumnas();
+    }
+
+    function claveColumnas(): string {
+        return `darfes.columnas.${app.usuario?.usuario_id ?? 'anonimo'}`;
+    }
+
+    function cargarColumnas() {
+        try {
+            const guardado = window.localStorage.getItem(claveColumnas());
+            if (!guardado) return;
+            const valores = JSON.parse(guardado) as Record<string, unknown>;
+            const siguiente = { ...COLUMNAS_PREDETERMINADAS };
+            for (const columna of COLUMNAS) {
+                if (typeof valores?.[columna.clave] === 'boolean') {
+                    siguiente[columna.clave] = valores[columna.clave] as boolean;
+                }
+            }
+            if (COLUMNAS.some((columna) => siguiente[columna.clave])) columnas = siguiente;
+        } catch {
+            /* el equipo no tiene preferencias guardadas o no hay almacenamiento local */
+        }
+    }
+
+    function guardarColumnas() {
+        try {
+            window.localStorage.setItem(claveColumnas(), JSON.stringify(columnas));
+        } catch {
+            /* si el almacenamiento local no está disponible se conserva la selección en memoria */
+        }
     }
 
     function cerrarMenuColumnas(evento: MouseEvent) {
@@ -415,7 +461,7 @@
             <div class="flex flex-wrap gap-2">
                 <input
                     class="campo min-w-64 flex-1"
-                    placeholder="Buscar por número, nombre, expediente, CURP, RFC, banco…"
+                    placeholder="Buscar por número, nombre, expediente, CURP, RFC, teléfono, correo, banco…"
                     bind:value={filtros.buscar}
                     onkeydown={(evento) => evento.key === 'Enter' && buscar()}
                 />
@@ -519,6 +565,7 @@
                             {#if columnas.expediente}<th>Número de expediente</th>{/if}
                             {#if columnas.descripcion}<th>Descripción</th>{/if}
                             {#if columnas.monto}<th>Monto</th>{/if}
+                            {#if columnas.numero_cuenta}<th>Número de cuenta</th>{/if}
                             {#if columnas.tipo}<th>Tipo</th>{/if}
                             {#if columnas.banco}<th>Banco</th>{/if}
                             {#if columnas.estatus}<th>Estatus</th>{/if}
@@ -530,20 +577,9 @@
                         {#each registros as registro (registro.id)}
                             <tr>
                                 {#if columnas.numero_darfe}
-                                    <td class="font-mono text-xs font-medium text-institucional-600">
-                                        {registro.numero_darfe}
-                                    </td>
-                                {/if}
-                                {#if columnas.fecha}
-                                    <td>{fechaVisible(registro.fecha)}</td>
-                                {/if}
-                                {#if columnas.nombre}
-                                    <td>{registro.nombre}</td>
-                                {/if}
-                                {#if columnas.expediente}
                                     <td class="whitespace-nowrap text-xs leading-5">
-                                        <span class="block font-medium text-slate-700">
-                                            {registro.expediente || '—'}
+                                        <span class="block font-mono font-medium text-institucional-600">
+                                            {registro.numero_darfe}
                                         </span>
                                         <span class="block text-slate-500">
                                             Registro: {registro.registro || '—'}
@@ -556,6 +592,17 @@
                                         </span>
                                     </td>
                                 {/if}
+                                {#if columnas.fecha}
+                                    <td>{fechaVisible(registro.fecha)}</td>
+                                {/if}
+                                {#if columnas.nombre}
+                                    <td>{registro.nombre}</td>
+                                {/if}
+                                {#if columnas.expediente}
+                                    <td class="whitespace-nowrap text-xs text-slate-700">
+                                        {registro.expediente || '—'}
+                                    </td>
+                                {/if}
                                 {#if columnas.descripcion}
                                     <td>{registro.descripcion || '—'}</td>
                                 {/if}
@@ -564,6 +611,11 @@
                                         ${Number(registro.monto ?? 0).toLocaleString('es-MX', {
                                             minimumFractionDigits: 2
                                         })}
+                                    </td>
+                                {/if}
+                                {#if columnas.numero_cuenta}
+                                    <td class="whitespace-nowrap font-mono text-xs">
+                                        {registro.numero_cuenta || '—'}
                                     </td>
                                 {/if}
                                 {#if columnas.tipo}
@@ -710,7 +762,7 @@
 {#if modal}
     <Modal
         titulo={editandoId ? 'Editar DARFE' : 'Nuevo DARFE'}
-        ancho={78}
+        ancho={85}
         oncerrar={() => (modal = false)}
     >
         <form
@@ -720,100 +772,135 @@
                 guardar();
             }}
         >
-            <div class="grid gap-3 sm:grid-cols-2">
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">No. de DARFE</span>
-                    <input class="campo font-mono" maxlength="100" bind:value={form.numero_darfe} required />
-                </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">Fecha</span>
-                    <input class="campo" type="date" bind:value={form.fecha} required />
-                </label>
-                <label class="block text-sm sm:col-span-2">
-                    <span class="mb-1 block font-medium text-slate-600">Nombre</span>
-                    <input class="campo" maxlength="200" bind:value={form.nombre} required />
-                </label>
-                <label class="block text-sm sm:col-span-2">
-                    <span class="mb-1 block font-medium text-slate-600">Descripción</span>
-                    <textarea
-                        class="campo h-20"
-                        maxlength="500"
-                        bind:value={form.descripcion}
-                        disabled={form.tipo === 'CANASTA'}
-                        placeholder={form.tipo === 'CANASTA'
-                            ? 'Se generará automáticamente para cada canasta'
-                            : 'Descripción del DARFE'}
-                    ></textarea>
-                </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">Monto</span>
-                    <input class="campo" type="number" min="0" step="0.01" bind:value={form.monto} required />
-                </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">Número de cuenta</span>
-                    <input class="campo" maxlength="50" bind:value={form.numero_cuenta} />
-                </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">Tipo</span>
-                    <select class="campo" bind:value={form.tipo} disabled={Boolean(editandoId)}>
-                        <option value="REEMBOLSO">REEMBOLSO</option>
-                        <option value="CANASTA">CANASTA</option>
-                    </select>
-                    {#if form.tipo === 'CANASTA' && !editandoId}
-                        <span class="mt-1 block text-xs text-slate-500">
-                            Se crearán 3 registros mensuales automáticamente.
-                        </span>
-                    {/if}
-                </label>
-                <label class="block text-sm sm:col-span-2">
-                    <span class="mb-1 block font-medium text-slate-600">Número de expediente</span>
-                    <input class="campo" maxlength="200" bind:value={form.expediente} />
-                </label>
-                <label class="block text-sm sm:col-span-2">
-                    <span class="mb-1 block font-medium text-slate-600">Número de registro</span>
-                    <input class="campo" maxlength="100" bind:value={form.registro} />
-                </label>
-                <label class="block text-sm sm:col-span-2">
-                    <span class="mb-1 block font-medium text-slate-600">CURP</span>
-                    <input class="campo font-mono uppercase" maxlength="18" bind:value={form.curp} />
-                </label>
-                <label class="block text-sm sm:col-span-2">
-                    <span class="mb-1 block font-medium text-slate-600">RFC</span>
-                    <input class="campo font-mono uppercase" maxlength="13" bind:value={form.rfc} />
-                </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">Estado de cuenta</span>
-                    <input class="campo" bind:value={form.estado_cuenta} />
-                </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">Banco</span>
-                    <input class="campo" bind:value={form.banco} />
-                </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">Identificación</span>
-                    <input class="campo" bind:value={form.identificacion} />
-                </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">Estatus</span>
-                    <select class="campo" bind:value={form.estatus}>
-                        {#each ESTATUS as estatus}
-                            <option value={estatus}>{estatus}</option>
-                        {/each}
-                    </select>
-                </label>
-            </div>
+            <section class="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+                <h3 class="mb-3 text-sm font-semibold text-slate-700">Identificación del DARFE</h3>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <label class="block text-sm">
+                        <span class="mb-1 block font-medium text-slate-600">No. de DARFE</span>
+                        <input class="campo font-mono" maxlength="100" bind:value={form.numero_darfe} required />
+                    </label>
+                    <label class="block text-sm">
+                        <span class="mb-1 block font-medium text-slate-600">Fecha</span>
+                        <input class="campo" type="date" bind:value={form.fecha} required />
+                    </label>
+                    <label class="block text-sm sm:col-span-2">
+                        <span class="mb-1 block font-medium text-slate-600">Nombre</span>
+                        <input class="campo" maxlength="200" bind:value={form.nombre} required />
+                    </label>
+                    <label class="block text-sm sm:col-span-2">
+                        <span class="mb-1 block font-medium text-slate-600">Descripción</span>
+                        <textarea
+                            class="campo h-20"
+                            maxlength="500"
+                            bind:value={form.descripcion}
+                            disabled={form.tipo === 'CANASTA'}
+                            placeholder={form.tipo === 'CANASTA'
+                                ? 'Se generará automáticamente para cada canasta'
+                                : 'Descripción del DARFE'}
+                        ></textarea>
+                    </label>
+                    <label class="block text-sm">
+                        <span class="mb-1 block font-medium text-slate-600">Tipo</span>
+                        <select class="campo" bind:value={form.tipo} disabled={Boolean(editandoId)}>
+                            <option value="REEMBOLSO">REEMBOLSO</option>
+                            <option value="CANASTA">CANASTA</option>
+                        </select>
+                        {#if form.tipo === 'CANASTA' && !editandoId}
+                            <span class="mt-1 block text-xs text-slate-500">
+                                Se crearán 3 registros mensuales automáticamente.
+                            </span>
+                        {/if}
+                    </label>
+                    <label class="block text-sm">
+                        <span class="mb-1 block font-medium text-slate-600">Estatus</span>
+                        <select class="campo" bind:value={form.estatus}>
+                            {#each ESTATUS as estatus}
+                                <option value={estatus}>{estatus}</option>
+                            {/each}
+                        </select>
+                    </label>
+                </div>
+            </section>
 
-            <div class="space-y-2">
+            <section class="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+                <h3 class="mb-3 text-sm font-semibold text-slate-700">Datos de pago</h3>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <label class="block text-sm">
+                        <span class="mb-1 block font-medium text-slate-600">Monto</span>
+                        <input class="campo" type="number" min="0" step="0.01" bind:value={form.monto} required />
+                    </label>
+                    <label class="block text-sm">
+                        <span class="mb-1 block font-medium text-slate-600">Número de cuenta</span>
+                        <input class="campo" maxlength="50" bind:value={form.numero_cuenta} />
+                    </label>
+                    <label class="block text-sm">
+                        <span class="mb-1 block font-medium text-slate-600">Banco</span>
+                        <input class="campo" bind:value={form.banco} />
+                    </label>
+                    <label class="block text-sm">
+                        <span class="mb-1 block font-medium text-slate-600">Estado de cuenta</span>
+                        <input class="campo" bind:value={form.estado_cuenta} />
+                    </label>
+                </div>
+            </section>
+
+            <section class="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+                <h3 class="mb-3 text-sm font-semibold text-slate-700">Datos personales y contacto</h3>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <label class="block text-sm sm:col-span-2">
+                        <span class="mb-1 block font-medium text-slate-600">Número de expediente</span>
+                        <input class="campo" maxlength="200" bind:value={form.expediente} />
+                    </label>
+                    <label class="block text-sm sm:col-span-2">
+                        <span class="mb-1 block font-medium text-slate-600">Número de registro</span>
+                        <input class="campo" maxlength="100" bind:value={form.registro} />
+                    </label>
+                    <label class="block text-sm sm:col-span-2">
+                        <span class="mb-1 block font-medium text-slate-600">CURP</span>
+                        <input class="campo font-mono uppercase" maxlength="18" bind:value={form.curp} />
+                    </label>
+                    <label class="block text-sm sm:col-span-2">
+                        <span class="mb-1 block font-medium text-slate-600">RFC</span>
+                        <input class="campo font-mono uppercase" maxlength="13" bind:value={form.rfc} />
+                    </label>
+                    <label class="block text-sm">
+                        <span class="mb-1 block font-medium text-slate-600">Teléfono</span>
+                        <input
+                            class="campo"
+                            type="tel"
+                            maxlength="30"
+                            bind:value={form.telefono}
+                            placeholder="55 5555 5555"
+                        />
+                    </label>
+                    <label class="block text-sm">
+                        <span class="mb-1 block font-medium text-slate-600">Correo</span>
+                        <input
+                            class="campo"
+                            type="email"
+                            maxlength="200"
+                            bind:value={form.correo}
+                            placeholder="persona@ejemplo.mx"
+                        />
+                    </label>
+                    <label class="block text-sm sm:col-span-2">
+                        <span class="mb-1 block font-medium text-slate-600">Identificación</span>
+                        <input class="campo" bind:value={form.identificacion} />
+                    </label>
+                </div>
+            </section>
+
+            <section class="space-y-2 rounded-lg border border-slate-200 bg-slate-50/60 p-4">
                 <div class="flex items-center justify-between">
-                    <span class="text-sm font-medium text-slate-600">Documentos</span>
+                    <h3 class="text-sm font-semibold text-slate-700">Documentos</h3>
                     {#if editandoId}
                         <span class="text-xs text-slate-500">Los archivos nuevos reemplazan al existente.</span>
                     {/if}
                 </div>
-                <div class="grid gap-3 md:grid-cols-2">
+                <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                     {#each CAMPOS_DOCUMENTO as campo}
                         <div
-                            class="rounded-lg border border-dashed border-slate-300 p-3 text-sm"
+                            class="rounded-lg border border-dashed border-slate-300 bg-white p-3 text-sm"
                             role="group"
                             ondragover={(evento) => evento.preventDefault()}
                             ondrop={(evento) => soltarArchivo(evento, campo.clave)}
@@ -843,11 +930,11 @@
                         </div>
                     {/each}
                 </div>
-            </div>
+            </section>
 
-            <div class="space-y-2">
+            <section class="space-y-2 rounded-lg border border-slate-200 bg-slate-50/60 p-4">
                 <div class="flex items-center justify-between">
-                    <span class="text-sm font-medium text-slate-600">Campos adicionales</span>
+                    <h3 class="text-sm font-semibold text-slate-700">Campos adicionales</h3>
                     <button class="btn-secundario" type="button" onclick={agregarCampo}>Agregar campo</button>
                 </div>
                 {#each form.campos_extra as campo, indice}
@@ -859,7 +946,7 @@
                         </button>
                     </div>
                 {/each}
-            </div>
+            </section>
 
             {#if errorFormulario}
                 <p class="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{errorFormulario}</p>

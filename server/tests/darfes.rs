@@ -24,6 +24,8 @@ fn darfe(numero: &str, nombre: &str) -> serde_json::Value {
         "identificacion": "INE-1",
         "curp": "ABCD800101HDFXYZ01",
         "rfc": "ABCD800101XYZ",
+        "telefono": "555-0101",
+        "correo": "persona@ejemplo.mx",
         "descripcion": "Pago de prueba",
         "monto": 1500.50,
         "numero_cuenta": "1234567890",
@@ -74,7 +76,20 @@ async fn administrativo_crea_documenta_exporta_y_consulta_reportes() {
     assert_eq!(estado, StatusCode::OK, "{creado}");
     let id = creado["id"].as_str().unwrap();
     assert_eq!(creado["estatus"], "PENDIENTE");
+    assert_eq!(creado["telefono"], "555-0101");
+    assert_eq!(creado["correo"], "persona@ejemplo.mx");
     assert_eq!(creado["campos_extra"][0]["nombre"], "Teléfono");
+
+    let (estado, por_correo) = pedir(
+        &t.app,
+        "GET",
+        "/api/v1/darfes?buscar=persona@ejemplo.mx",
+        Some(&tok),
+        None,
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK, "{por_correo}");
+    assert_eq!(por_correo["total"], 1);
 
     let (estado, listado) = pedir(
         &t.app,
@@ -119,6 +134,21 @@ async fn administrativo_crea_documenta_exporta_y_consulta_reportes() {
     assert_eq!(estado, StatusCode::OK, "{deposito}");
     assert_eq!(deposito["coincide"], false);
 
+    let (estado, escrito) = pedir(
+        &t.app,
+        "POST",
+        &format!("/api/v1/darfes/{id}/documentos"),
+        Some(&tok),
+        Some(json!({
+            "campo": "ESCRITO_LIBRE",
+            "nombre": "escrito.pdf",
+            "mime": "application/pdf",
+            "contenido_base64": "JVBERi0="
+        })),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK, "{escrito}");
+
     let (estado, pdf) = descargar(&t, &tok, &format!("/api/v1/darfes/{id}/documentos/CURP")).await;
     assert_eq!(estado, StatusCode::OK);
     assert!(pdf.starts_with(b"%PDF"));
@@ -133,6 +163,7 @@ async fn administrativo_crea_documenta_exporta_y_consulta_reportes() {
     assert_eq!(reportes["total"], 1);
     assert_eq!(reportes["por_estatus"]["PENDIENTE"], 1);
     assert_eq!(reportes["documentos"]["CURP"], 1);
+    assert_eq!(reportes["documentos"]["ESCRITO_LIBRE"], 1);
 
     let (estado, actualizado) = pedir(
         &t.app,

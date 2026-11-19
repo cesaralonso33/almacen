@@ -62,3 +62,10 @@
         @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold;
     }
 }
+
+/* En pantallas angostas el modal amplio aprovecha casi todo el ancho. */
+@media (max-width: 640px) {
+    .modal-amplio {
+        width: 96% !important;
+    }
+}

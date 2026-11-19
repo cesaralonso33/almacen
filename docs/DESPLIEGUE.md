@@ -476,7 +476,7 @@ Genere el manifiesto y copie los artefactos:
 
 ```bash
 powershell -ExecutionPolicy Bypass -File scripts/publicar-actualizacion.ps1 \
-  -Version 0.1.5 \
+  -Version 0.1.6 \
   -BaseUrl https://129-121-117-177.sslip.io
 ```
 

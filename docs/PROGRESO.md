@@ -512,8 +512,12 @@ servidor Debian de destino.
 - Pruebas: `cargo test --test darfes` → 3 pruebas (CRUD/documentos/depósito, canasta mensual y
   permisos); pruebas unitarias de extracción del PDF de depósito (coincidencia y diferencias).
   Suite completa del servidor: 89 pruebas sin fallos.
-- Versión `0.1.5` del escritorio con esta ampliación de DARFES.
+- Versión `0.1.6`: interpreta el **Reporte de Transferencia a Nacionales SPEI** (cuenta/CLABE del
+  beneficiario, `Importe a Transferir` y `Nombre del Beneficiario`), ignorando la cuenta y el
+  nombre del ordenante. Se validó contra un PDF real del banco y se agregaron dos pruebas con
+  datos ficticios. El login oculta el campo Servidor y lo muestra con un icono en la esquina
+  inferior derecha.
 - Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
-  `infra/updates/`. **Pendiente**: publicar `0.1.5` en el VPS; el servidor responde por HTTPS y
+  `infra/updates/`. **Pendiente**: publicar `0.1.6` en el VPS; el servidor responde por HTTPS y
   sigue sirviendo `0.1.4`, pero el puerto SSH `2702` presenta una clave de host distinta a la
   registrada, por lo que no se desplegó sin validarla.

@@ -143,12 +143,13 @@ La llave privada no se versiona. Si se genera una nueva, hay que reemplazar la l
 `desktop/src-tauri/tauri.conf.json` antes de distribuir. El instalador queda en:
 
 ```
-desktop/src-tauri/target/release/bundle/nsis/Custodia CradSystem_0.1.5_x64-setup.exe
+desktop/src-tauri/target/release/bundle/nsis/Custodia CradSystem_0.1.6_x64-setup.exe
 ```
 
 ### Configurar el primer acceso
 
-1. Abra la aplicación. La pantalla de acceso pide **Servidor**, correo y contraseña.
+1. Abra la aplicación. La pantalla de acceso pide correo y contraseña; el campo **Servidor** está
+   oculto y se muestra con el icono de ajustes de la esquina inferior derecha.
 2. La dirección viene precargada con `https://129-121-117-177.sslip.io`; ajústela si su instalación usa otro nombre o el modo sin cifrado, sin barra final:
    - `https://129-121-117-177.sslip.io` si usa TLS,
    - `http://129.121.117.177` si usa el modo sin cifrado.

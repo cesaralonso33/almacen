@@ -38,6 +38,8 @@
 - El PDF de depósito se procesa en el servidor: extrae número de cuenta, monto y nombre, compara
   contra lo capturado y guarda `coincide` y las diferencias. La falta de coincidencia no descarta
   la carga; queda visible para revisión humana y en la auditoría.
+- En los reportes SPEI se toma la cuenta/CLABE y el nombre del **beneficiario**; la cuenta y el
+  nombre del **ordenante** se ignoran para no comparar contra los datos de la institución.
 
 ## Transporte y secretos
 

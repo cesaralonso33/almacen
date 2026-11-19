@@ -1033,34 +1033,36 @@ fn validar_deposito(
             )
         }
     };
-    let cuenta = capturar(
-        &texto,
-        r"(?i)(?:n[uú]mero\s+de\s+cuenta|no\.?\s*de\s*cuenta|cuenta)[^\d\r\n]{0,30}([0-9][0-9\s-]{7,30})",
-    );
-    let monto = capturar(
-        &texto,
-        r"(?i)(?:monto|importe|total|dep[oó]sito)[^\d\r\n]{0,30}\$?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)",
-    );
-    let nombre = capturar(
-        &texto,
-        r"(?i)(?:nombre|beneficiario|titular)[:\s]+([^\n\r]{3,120})",
-    );
+    comparar_deposito(&texto, cuenta_capturada, monto_capturado, nombre_capturado)
+}
 
-    let cuenta_normalizada = cuenta.as_deref().map(solo_digitos).unwrap_or_default();
-    let cuenta_ok = !cuenta_capturada.is_empty()
-        && !cuenta_normalizada.is_empty()
-        && solo_digitos(cuenta_capturada) == cuenta_normalizada;
-    let monto_numero = monto.as_deref().and_then(monto_numero);
-    let monto_ok = monto_numero
+fn comparar_deposito(
+    texto: &str,
+    cuenta_capturada: &str,
+    monto_capturado: f64,
+    nombre_capturado: &str,
+) -> (Value, Option<bool>) {
+    let extraido = extraer_deposito(texto);
+
+    let cuenta_normalizada = solo_digitos(cuenta_capturada);
+    let cuenta_ok = !cuenta_normalizada.is_empty()
+        && extraido
+            .numero_cuenta
+            .as_deref()
+            .map(|cuenta| solo_digitos(cuenta) == cuenta_normalizada)
+            .unwrap_or(false);
+    let monto_ok = extraido
+        .monto
         .map(|valor| (valor - monto_capturado).abs() < 0.01)
         .unwrap_or(false);
-    let nombre_ok = nombre
+    let nombre_ok = extraido
+        .nombre
         .as_deref()
         .map(|valor| {
             let capturado = normalizar_nombre(nombre_capturado);
-            let extraido = normalizar_nombre(valor);
+            let encontrado = normalizar_nombre(valor);
             !capturado.is_empty()
-                && (extraido.contains(&capturado) || capturado.contains(&extraido))
+                && (encontrado.contains(&capturado) || capturado.contains(&encontrado))
         })
         .unwrap_or(false);
 
@@ -1077,13 +1079,116 @@ fn validar_deposito(
     let coincide = diferencias.is_empty();
     (
         json!({
-            "numero_cuenta": cuenta,
-            "monto": monto_numero,
-            "nombre": nombre,
+            "numero_cuenta": extraido.numero_cuenta,
+            "monto": extraido.monto,
+            "nombre": extraido.nombre,
             "diferencias": diferencias,
         }),
         Some(coincide),
     )
+}
+
+struct DepositoExtraido {
+    numero_cuenta: Option<String>,
+    monto: Option<f64>,
+    nombre: Option<String>,
+}
+
+fn extraer_deposito(texto: &str) -> DepositoExtraido {
+    // En los reportes SPEI la CLABE del beneficiario aparece como
+    // `Cuenta/CLABE/Celular`. La cuenta del ordenante (la institución) no debe
+    // compararse contra el DARFE.
+    let cuenta = valor_etiqueta(
+        texto,
+        &[
+            "cuenta/clabe/celular",
+            "cuenta / clabe / celular",
+            "clabe interbancaria",
+            "clabe",
+            "numero de cuenta",
+            "no. de cuenta",
+            "cuenta",
+        ],
+    )
+    .map(|valor| solo_digitos(&valor))
+    .filter(|valor| valor.len() >= 8);
+
+    // `Importe a Transferir` es el monto en los reportes SPEI; se aceptan
+    // además las etiquetas habituales de los comprobantes de depósito.
+    let monto = valor_etiqueta(
+        texto,
+        &[
+            "importe a transferir",
+            "monto",
+            "importe",
+            "total",
+            "deposito",
+        ],
+    )
+    .and_then(|valor| primer_numero(&valor))
+    .or_else(|| {
+        capturar(
+            texto,
+            r"(?i)(?:monto|importe|total)[^\d]{0,40}([0-9][0-9,]*(?:\.[0-9]{1,2})?)",
+        )
+        .and_then(|valor| monto_numero(&valor))
+    });
+
+    // El nombre relevante es el del beneficiario, no el del ordenante.
+    let nombre = valor_etiqueta(
+        texto,
+        &[
+            "nombre del beneficiario",
+            "beneficiario",
+            "nombre del titular",
+            "titular",
+            "nombre",
+        ],
+    )
+    .filter(|valor| valor.chars().count() >= 3);
+
+    DepositoExtraido {
+        numero_cuenta: cuenta,
+        monto,
+        nombre,
+    }
+}
+
+/// Devuelve el texto que sigue a la primera etiqueta encontrada, comparando
+/// sin distinguir mayúsculas ni acentos. Las etiquetas se evalúan en orden de
+/// prioridad, de modo que una etiqueta específica gana sobre una genérica.
+fn valor_etiqueta(texto: &str, etiquetas: &[&str]) -> Option<String> {
+    for etiqueta in etiquetas {
+        let buscada = plegar(etiqueta);
+        for linea in texto.lines() {
+            let limpia = linea.trim();
+            let plegada = plegar(limpia);
+            if !plegada.starts_with(&buscada) {
+                continue;
+            }
+            let generica = matches!(*etiqueta, "cuenta" | "nombre");
+            if generica && plegada.contains("ordenante") {
+                continue;
+            }
+            let caracteres = buscada.chars().count();
+            let resto: String = limpia
+                .chars()
+                .skip(caracteres)
+                .collect::<String>()
+                .trim_start_matches([':', ' ', '\t'])
+                .trim()
+                .to_string();
+            if !resto.is_empty() {
+                return Some(resto);
+            }
+        }
+    }
+    None
+}
+
+fn primer_numero(texto: &str) -> Option<f64> {
+    let capturado = capturar(texto, r"([0-9][0-9,]*(?:\.[0-9]{1,2})?)")?;
+    monto_numero(&capturado)
 }
 
 fn capturar(texto: &str, patron: &str) -> Option<String> {
@@ -1102,19 +1207,27 @@ fn monto_numero(texto: &str) -> Option<f64> {
     texto.replace(',', "").trim().parse::<f64>().ok()
 }
 
-fn normalizar_nombre(texto: &str) -> String {
+/// Minúsculas y sin acentos. Conserva un carácter por cada carácter de
+/// entrada para poder recortar la línea original por posición.
+fn plegar(texto: &str) -> String {
     texto
-        .to_uppercase()
         .chars()
         .map(|c| match c {
-            'Á' | 'À' | 'Ä' | 'Â' => 'A',
-            'É' | 'È' | 'Ë' | 'Ê' => 'E',
-            'Í' | 'Ì' | 'Ï' | 'Î' => 'I',
-            'Ó' | 'Ò' | 'Ö' | 'Ô' => 'O',
-            'Ú' | 'Ù' | 'Ü' | 'Û' => 'U',
-            'Ñ' => 'N',
-            otro => otro,
+            'Á' | 'À' | 'Ä' | 'Â' | 'á' | 'à' | 'ä' | 'â' => 'a',
+            'É' | 'È' | 'Ë' | 'Ê' | 'é' | 'è' | 'ë' | 'ê' => 'e',
+            'Í' | 'Ì' | 'Ï' | 'Î' | 'í' | 'ì' | 'ï' | 'î' => 'i',
+            'Ó' | 'Ò' | 'Ö' | 'Ô' | 'ó' | 'ò' | 'ö' | 'ô' => 'o',
+            'Ú' | 'Ù' | 'Ü' | 'Û' | 'ú' | 'ù' | 'ü' | 'û' => 'u',
+            'Ñ' | 'ñ' => 'n',
+            otro => otro.to_ascii_lowercase(),
         })
+        .collect()
+}
+
+fn normalizar_nombre(texto: &str) -> String {
+    plegar(texto)
+        .to_uppercase()
+        .chars()
         .filter(|c| c.is_alphanumeric() || c.is_whitespace())
         .collect::<String>()
         .split_whitespace()
@@ -1185,5 +1298,54 @@ mod pruebas {
                 .any(|valor| valor.as_str().unwrap_or("").contains("cuenta")),
             "{extraidos}"
         );
+    }
+
+    #[test]
+    fn interpreta_el_reporte_spei_del_banco() {
+        // Estructura real de un "Reporte de Transferencia a Nacionales SPEI",
+        // con datos ficticios.
+        let texto = "\
+Reporte de Transferencia a Nacionales SPEI BANCO MERCANTIL DEL NORTE S.A.
+RFC: BMN-930209-927
+18/11/2026 10:42
+Cuenta/ CLABE Ordenante 1257199978
+Nombre del Ordenante DEPENDENCIA ORDENANTE
+RFC o CURP del Ordenante CEE200101A29
+Moneda MXP
+Nombre del Beneficiario MARIA LOPEZ HERNANDEZ
+Cuenta/CLABE/Celular 012345678901234567
+RFC Beneficiario LOPM900101ABC
+Banco Destino AZTECA
+Importe a Transferir $1,234.56
+IVA $0.00
+Concepto de la Transferencia APOYO CANASTA ALIMENTOS 1RA MARIA LOPEZ
+Clave de Rastreo 8846APR1202611186031515573";
+        let (extraidos, coincide) = comparar_deposito(
+            texto,
+            "012345678901234567",
+            1234.56,
+            "María López Hernández",
+        );
+        assert_eq!(coincide, Some(true), "{extraidos}");
+        // La cuenta del ordenante no debe tomarse como la del beneficiario.
+        assert_eq!(extraidos["numero_cuenta"], "012345678901234567");
+        assert_eq!(extraidos["monto"], 1234.56);
+        assert_eq!(extraidos["nombre"], "MARIA LOPEZ HERNANDEZ");
+    }
+
+    #[test]
+    fn el_reporte_spei_detecta_un_importe_distinto() {
+        let texto = "\
+Cuenta/CLABE/Celular 012345678901234567
+Nombre del Beneficiario MARIA LOPEZ HERNANDEZ
+Importe a Transferir $1,234.56";
+        let (extraidos, coincide) = comparar_deposito(
+            texto,
+            "012345678901234567",
+            1200.00,
+            "María López Hernández",
+        );
+        assert_eq!(coincide, Some(false), "{extraidos}");
+        assert_eq!(extraidos["diferencias"][0], "El monto no coincide");
     }
 }

@@ -542,7 +542,10 @@ servidor Debian de destino.
   `plantilla_AYUDA.docx`: folio, año/mes actuales, tipo, beneficiario, monto y No. DARFE en el
   campo EXPEDIENTE. La migración `0017_darfe_tipos_apoyo.sql` amplía el catálogo, mantiene único el
   número para los tipos distintos de canasta y agrega `formato_fecha`.
+- Versión `0.1.12`: en P.A. el campo «Municipio donde radica» es una lista con los **217 municipios
+  de Puebla** en orden alfabético y la opción **Otros** al final; los registros antiguos con un
+  municipio fuera de la lista conservan su valor al editar.
 - Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
-  `infra/updates/`. **Pendiente**: publicar `0.1.11` en el VPS; el servidor responde por HTTPS y
+  `infra/updates/`. **Pendiente**: publicar `0.1.12` en el VPS; el servidor responde por HTTPS y
   sigue sirviendo `0.1.4`, pero el puerto SSH `2702` presenta una clave de host distinta a la
   registrada, por lo que no se desplegó sin validarla.

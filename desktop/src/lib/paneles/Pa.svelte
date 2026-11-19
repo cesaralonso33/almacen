@@ -6,6 +6,7 @@
     import Modal from '../Modal.svelte';
     import Paginacion from '../Paginacion.svelte';
     import { totalPaginas } from '../paginacion';
+    import { MUNICIPIOS_PUEBLA } from '../municipiosPuebla';
 
     const TAMANO = 25;
     const GENEROS = ['FEMENINO', 'MASCULINO', 'OTRO', 'NO ESPECIFICADO'];
@@ -398,7 +399,18 @@
                 </label>
                 <label class="block text-sm sm:col-span-2">
                     <span class="mb-1 block font-medium text-slate-600">Municipio donde radica</span>
-                    <input class="campo" maxlength="200" bind:value={form.municipio} required />
+                    <select class="campo" bind:value={form.municipio} required>
+                        <option value="">Seleccione</option>
+                        {#each MUNICIPIOS_PUEBLA as municipio}
+                            <option value={municipio}>{municipio}</option>
+                        {/each}
+                        {#if form.municipio &&
+                        form.municipio !== 'Otros' &&
+                        !MUNICIPIOS_PUEBLA.includes(form.municipio)}
+                            <option value={form.municipio}>{form.municipio}</option>
+                        {/if}
+                        <option value="Otros">Otros</option>
+                    </select>
                 </label>
                 <label class="block text-sm sm:col-span-2">
                     <span class="mb-1 block font-medium text-slate-600">Observaciones</span>

@@ -6,7 +6,9 @@ use axum::{
     Json,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
-use chrono::{NaiveDate, Utc};
+use chrono::{Months, NaiveDate, Utc};
+use pdf_extract::extract_text_from_mem;
+use regex::Regex;
 use rust_xlsxwriter::{Format, Workbook};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -20,10 +22,22 @@ use crate::{
     AppState,
 };
 
-const CAMPOS_DOCUMENTO: [&str; 5] = ["CURP", "RFC", "REGISTRO", "IDENTIFICACION", "ESTADO_CUENTA"];
+const CAMPOS_DOCUMENTO: [&str; 6] = [
+    "CURP",
+    "RFC",
+    "REGISTRO",
+    "IDENTIFICACION",
+    "ESTADO_CUENTA",
+    "DEPOSITO",
+];
 const LIMITE_DOCUMENTO: usize = 8 * 1024 * 1024;
+const DESCRIPCIONES_CANASTA: [&str; 3] = [
+    "1ra canasta 3",
+    "2da canasta de 3",
+    "3ra canasta de 3",
+];
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct CampoExtra {
     pub nombre: String,
@@ -50,6 +64,12 @@ pub struct DarfeInput {
     pub curp: String,
     #[serde(default)]
     pub rfc: String,
+    #[serde(default)]
+    pub descripcion: String,
+    pub monto: f64,
+    #[serde(default)]
+    pub numero_cuenta: String,
+    pub tipo: String,
     pub estatus: String,
     #[serde(default)]
     pub campos_extra: Vec<CampoExtra>,
@@ -77,8 +97,33 @@ pub struct DarfeFiltro {
     pub fecha_hasta: Option<NaiveDate>,
     pub estatus: Option<String>,
     pub banco: Option<String>,
+    pub tipo: Option<String>,
     pub pagina: Option<i64>,
     pub tamano: Option<i64>,
+}
+
+#[derive(sqlx::FromRow)]
+struct FilaDarfe {
+    id: Uuid,
+    numero_darfe: String,
+    fecha: NaiveDate,
+    nombre: String,
+    descripcion: String,
+    monto: f64,
+    numero_cuenta: String,
+    expediente: String,
+    registro: String,
+    estado_cuenta: String,
+    banco: String,
+    identificacion: String,
+    curp: String,
+    rfc: String,
+    tipo: String,
+    estatus: String,
+    campos_extra: Value,
+    documentos: Vec<String>,
+    deposito_coincide: Option<bool>,
+    actualizado_en: chrono::DateTime<Utc>,
 }
 
 struct DatosDarfe {
@@ -92,6 +137,10 @@ struct DatosDarfe {
     identificacion: String,
     curp: String,
     rfc: String,
+    descripcion: String,
+    monto: f64,
+    numero_cuenta: String,
+    tipo: String,
     estatus: String,
     campos_extra: Vec<CampoExtra>,
 }
@@ -129,20 +178,133 @@ pub async fn crear(
 ) -> Result<Json<Value>, ApiError> {
     user.exigir("darfes:crear")?;
     let datos = validar(input)?;
+    if datos.tipo == "CANASTA" {
+        return crear_canasta(&app, &user, datos).await;
+    }
+
+    let mut tx = app.db.begin().await?;
+    let id = insertar(
+        &mut tx,
+        &datos,
+        &datos.descripcion,
+        "REEMBOLSO",
+        None,
+        None,
+        user.id,
+    )
+    .await?;
+    audit::registrar(
+        &mut tx,
+        Some(user.id),
+        "darfes.crear",
+        "darfes",
+        id,
+        "EXITO",
+        json!({ "numero_darfe": datos.numero_darfe, "tipo": datos.tipo, "estatus": datos.estatus }),
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(Json(consultar(&app, id).await?))
+}
+
+async fn crear_canasta(
+    app: &AppState,
+    user: &AuthUser,
+    datos: DatosDarfe,
+) -> Result<Json<Value>, ApiError> {
+    let grupo = Uuid::new_v4();
+    let mut tx = app.db.begin().await?;
+    let mut ids = Vec::with_capacity(3);
+
+    for (indice, descripcion) in DESCRIPCIONES_CANASTA.iter().enumerate() {
+        let fecha = datos
+            .fecha
+            .checked_add_months(Months::new(indice as u32))
+            .ok_or_else(|| ApiError::inprocesable("La fecha de la canasta no es válida"))?;
+        let item = DatosDarfe {
+            numero_darfe: datos.numero_darfe.clone(),
+            fecha,
+            nombre: datos.nombre.clone(),
+            expediente: datos.expediente.clone(),
+            registro: datos.registro.clone(),
+            estado_cuenta: datos.estado_cuenta.clone(),
+            banco: datos.banco.clone(),
+            identificacion: datos.identificacion.clone(),
+            curp: datos.curp.clone(),
+            rfc: datos.rfc.clone(),
+            descripcion: (*descripcion).to_string(),
+            monto: datos.monto,
+            numero_cuenta: datos.numero_cuenta.clone(),
+            tipo: datos.tipo.clone(),
+            estatus: datos.estatus.clone(),
+            campos_extra: datos.campos_extra.clone(),
+        };
+        ids.push(
+            insertar(
+                &mut tx,
+                &item,
+                descripcion,
+                "CANASTA",
+                Some(grupo),
+                Some((indice + 1) as i16),
+                user.id,
+            )
+            .await?,
+        );
+    }
+
+    audit::registrar(
+        &mut tx,
+        Some(user.id),
+        "darfes.crear_canasta",
+        "darfes",
+        ids[0],
+        "EXITO",
+        json!({ "numero_darfe": datos.numero_darfe, "grupo": grupo, "ids": ids }),
+    )
+    .await?;
+    tx.commit().await?;
+
+    let mut registros = Vec::with_capacity(ids.len());
+    for id in &ids {
+        registros.push(consultar(app, *id).await?);
+    }
+    Ok(Json(json!({
+        "darfes": registros,
+        "grupo_canasta": grupo,
+        "total": ids.len(),
+    })))
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn insertar(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    datos: &DatosDarfe,
+    descripcion: &str,
+    tipo: &str,
+    grupo_canasta: Option<Uuid>,
+    item_canasta: Option<i16>,
+    usuario: Uuid,
+) -> Result<Uuid, ApiError> {
     let extra = serde_json::to_value(&datos.campos_extra)
         .map_err(|error| ApiError::interno(error.to_string()))?;
-    let mut tx = app.db.begin().await?;
-
-    let id: Uuid = sqlx::query_scalar(
+    sqlx::query_scalar(
         "INSERT INTO darfes
-            (numero_darfe, fecha, nombre, expediente, registro, estado_cuenta, banco,
+            (numero_darfe, fecha, nombre, descripcion, monto, numero_cuenta, tipo,
+             grupo_canasta, item_canasta, expediente, registro, estado_cuenta, banco,
              identificacion, curp, rfc, estatus, campos_extra, creado_por, actualizado_por)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$13)
+         VALUES ($1,$2,$3,$4,$5::numeric,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$19)
          RETURNING id",
     )
     .bind(&datos.numero_darfe)
     .bind(datos.fecha)
     .bind(&datos.nombre)
+    .bind(descripcion)
+    .bind(datos.monto.to_string())
+    .bind(&datos.numero_cuenta)
+    .bind(tipo)
+    .bind(grupo_canasta)
+    .bind(item_canasta)
     .bind(&datos.expediente)
     .bind(&datos.registro)
     .bind(&datos.estado_cuenta)
@@ -152,24 +314,10 @@ pub async fn crear(
     .bind(&datos.rfc)
     .bind(&datos.estatus)
     .bind(&extra)
-    .bind(user.id)
-    .fetch_one(&mut *tx)
+    .bind(usuario)
+    .fetch_one(&mut **tx)
     .await
-    .map_err(duplicado)?;
-
-    audit::registrar(
-        &mut tx,
-        Some(user.id),
-        "darfes.crear",
-        "darfes",
-        id,
-        "EXITO",
-        json!({ "numero_darfe": datos.numero_darfe, "estatus": datos.estatus }),
-    )
-    .await?;
-    tx.commit().await?;
-
-    Ok(Json(consultar(&app, id).await?))
+    .map_err(duplicado)
 }
 
 pub async fn actualizar(
@@ -183,28 +331,52 @@ pub async fn actualizar(
     let extra = serde_json::to_value(&datos.campos_extra)
         .map_err(|error| ApiError::interno(error.to_string()))?;
 
-    let existe: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM darfes WHERE id=$1 AND eliminado_en IS NULL)",
+    let actual: Option<(String, Option<Uuid>, Option<i16>)> = sqlx::query_as(
+        "SELECT tipo, grupo_canasta, item_canasta FROM darfes
+         WHERE id=$1 AND eliminado_en IS NULL",
     )
     .bind(id)
-    .fetch_one(&app.db)
+    .fetch_optional(&app.db)
     .await?;
-    if !existe {
+    let Some((tipo_actual, grupo, item)) = actual else {
         return Err(ApiError::no_encontrado("DARFE no encontrado"));
+    };
+    if tipo_actual != datos.tipo {
+        return Err(ApiError::conflicto(
+            "No se puede cambiar el tipo de un DARFE existente",
+        ));
     }
+    let descripcion = if tipo_actual == "CANASTA" {
+        item.and_then(|valor| {
+            DESCRIPCIONES_CANASTA
+                .get((valor - 1) as usize)
+                .copied()
+        })
+        .unwrap_or(datos.descripcion.as_str())
+    } else {
+        datos.descripcion.as_str()
+    };
 
     let mut tx = app.db.begin().await?;
     sqlx::query(
         "UPDATE darfes
-         SET numero_darfe=$2, fecha=$3, nombre=$4, expediente=$5, registro=$6,
-             estado_cuenta=$7, banco=$8, identificacion=$9, curp=$10, rfc=$11,
-             estatus=$12, campos_extra=$13, actualizado_por=$14, actualizado_en=now()
+         SET numero_darfe=$2, fecha=$3, nombre=$4, descripcion=$5, monto=$6::numeric,
+             numero_cuenta=$7, tipo=$8, grupo_canasta=$9, item_canasta=$10,
+             expediente=$11, registro=$12, estado_cuenta=$13, banco=$14,
+             identificacion=$15, curp=$16, rfc=$17, estatus=$18,
+             campos_extra=$19, actualizado_por=$20, actualizado_en=now()
          WHERE id=$1",
     )
     .bind(id)
     .bind(&datos.numero_darfe)
     .bind(datos.fecha)
     .bind(&datos.nombre)
+    .bind(descripcion)
+    .bind(datos.monto.to_string())
+    .bind(&datos.numero_cuenta)
+    .bind(&datos.tipo)
+    .bind(grupo)
+    .bind(item)
     .bind(&datos.expediente)
     .bind(&datos.registro)
     .bind(&datos.estado_cuenta)
@@ -230,7 +402,6 @@ pub async fn actualizar(
     )
     .await?;
     tx.commit().await?;
-
     Ok(Json(consultar(&app, id).await?))
 }
 
@@ -287,23 +458,32 @@ pub async fn subir_documento(
         return Err(ApiError::inprocesable("El documento debe pesar entre 1 byte y 8 MiB"));
     }
 
-    let existe: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM darfes WHERE id=$1 AND eliminado_en IS NULL)",
+    let datos: Option<(String, f64, String)> = sqlx::query_as(
+        "SELECT numero_cuenta, monto::float8, nombre FROM darfes
+         WHERE id=$1 AND eliminado_en IS NULL",
     )
     .bind(id)
-    .fetch_one(&app.db)
+    .fetch_optional(&app.db)
     .await?;
-    if !existe {
+    let Some((numero_cuenta, monto, nombre)) = datos else {
         return Err(ApiError::no_encontrado("DARFE no encontrado"));
-    }
+    };
+
+    let (datos_extraidos, coincide) = if campo == "DEPOSITO" {
+        validar_deposito(&contenido, &numero_cuenta, monto, &nombre)
+    } else {
+        (Value::Null, None)
+    };
 
     let mut tx = app.db.begin().await?;
     sqlx::query(
-        "INSERT INTO darfe_documentos(darfe_id, campo, nombre, mime, tamano, contenido, creado_por)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)
+        "INSERT INTO darfe_documentos
+            (darfe_id, campo, nombre, mime, tamano, contenido, datos_extraidos, coincide, creado_por)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
          ON CONFLICT (darfe_id, campo) DO UPDATE SET
              nombre=excluded.nombre, mime=excluded.mime, tamano=excluded.tamano,
-             contenido=excluded.contenido, creado_por=excluded.creado_por, creado_en=now()",
+             contenido=excluded.contenido, datos_extraidos=excluded.datos_extraidos,
+             coincide=excluded.coincide, creado_por=excluded.creado_por, creado_en=now()",
     )
     .bind(id)
     .bind(&campo)
@@ -311,6 +491,8 @@ pub async fn subir_documento(
     .bind(input.mime.trim())
     .bind(contenido.len() as i32)
     .bind(&contenido)
+    .bind(&datos_extraidos)
+    .bind(coincide)
     .bind(user.id)
     .execute(&mut *tx)
     .await?;
@@ -321,12 +503,17 @@ pub async fn subir_documento(
         "darfes",
         id,
         "EXITO",
-        json!({ "campo": campo, "tamano": contenido.len() }),
+        json!({ "campo": campo, "tamano": contenido.len(), "coincide": coincide }),
     )
     .await?;
     tx.commit().await?;
 
-    Ok(Json(json!({ "campo": campo, "tamano": contenido.len() })))
+    Ok(Json(json!({
+        "campo": campo,
+        "tamano": contenido.len(),
+        "coincide": coincide,
+        "datos_extraidos": datos_extraidos,
+    })))
 }
 
 pub async fn documento(
@@ -408,8 +595,9 @@ pub async fn exportar(
     hoja.set_name("DARFES").map_err(error_excel)?;
     let encabezado = Format::new().set_bold();
     let columnas = [
-        "No. DARFE", "Fecha", "Nombre", "Expediente", "Registro", "Estado de cuenta",
-        "Banco", "Identificación", "CURP", "RFC", "Estatus", "Campos adicionales",
+        "NO. DARFE", "FECHA", "NOMBRE", "DESCRIPCIÓN", "MONTO", "NO. CUENTA",
+        "EXPEDIENTE", "REGISTRO", "ESTADO CUENTA", "BANCO", "IDENTIFICACIÓN",
+        "CURP", "RFC", "TIPO", "ESTATUS", "CAMPOS ADICIONALES", "DEPÓSITO COINCIDE",
     ];
     for (indice, titulo) in columnas.iter().enumerate() {
         hoja.write_string_with_format(0, indice as u16, *titulo, &encabezado)
@@ -419,26 +607,35 @@ pub async fn exportar(
 
     for (fila, registro) in registros.iter().enumerate() {
         let renglon = fila as u32 + 1;
-        hoja.write_string(renglon, 0, registro["numero_darfe"].as_str().unwrap_or(""))
-            .map_err(error_excel)?;
-        hoja.write_string(renglon, 1, registro["fecha"].as_str().unwrap_or(""))
-            .map_err(error_excel)?;
-        for (indice, clave) in [
-            "nombre", "expediente", "registro", "estado_cuenta", "banco",
-            "identificacion", "curp", "rfc", "estatus",
+        for (columna, clave) in [
+            "numero_darfe", "fecha", "nombre", "descripcion",
         ]
         .iter()
         .enumerate()
         {
-            hoja.write_string(
-                renglon,
-                indice as u16 + 2,
-                registro[*clave].as_str().unwrap_or(""),
-            )
-            .map_err(error_excel)?;
+            hoja.write_string(renglon, columna as u16, registro[*clave].as_str().unwrap_or(""))
+                .map_err(error_excel)?;
         }
-        let extra = registro["campos_extra"].to_string();
-        hoja.write_string(renglon, 11, extra).map_err(error_excel)?;
+        hoja.write_number(renglon, 4, registro["monto"].as_f64().unwrap_or(0.0))
+            .map_err(error_excel)?;
+        for (indice, clave) in [
+            "numero_cuenta", "expediente", "registro", "estado_cuenta", "banco",
+            "identificacion", "curp", "rfc", "tipo", "estatus",
+        ]
+        .iter()
+        .enumerate()
+        {
+            hoja.write_string(renglon, indice as u16 + 5, registro[*clave].as_str().unwrap_or(""))
+                .map_err(error_excel)?;
+        }
+        hoja.write_string(renglon, 15, &registro["campos_extra"].to_string())
+            .map_err(error_excel)?;
+        let deposito = match registro["deposito_coincide"].as_bool() {
+            Some(true) => "SÍ",
+            Some(false) => "NO",
+            None => "",
+        };
+        hoja.write_string(renglon, 16, deposito).map_err(error_excel)?;
     }
 
     let bytes = libro.save_to_buffer().map_err(error_excel)?;
@@ -469,6 +666,11 @@ pub async fn reportes(
         .await?;
     let por_estatus: Vec<(String, i64)> = sqlx::query_as(
         "SELECT estatus, count(*) FROM darfes WHERE eliminado_en IS NULL GROUP BY estatus",
+    )
+    .fetch_all(&app.db)
+    .await?;
+    let por_tipo: Vec<(String, i64)> = sqlx::query_as(
+        "SELECT tipo, count(*) FROM darfes WHERE eliminado_en IS NULL GROUP BY tipo",
     )
     .fetch_all(&app.db)
     .await?;
@@ -518,6 +720,7 @@ pub async fn reportes(
     Ok(Json(json!({
         "total": total,
         "por_estatus": mapa(por_estatus),
+        "por_tipo": mapa(por_tipo),
         "por_banco": lista(por_banco),
         "por_mes": lista(por_mes),
         "documentos": mapa(documentos),
@@ -535,6 +738,7 @@ async fn consultar_lista(
     let buscar = patron(&filtro.buscar);
     let banco = patron(&filtro.banco);
     let estatus = filtro.estatus.as_deref().map(str::trim).filter(|v| !v.is_empty());
+    let tipo = filtro.tipo.as_deref().map(str::trim).filter(|v| !v.is_empty());
     let pagina = filtro.pagina.unwrap_or(1).max(1);
     let tamano = filtro.tamano.unwrap_or(25).clamp(1, 100);
     let (limite, offset) = if paginar {
@@ -546,68 +750,81 @@ async fn consultar_lista(
     let total: i64 = sqlx::query_scalar(
         "SELECT count(*) FROM darfes
          WHERE eliminado_en IS NULL
-           AND ($1::text IS NULL OR (numero_darfe ILIKE $1 OR nombre ILIKE $1 OR expediente ILIKE $1
-                OR registro ILIKE $1 OR estado_cuenta ILIKE $1 OR banco ILIKE $1
-                OR identificacion ILIKE $1 OR curp ILIKE $1 OR rfc ILIKE $1))
+           AND ($1::text IS NULL OR (numero_darfe ILIKE $1 OR nombre ILIKE $1 OR descripcion ILIKE $1
+                OR expediente ILIKE $1 OR registro ILIKE $1 OR estado_cuenta ILIKE $1
+                OR banco ILIKE $1 OR identificacion ILIKE $1 OR curp ILIKE $1 OR rfc ILIKE $1
+                OR numero_cuenta ILIKE $1 OR tipo ILIKE $1))
            AND ($2::date IS NULL OR fecha >= $2)
            AND ($3::date IS NULL OR fecha <= $3)
            AND ($4::text IS NULL OR estatus = $4)
-           AND ($5::text IS NULL OR banco ILIKE $5)",
+           AND ($5::text IS NULL OR banco ILIKE $5)
+           AND ($6::text IS NULL OR tipo = $6)",
     )
     .bind(&buscar)
     .bind(filtro.fecha_desde)
     .bind(filtro.fecha_hasta)
     .bind(estatus)
     .bind(&banco)
+    .bind(tipo)
     .fetch_one(&app.db)
     .await?;
 
-    let filas: Vec<(Uuid, String, NaiveDate, String, String, String, String, String, String, String, String, String, Value, Vec<String>)> =
-        sqlx::query_as(
-            "SELECT d.id, d.numero_darfe, d.fecha, d.nombre, d.expediente, d.registro,
-                    d.estado_cuenta, d.banco, d.identificacion, d.curp, d.rfc, d.estatus,
-                    d.campos_extra,
-                    ARRAY(SELECT campo FROM darfe_documentos WHERE darfe_id=d.id ORDER BY campo)
-             FROM darfes d
-             WHERE d.eliminado_en IS NULL
-               AND ($1::text IS NULL OR (d.numero_darfe ILIKE $1 OR d.nombre ILIKE $1 OR d.expediente ILIKE $1
-                    OR d.registro ILIKE $1 OR d.estado_cuenta ILIKE $1 OR d.banco ILIKE $1
-                    OR d.identificacion ILIKE $1 OR d.curp ILIKE $1 OR d.rfc ILIKE $1))
-               AND ($2::date IS NULL OR d.fecha >= $2)
-               AND ($3::date IS NULL OR d.fecha <= $3)
-               AND ($4::text IS NULL OR d.estatus = $4)
-               AND ($5::text IS NULL OR d.banco ILIKE $5)
-             ORDER BY d.fecha DESC, d.numero_darfe DESC
-             LIMIT $6 OFFSET $7",
-        )
-        .bind(&buscar)
-        .bind(filtro.fecha_desde)
-        .bind(filtro.fecha_hasta)
-        .bind(estatus)
-        .bind(&banco)
-        .bind(limite)
-        .bind(offset)
-        .fetch_all(&app.db)
-        .await?;
+    let filas: Vec<FilaDarfe> = sqlx::query_as(
+        "SELECT d.id, d.numero_darfe, d.fecha, d.nombre, d.descripcion,
+                d.monto::float8, d.numero_cuenta, d.expediente, d.registro,
+                d.estado_cuenta, d.banco, d.identificacion, d.curp, d.rfc,
+                d.tipo, d.estatus, d.campos_extra,
+                ARRAY(SELECT campo FROM darfe_documentos WHERE darfe_id=d.id ORDER BY campo) AS documentos,
+                (SELECT coincide FROM darfe_documentos WHERE darfe_id=d.id AND campo='DEPOSITO') AS deposito_coincide,
+                d.actualizado_en
+         FROM darfes d
+         WHERE d.eliminado_en IS NULL
+           AND ($1::text IS NULL OR (d.numero_darfe ILIKE $1 OR d.nombre ILIKE $1 OR d.descripcion ILIKE $1
+                OR d.expediente ILIKE $1 OR d.registro ILIKE $1 OR d.estado_cuenta ILIKE $1
+                OR d.banco ILIKE $1 OR d.identificacion ILIKE $1 OR d.curp ILIKE $1 OR d.rfc ILIKE $1
+                OR d.numero_cuenta ILIKE $1 OR d.tipo ILIKE $1))
+           AND ($2::date IS NULL OR d.fecha >= $2)
+           AND ($3::date IS NULL OR d.fecha <= $3)
+           AND ($4::text IS NULL OR d.estatus = $4)
+           AND ($5::text IS NULL OR d.banco ILIKE $5)
+           AND ($6::text IS NULL OR d.tipo = $6)
+         ORDER BY d.fecha DESC, d.numero_darfe DESC
+         LIMIT $7 OFFSET $8",
+    )
+    .bind(&buscar)
+    .bind(filtro.fecha_desde)
+    .bind(filtro.fecha_hasta)
+    .bind(estatus)
+    .bind(&banco)
+    .bind(tipo)
+    .bind(limite)
+    .bind(offset)
+    .fetch_all(&app.db)
+    .await?;
 
     let registros = filas
         .into_iter()
-        .map(|(id, numero_darfe, fecha, nombre, expediente, registro, estado_cuenta, banco, identificacion, curp, rfc, estatus, extra, documentos)| {
+        .map(|fila| {
             json!({
-                "id": id,
-                "numero_darfe": numero_darfe,
-                "fecha": fecha,
-                "nombre": nombre,
-                "expediente": expediente,
-                "registro": registro,
-                "estado_cuenta": estado_cuenta,
-                "banco": banco,
-                "identificacion": identificacion,
-                "curp": curp,
-                "rfc": rfc,
-                "estatus": estatus,
-                "campos_extra": extra,
-                "documentos": documentos,
+                "id": fila.id,
+                "numero_darfe": fila.numero_darfe,
+                "fecha": fila.fecha,
+                "nombre": fila.nombre,
+                "descripcion": fila.descripcion,
+                "monto": fila.monto,
+                "numero_cuenta": fila.numero_cuenta,
+                "expediente": fila.expediente,
+                "registro": fila.registro,
+                "estado_cuenta": fila.estado_cuenta,
+                "banco": fila.banco,
+                "identificacion": fila.identificacion,
+                "curp": fila.curp,
+                "rfc": fila.rfc,
+                "tipo": fila.tipo,
+                "estatus": fila.estatus,
+                "campos_extra": fila.campos_extra,
+                "documentos": fila.documentos,
+                "deposito_coincide": fila.deposito_coincide,
             })
         })
         .collect();
@@ -615,37 +832,43 @@ async fn consultar_lista(
 }
 
 async fn consultar(app: &AppState, id: Uuid) -> Result<Value, ApiError> {
-    let fila: Option<(Uuid, String, NaiveDate, String, String, String, String, String, String, String, String, String, Value, Vec<String>, chrono::DateTime<Utc>)> =
-        sqlx::query_as(
-            "SELECT d.id, d.numero_darfe, d.fecha, d.nombre, d.expediente, d.registro,
-                    d.estado_cuenta, d.banco, d.identificacion, d.curp, d.rfc, d.estatus,
-                    d.campos_extra,
-                    ARRAY(SELECT campo FROM darfe_documentos WHERE darfe_id=d.id ORDER BY campo),
-                    d.actualizado_en
-             FROM darfes d WHERE d.id=$1 AND d.eliminado_en IS NULL",
-        )
-        .bind(id)
-        .fetch_optional(&app.db)
-        .await?;
-    let Some((id, numero_darfe, fecha, nombre, expediente, registro, estado_cuenta, banco, identificacion, curp, rfc, estatus, extra, documentos, actualizado)) = fila else {
+    let fila: Option<FilaDarfe> = sqlx::query_as(
+        "SELECT d.id, d.numero_darfe, d.fecha, d.nombre, d.descripcion,
+                d.monto::float8, d.numero_cuenta, d.expediente, d.registro,
+                d.estado_cuenta, d.banco, d.identificacion, d.curp, d.rfc,
+                d.tipo, d.estatus, d.campos_extra,
+                ARRAY(SELECT campo FROM darfe_documentos WHERE darfe_id=d.id ORDER BY campo) AS documentos,
+                (SELECT coincide FROM darfe_documentos WHERE darfe_id=d.id AND campo='DEPOSITO') AS deposito_coincide,
+                d.actualizado_en
+         FROM darfes d WHERE d.id=$1 AND d.eliminado_en IS NULL",
+    )
+    .bind(id)
+    .fetch_optional(&app.db)
+    .await?;
+    let Some(fila) = fila else {
         return Err(ApiError::no_encontrado("DARFE no encontrado"));
     };
     Ok(json!({
-        "id": id,
-        "numero_darfe": numero_darfe,
-        "fecha": fecha,
-        "nombre": nombre,
-        "expediente": expediente,
-        "registro": registro,
-        "estado_cuenta": estado_cuenta,
-        "banco": banco,
-        "identificacion": identificacion,
-        "curp": curp,
-        "rfc": rfc,
-        "estatus": estatus,
-        "campos_extra": extra,
-        "documentos": documentos,
-        "actualizado_en": actualizado,
+        "id": fila.id,
+        "numero_darfe": fila.numero_darfe,
+        "fecha": fila.fecha,
+        "nombre": fila.nombre,
+        "descripcion": fila.descripcion,
+        "monto": fila.monto,
+        "numero_cuenta": fila.numero_cuenta,
+        "expediente": fila.expediente,
+        "registro": fila.registro,
+        "estado_cuenta": fila.estado_cuenta,
+        "banco": fila.banco,
+        "identificacion": fila.identificacion,
+        "curp": fila.curp,
+        "rfc": fila.rfc,
+        "tipo": fila.tipo,
+        "estatus": fila.estatus,
+        "campos_extra": fila.campos_extra,
+        "documentos": fila.documentos,
+        "deposito_coincide": fila.deposito_coincide,
+        "actualizado_en": fila.actualizado_en,
     }))
 }
 
@@ -658,10 +881,18 @@ fn validar(input: DarfeInput) -> Result<DatosDarfe, ApiError> {
     if nombre.is_empty() || nombre.chars().count() > 200 {
         return Err(ApiError::inprocesable("El nombre es obligatorio y admite hasta 200 caracteres"));
     }
+    let tipo = input.tipo.trim().to_uppercase();
+    if !["CANASTA", "REEMBOLSO"].contains(&tipo.as_str()) {
+        return Err(ApiError::inprocesable("El tipo debe ser CANASTA o REEMBOLSO"));
+    }
     let estatus = input.estatus.trim().to_uppercase();
     if !["PENDIENTE", "INCOMPLETO", "COMPLETO"].contains(&estatus.as_str()) {
         return Err(ApiError::inprocesable("El estatus debe ser PENDIENTE, INCOMPLETO o COMPLETO"));
     }
+    if !input.monto.is_finite() || input.monto < 0.0 || input.monto > 1_000_000_000_000.0 {
+        return Err(ApiError::inprocesable("El monto no es válido"));
+    }
+    let monto = (input.monto * 100.0).round() / 100.0;
     let campo = |valor: String, max: usize, nombre_campo: &str| -> Result<String, ApiError> {
         let valor = valor.trim().to_string();
         if valor.chars().count() > max {
@@ -681,10 +912,7 @@ fn validar(input: DarfeInput) -> Result<DatosDarfe, ApiError> {
         if extra.valor.chars().count() > 500 {
             return Err(ApiError::inprocesable("Cada valor adicional admite hasta 500 caracteres"));
         }
-        campos_extra.push(CampoExtra {
-            nombre: nombre_extra,
-            valor: extra.valor.trim().to_string(),
-        });
+        campos_extra.push(CampoExtra { nombre: nombre_extra, valor: extra.valor.trim().to_string() });
     }
 
     Ok(DatosDarfe {
@@ -698,6 +926,10 @@ fn validar(input: DarfeInput) -> Result<DatosDarfe, ApiError> {
         identificacion: campo(input.identificacion, 100, "La identificación")?,
         curp: campo(input.curp.to_uppercase(), 18, "La CURP")?,
         rfc: campo(input.rfc.to_uppercase(), 13, "El RFC")?,
+        descripcion: campo(input.descripcion, 500, "La descripción")?,
+        monto,
+        numero_cuenta: campo(input.numero_cuenta, 50, "El número de cuenta")?,
+        tipo,
         estatus,
         campos_extra,
     })
@@ -720,4 +952,107 @@ fn duplicado(error: sqlx::Error) -> ApiError {
 
 fn error_excel(error: rust_xlsxwriter::XlsxError) -> ApiError {
     ApiError::interno(format!("No se pudo generar el Excel: {error}"))
+}
+
+fn validar_deposito(
+    contenido: &[u8],
+    cuenta_capturada: &str,
+    monto_capturado: f64,
+    nombre_capturado: &str,
+) -> (Value, Option<bool>) {
+    let texto = match extract_text_from_mem(contenido) {
+        Ok(texto) => texto,
+        Err(error) => {
+            return (
+                json!({ "error": format!("No se pudo leer el PDF: {error}") }),
+                Some(false),
+            )
+        }
+    };
+    let cuenta = capturar(
+        &texto,
+        r"(?i)(?:n[uú]mero\s+de\s+cuenta|no\.?\s*de\s*cuenta|cuenta)[^\d]{0,30}([0-9][0-9\s-]{7,30})",
+    );
+    let monto = capturar(
+        &texto,
+        r"(?i)(?:monto|importe|total|dep[oó]sito)[^\d]{0,30}\$?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)",
+    );
+    let nombre = capturar(
+        &texto,
+        r"(?i)(?:nombre|beneficiario|titular)[:\s]+([^\n\r]{3,120})",
+    );
+
+    let cuenta_normalizada = cuenta.as_deref().map(solo_digitos).unwrap_or_default();
+    let cuenta_ok = !cuenta_capturada.is_empty()
+        && !cuenta_normalizada.is_empty()
+        && solo_digitos(cuenta_capturada) == cuenta_normalizada;
+    let monto_numero = monto.as_deref().and_then(monto_numero);
+    let monto_ok = monto_numero
+        .map(|valor| (valor - monto_capturado).abs() < 0.01)
+        .unwrap_or(false);
+    let nombre_ok = nombre
+        .as_deref()
+        .map(|valor| {
+            let capturado = normalizar_nombre(nombre_capturado);
+            let extraido = normalizar_nombre(valor);
+            !capturado.is_empty() && (extraido.contains(&capturado) || capturado.contains(&extraido))
+        })
+        .unwrap_or(false);
+
+    let mut diferencias = Vec::new();
+    if !cuenta_ok {
+        diferencias.push("El número de cuenta no coincide");
+    }
+    if !monto_ok {
+        diferencias.push("El monto no coincide");
+    }
+    if !nombre_ok {
+        diferencias.push("El nombre no coincide");
+    }
+    let coincide = diferencias.is_empty();
+    (
+        json!({
+            "numero_cuenta": cuenta,
+            "monto": monto_numero,
+            "nombre": nombre,
+            "diferencias": diferencias,
+        }),
+        Some(coincide),
+    )
+}
+
+fn capturar(texto: &str, patron: &str) -> Option<String> {
+    Regex::new(patron)
+        .ok()?
+        .captures(texto)?
+        .get(1)
+        .map(|coincidencia| coincidencia.as_str().trim().to_string())
+}
+
+fn solo_digitos(texto: &str) -> String {
+    texto.chars().filter(|c| c.is_ascii_digit()).collect()
+}
+
+fn monto_numero(texto: &str) -> Option<f64> {
+    texto.replace(',', "").trim().parse::<f64>().ok()
+}
+
+fn normalizar_nombre(texto: &str) -> String {
+    texto
+        .to_uppercase()
+        .chars()
+        .map(|c| match c {
+            'Á' | 'À' | 'Ä' | 'Â' => 'A',
+            'É' | 'È' | 'Ë' | 'Ê' => 'E',
+            'Í' | 'Ì' | 'Ï' | 'Î' => 'I',
+            'Ó' | 'Ò' | 'Ö' | 'Ô' => 'O',
+            'Ú' | 'Ù' | 'Ü' | 'Û' => 'U',
+            'Ñ' => 'N',
+            otro => otro,
+        })
+        .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
 }

@@ -14,7 +14,8 @@
         { clave: 'RFC', etiqueta: 'RFC' },
         { clave: 'REGISTRO', etiqueta: 'Registro' },
         { clave: 'IDENTIFICACION', etiqueta: 'Identificación' },
-        { clave: 'ESTADO_CUENTA', etiqueta: 'Estado de cuenta' }
+        { clave: 'ESTADO_CUENTA', etiqueta: 'Estado de cuenta' },
+        { clave: 'DEPOSITO', etiqueta: 'Depósito' }
     ];
 
     type CampoExtra = { nombre: string; valor: string };
@@ -31,7 +32,8 @@
         fecha_desde: '',
         fecha_hasta: '',
         estatus: '',
-        banco: ''
+        banco: '',
+        tipo: ''
     });
     let reportes = $state<any>(null);
     let modal = $state(false);
@@ -51,6 +53,10 @@
         identificacion: '',
         curp: '',
         rfc: '',
+        descripcion: '',
+        monto: '',
+        numero_cuenta: '',
+        tipo: 'REEMBOLSO',
         estatus: 'PENDIENTE',
         campos_extra: [] as CampoExtra[]
     });
@@ -114,7 +120,7 @@
     }
 
     function limpiarFiltros() {
-        filtros = { buscar: '', fecha_desde: '', fecha_hasta: '', estatus: '', banco: '' };
+        filtros = { buscar: '', fecha_desde: '', fecha_hasta: '', estatus: '', banco: '', tipo: '' };
         pagina = 1;
         cargar();
     }
@@ -135,6 +141,10 @@
             identificacion: '',
             curp: '',
             rfc: '',
+            descripcion: '',
+            monto: '',
+            numero_cuenta: '',
+            tipo: 'REEMBOLSO',
             estatus: 'PENDIENTE',
             campos_extra: []
         };
@@ -157,6 +167,10 @@
             identificacion: registro.identificacion ?? '',
             curp: registro.curp ?? '',
             rfc: registro.rfc ?? '',
+            descripcion: registro.descripcion ?? '',
+            monto: String(registro.monto ?? ''),
+            numero_cuenta: registro.numero_cuenta ?? '',
+            tipo: registro.tipo ?? 'REEMBOLSO',
             estatus: registro.estatus,
             campos_extra: Array.isArray(registro.campos_extra)
                 ? registro.campos_extra.map((campo: any) => ({ nombre: campo.nombre, valor: campo.valor }))
@@ -176,6 +190,12 @@
     function seleccionarArchivo(evento: Event, campo: string) {
         const entrada = evento.currentTarget as HTMLInputElement;
         archivos = { ...archivos, [campo]: entrada.files?.[0] ?? null };
+    }
+
+    function soltarArchivo(evento: DragEvent, campo: string) {
+        evento.preventDefault();
+        const archivo = evento.dataTransfer?.files?.[0];
+        if (archivo) archivos = { ...archivos, [campo]: archivo };
     }
 
     function leerBase64(archivo: File): Promise<string> {
@@ -202,28 +222,51 @@
                 identificacion: form.identificacion,
                 curp: form.curp,
                 rfc: form.rfc,
+                descripcion: form.descripcion,
+                monto: Number(form.monto),
+                numero_cuenta: form.numero_cuenta,
+                tipo: form.tipo,
                 estatus: form.estatus,
                 campos_extra: form.campos_extra.filter(
                     (campo) => campo.nombre.trim() !== '' || campo.valor.trim() !== ''
                 )
             };
-            const respuesta = editandoId
-                ? await api<any>('PUT', `/api/v1/darfes/${editandoId}`, cuerpo)
-                : await api<any>('POST', '/api/v1/darfes', cuerpo);
-            const id = respuesta.id as string;
-
-            for (const campo of CAMPOS_DOCUMENTO) {
-                const archivo = archivos[campo.clave];
-                if (!archivo) continue;
-                await api('POST', `/api/v1/darfes/${id}/documentos`, {
-                    campo: campo.clave,
-                    nombre: archivo.name,
-                    mime: archivo.type || 'application/octet-stream',
-                    contenido_base64: await leerBase64(archivo)
-                });
+            let ids: string[] = [];
+            if (editandoId) {
+                const respuesta = await api<any>('PUT', `/api/v1/darfes/${editandoId}`, cuerpo);
+                ids = [respuesta.id];
+            } else {
+                const respuesta = await api<any>('POST', '/api/v1/darfes', cuerpo);
+                ids = Array.isArray(respuesta.darfes)
+                    ? respuesta.darfes.map((item: any) => item.id)
+                    : [respuesta.id];
             }
 
-            app.avisar(editandoId ? 'DARFE actualizado' : 'DARFE creado');
+            let depositoCoincide: boolean | null = null;
+            for (const id of ids) {
+                for (const campo of CAMPOS_DOCUMENTO) {
+                    const archivo = archivos[campo.clave];
+                    if (!archivo) continue;
+                    const resultado = await api<any>('POST', `/api/v1/darfes/${id}/documentos`, {
+                        campo: campo.clave,
+                        nombre: archivo.name,
+                        mime: archivo.type || 'application/octet-stream',
+                        contenido_base64: await leerBase64(archivo)
+                    });
+                    if (campo.clave === 'DEPOSITO') depositoCoincide = resultado.coincide;
+                }
+            }
+
+            if (ids.length > 1) {
+                app.avisar(`${ids.length} canastas creadas`);
+            } else {
+                app.avisar(editandoId ? 'DARFE actualizado' : 'DARFE creado');
+            }
+            if (depositoCoincide === true) {
+                app.avisar('Depósito verificado: los datos coinciden');
+            } else if (depositoCoincide === false) {
+                app.avisar('Depósito cargado, pero los datos no coinciden', 'error');
+            }
             modal = false;
             pagina = 1;
             await cargar();
@@ -358,7 +401,15 @@
                         <span class="mb-1 block font-medium text-slate-600">Banco</span>
                         <input class="campo" bind:value={filtros.banco} />
                     </label>
-                    <div class="flex items-end gap-2 md:col-span-4">
+                    <label class="block text-sm">
+                        <span class="mb-1 block font-medium text-slate-600">Tipo</span>
+                        <select class="campo" bind:value={filtros.tipo}>
+                            <option value="">Todos</option>
+                            <option value="CANASTA">CANASTA</option>
+                            <option value="REEMBOLSO">REEMBOLSO</option>
+                        </select>
+                    </label>
+                    <div class="flex items-end gap-2 md:col-span-5">
                         <button class="btn-secundario" type="button" onclick={limpiarFiltros}>Limpiar</button>
                         <button class="btn-primario" type="button" onclick={buscar}>Aplicar</button>
                     </div>
@@ -374,7 +425,9 @@
                             <th>No. DARFE</th>
                             <th>Fecha</th>
                             <th>Nombre</th>
-                            <th>Expediente</th>
+                            <th>Descripción</th>
+                            <th>Monto</th>
+                            <th>Tipo</th>
                             <th>Banco</th>
                             <th>Estatus</th>
                             <th>Documentos</th>
@@ -389,7 +442,9 @@
                                 </td>
                                 <td>{fechaVisible(registro.fecha)}</td>
                                 <td>{registro.nombre}</td>
-                                <td>{registro.expediente || '—'}</td>
+                                <td>{registro.descripcion || '—'}</td>
+                                <td>${Number(registro.monto ?? 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                                <td>{registro.tipo}</td>
                                 <td>{registro.banco || '—'}</td>
                                 <td>
                                     <span
@@ -432,7 +487,7 @@
                             </tr>
                         {:else}
                             <tr>
-                                <td colspan="8" class="py-8 text-center text-sm text-slate-500">
+                                <td colspan="10" class="py-8 text-center text-sm text-slate-500">
                                     No hay DARFES con esos filtros.
                                 </td>
                             </tr>
@@ -530,6 +585,38 @@
                     <span class="mb-1 block font-medium text-slate-600">Nombre</span>
                     <input class="campo" maxlength="200" bind:value={form.nombre} required />
                 </label>
+                <label class="block text-sm sm:col-span-2">
+                    <span class="mb-1 block font-medium text-slate-600">Descripción</span>
+                    <textarea
+                        class="campo h-20"
+                        maxlength="500"
+                        bind:value={form.descripcion}
+                        disabled={form.tipo === 'CANASTA'}
+                        placeholder={form.tipo === 'CANASTA'
+                            ? 'Se generará automáticamente para cada canasta'
+                            : 'Descripción del DARFE'}
+                    ></textarea>
+                </label>
+                <label class="block text-sm">
+                    <span class="mb-1 block font-medium text-slate-600">Monto</span>
+                    <input class="campo" type="number" min="0" step="0.01" bind:value={form.monto} required />
+                </label>
+                <label class="block text-sm">
+                    <span class="mb-1 block font-medium text-slate-600">Número de cuenta</span>
+                    <input class="campo" maxlength="50" bind:value={form.numero_cuenta} />
+                </label>
+                <label class="block text-sm">
+                    <span class="mb-1 block font-medium text-slate-600">Tipo</span>
+                    <select class="campo" bind:value={form.tipo} disabled={Boolean(editandoId)}>
+                        <option value="REEMBOLSO">REEMBOLSO</option>
+                        <option value="CANASTA">CANASTA</option>
+                    </select>
+                    {#if form.tipo === 'CANASTA' && !editandoId}
+                        <span class="mt-1 block text-xs text-slate-500">
+                            Se crearán 3 registros mensuales automáticamente.
+                        </span>
+                    {/if}
+                </label>
                 <label class="block text-sm">
                     <span class="mb-1 block font-medium text-slate-600">Expediente</span>
                     <input class="campo" bind:value={form.expediente} />
@@ -577,8 +664,14 @@
                 </div>
                 <div class="grid gap-3 md:grid-cols-2">
                     {#each CAMPOS_DOCUMENTO as campo}
-                        <div class="rounded-lg border border-slate-200 p-3 text-sm">
+                        <div
+                            class="rounded-lg border border-dashed border-slate-300 p-3 text-sm"
+                            role="group"
+                            ondragover={(evento) => evento.preventDefault()}
+                            ondrop={(evento) => soltarArchivo(evento, campo.clave)}
+                        >
                             <p class="font-medium text-slate-700">{campo.etiqueta}</p>
+                            <p class="text-xs text-slate-500">Arrastra el archivo aquí o selecciónalo.</p>
                             {#if documentosExistentes.includes(campo.clave)}
                                 <button
                                     class="mt-1 text-xs underline text-institucional-600"
@@ -594,6 +687,11 @@
                                 accept="application/pdf,image/*"
                                 onchange={(evento) => seleccionarArchivo(evento, campo.clave)}
                             />
+                            {#if archivos[campo.clave]}
+                                <p class="mt-1 truncate text-xs text-emerald-700">
+                                    {archivos[campo.clave]?.name}
+                                </p>
+                            {/if}
                         </div>
                     {/each}
                 </div>

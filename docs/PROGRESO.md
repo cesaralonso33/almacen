@@ -493,3 +493,22 @@ servidor Debian de destino.
 - Exportación `.xlsx` con los filtros activos y reportes por estatus, banco, mes y documentos.
 - El perfil recibe `sync:pull` y `pedidos:leer` para que el escritorio sincronice sin poder enviar
   operaciones.
+
+## DARFES: canastas, depósito y archivos arrastrables (18/11/2026)
+
+- Migración `0013_darfes_campos_deposito.sql`: agrega `descripcion`, `monto`, `numero_cuenta`,
+  `tipo` (`CANASTA`/`REEMBOLSO`), `grupo_canasta` e `item_canasta`; agrega `datos_extraidos` y
+  `coincide` a `darfe_documentos` y permite el campo `DEPOSITO`.
+- El número de DARFE sigue siendo único para reembolsos; las tres canastas comparten número y se
+  distinguen por grupo e ítem, con índice único parcial.
+- Al guardar `TIPO=CANASTA` se crean tres registros en una transacción, con fechas +1 mes y las
+  descripciones `1ra canasta 3`, `2da canasta de 3` y `3ra canasta de 3`.
+- El PDF de depósito se procesa con `pdf-extract` + `regex`; se comparan cuenta, monto y nombre
+  contra lo capturado y se guarda `coincide` con las diferencias. La falta de coincidencia se
+  informa pero no impide la carga.
+- La interfaz agrega tipo, descripción, monto y número de cuenta; filtro por tipo; columnas nuevas
+  en la tabla y exportación; los seis campos de archivo aceptan arrastrar y soltar.
+- `AuthUser::puede` otorga acceso implícito al rol `ADMINISTRADOR` para todos los módulos.
+- Pruebas: `cargo test --test darfes` → 3 pruebas (CRUD/documentos/depósito, canasta mensual y
+  permisos). Suite completa del servidor: 87 pruebas sin fallos.
+- Versión `0.1.5` del escritorio con esta ampliación de DARFES.

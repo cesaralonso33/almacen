@@ -12,7 +12,7 @@ Migraciones en `server/migrations` (SQLx, aplicadas al iniciar la API).
 | `ubicaciones` | EDIFICIO → AREA → ESTANTE → CAJA | trigger de jerarquía; código único por padre |
 | `expedientes` | Inventario físico | número único global; versión |
 | `pa_folios`, `pa_registros` | Módulo P.A. | folio anual, datos personales y PDF; borrado lógico |
-| `darfes`, `darfe_documentos` | Módulo DARFES | CRUD, documentos por campo, campos libres y reportes |
+| `darfes`, `darfe_documentos` | Módulo DARFES | CRUD, documentos por campo, depósito validado, canastas y campos libres |
 | `pedidos`, `pedido_items` | Solicitudes | un expediente por pedido |
 | `reservas` | Bloqueo temporal de preparación | una activa por expediente; vencimiento |
 | `entregas`, `acuses` | Despacho y acuse | un acuse por entrega |
@@ -24,6 +24,18 @@ Migraciones en `server/migrations` (SQLx, aplicadas al iniciar la API).
 | `auditoria` | Bitácora | append-only por reglas |
 | `sync_events`, `sync_devices` | Sincronización | secuencia monotónica; inmutables |
 | `operaciones_idempotentes` | Reintentos seguros | PK (clave, dispositivo) |
+
+### DARFES
+
+- `darfes` guarda número, fecha, nombre, expediente, registro, estado de cuenta, banco,
+  identificación, CURP, RFC, descripción, monto, número de cuenta, tipo (`CANASTA` o `REEMBOLSO`),
+  estatus, campos adicionales JSONB y borrado lógico.
+- El número de DARFE es único entre los reembolsos activos. Los tres registros de una canasta
+  comparten número y se agrupan por `grupo_canasta` + `item_canasta` (índice único parcial).
+- `darfe_documentos` almacena un archivo por campo (`CURP`, `RFC`, `REGISTRO`, `IDENTIFICACION`,
+  `ESTADO_CUENTA`, `DEPOSITO`) como `bytea` (máximo 8 MiB). Para `DEPOSITO` guarda
+  `datos_extraidos` y `coincide`, resultado de comparar cuenta, monto y nombre del PDF contra lo
+  capturado.
 
 ## Estados
 

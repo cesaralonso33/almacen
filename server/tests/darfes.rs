@@ -24,6 +24,10 @@ fn darfe(numero: &str, nombre: &str) -> serde_json::Value {
         "identificacion": "INE-1",
         "curp": "ABCD800101HDFXYZ01",
         "rfc": "ABCD800101XYZ",
+        "descripcion": "Pago de prueba",
+        "monto": 1500.50,
+        "numero_cuenta": "1234567890",
+        "tipo": "REEMBOLSO",
         "estatus": "PENDIENTE",
         "campos_extra": [{ "nombre": "Teléfono", "valor": "555-0101" }]
     })
@@ -92,6 +96,22 @@ async fn administrativo_crea_documenta_exporta_y_consulta_reportes() {
     )
     .await;
     assert_eq!(estado, StatusCode::OK, "{documento}");
+
+    let (estado, deposito) = pedir(
+        &t.app,
+        "POST",
+        &format!("/api/v1/darfes/{id}/documentos"),
+        Some(&tok),
+        Some(json!({
+            "campo": "DEPOSITO",
+            "nombre": "deposito.pdf",
+            "mime": "application/pdf",
+            "contenido_base64": "JVBERi0="
+        })),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK, "{deposito}");
+    assert_eq!(deposito["coincide"], false);
 
     let (estado, pdf) = descargar(&t, &tok, &format!("/api/v1/darfes/{id}/documentos/CURP")).await;
     assert_eq!(estado, StatusCode::OK);
@@ -168,6 +188,49 @@ async fn rechaza_duplicados_y_usuarios_sin_permiso() {
     let (tok_usuario, _) = iniciar_sesion(&t.app, "usuario@test.mx").await;
     let (estado, _) = pedir(&t.app, "GET", "/api/v1/darfes", Some(&tok_usuario), None).await;
     assert_eq!(estado, StatusCode::FORBIDDEN);
+
+    t.cerrar().await;
+}
+
+#[tokio::test]
+async fn canasta_crea_tres_items_mensuales() {
+    let t = setup().await;
+    crear_usuario(&t.db, "admin@test.mx", "ADMINISTRATIVO").await;
+    let (tok, _) = iniciar_sesion(&t.app, "admin@test.mx").await;
+    let mut cuerpo = darfe("DARFE-CANASTA-1", "Persona Canasta");
+    cuerpo["fecha"] = json!("2026-01-15");
+    cuerpo["tipo"] = json!("CANASTA");
+    cuerpo["descripcion"] = json!("Se reemplaza por la descripción automática");
+
+    let (estado, respuesta) = pedir(
+        &t.app,
+        "POST",
+        "/api/v1/darfes",
+        Some(&tok),
+        Some(cuerpo),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK, "{respuesta}");
+    assert_eq!(respuesta["total"], 3);
+    let items = respuesta["darfes"].as_array().unwrap();
+    assert_eq!(items[0]["fecha"], "2026-01-15");
+    assert_eq!(items[1]["fecha"], "2026-02-15");
+    assert_eq!(items[2]["fecha"], "2026-03-15");
+    assert_eq!(items[0]["descripcion"], "1ra canasta 3");
+    assert_eq!(items[1]["descripcion"], "2da canasta de 3");
+    assert_eq!(items[2]["descripcion"], "3ra canasta de 3");
+    assert_eq!(items[0]["numero_darfe"], "DARFE-CANASTA-1");
+    assert_eq!(items[1]["numero_darfe"], "DARFE-CANASTA-1");
+
+    let (_, listado) = pedir(
+        &t.app,
+        "GET",
+        "/api/v1/darfes?buscar=DARFE-CANASTA-1",
+        Some(&tok),
+        None,
+    )
+    .await;
+    assert_eq!(listado["total"], 3);
 
     t.cerrar().await;
 }

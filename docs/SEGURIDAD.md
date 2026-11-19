@@ -32,6 +32,12 @@
 - DARFES está reservado al perfil `ADMINISTRATIVO` y a `ADMINISTRADOR`. Los documentos adjuntos se
   limitan a 8 MiB, se guardan en la base y requieren `darfes:documentos`; la exportación y los
   reportes tienen permisos separados.
+- `ADMINISTRADOR` omite la comprobación de permisos en `AuthUser::puede`, de modo que conserva
+  acceso a todos los módulos presentes y futuros sin depender de que cada migración le conceda
+  permisos. `ADMINISTRATIVO` sigue limitado a sus permisos explícitos.
+- El PDF de depósito se procesa en el servidor: extrae número de cuenta, monto y nombre, compara
+  contra lo capturado y guarda `coincide` y las diferencias. La falta de coincidencia no descarta
+  la carga; queda visible para revisión humana y en la auditoría.
 
 ## Transporte y secretos
 

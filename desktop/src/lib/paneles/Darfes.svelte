@@ -470,6 +470,26 @@
                                                 </button>
                                             {/if}
                                         {/each}
+                                        {#if registro.documentos?.includes('DEPOSITO')}
+                                            <span
+                                                class="insignia {registro.deposito_coincide === true
+                                                    ? 'bg-emerald-100 text-emerald-700'
+                                                    : registro.deposito_coincide === false
+                                                      ? 'bg-red-100 text-red-700'
+                                                      : 'bg-slate-100 text-slate-600'}"
+                                                title={registro.deposito_coincide === true
+                                                    ? 'Cuenta, monto y nombre del depósito coinciden'
+                                                    : registro.deposito_coincide === false
+                                                      ? 'Los datos del depósito no coinciden con lo capturado'
+                                                      : 'Depósito cargado sin validación'}
+                                            >
+                                                Depósito {registro.deposito_coincide === true
+                                                    ? '✓'
+                                                    : registro.deposito_coincide === false
+                                                      ? '✗'
+                                                      : '·'}
+                                            </span>
+                                        {/if}
                                     </div>
                                 </td>
                                 <td class="space-x-2 whitespace-nowrap text-right">

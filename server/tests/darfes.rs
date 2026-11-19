@@ -47,7 +47,13 @@ async fn descargar(t: &TestApp, token: &str, ruta: &str) -> (StatusCode, Vec<u8>
         .await
         .unwrap();
     let estado = respuesta.status();
-    let bytes = respuesta.into_body().collect().await.unwrap().to_bytes().to_vec();
+    let bytes = respuesta
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes()
+        .to_vec();
     (estado, bytes)
 }
 
@@ -121,7 +127,8 @@ async fn administrativo_crea_documenta_exporta_y_consulta_reportes() {
     assert_eq!(estado, StatusCode::OK);
     assert!(xlsx.starts_with(b"PK"));
 
-    let (estado, reportes) = pedir(&t.app, "GET", "/api/v1/darfes/reportes", Some(&tok), None).await;
+    let (estado, reportes) =
+        pedir(&t.app, "GET", "/api/v1/darfes/reportes", Some(&tok), None).await;
     assert_eq!(estado, StatusCode::OK, "{reportes}");
     assert_eq!(reportes["total"], 1);
     assert_eq!(reportes["por_estatus"]["PENDIENTE"], 1);
@@ -202,14 +209,8 @@ async fn canasta_crea_tres_items_mensuales() {
     cuerpo["tipo"] = json!("CANASTA");
     cuerpo["descripcion"] = json!("Se reemplaza por la descripción automática");
 
-    let (estado, respuesta) = pedir(
-        &t.app,
-        "POST",
-        "/api/v1/darfes",
-        Some(&tok),
-        Some(cuerpo),
-    )
-    .await;
+    let (estado, respuesta) =
+        pedir(&t.app, "POST", "/api/v1/darfes", Some(&tok), Some(cuerpo)).await;
     assert_eq!(estado, StatusCode::OK, "{respuesta}");
     assert_eq!(respuesta["total"], 3);
     let items = respuesta["darfes"].as_array().unwrap();

@@ -510,7 +510,8 @@ servidor Debian de destino.
   en la tabla y exportación; los seis campos de archivo aceptan arrastrar y soltar.
 - `AuthUser::puede` otorga acceso implícito al rol `ADMINISTRADOR` para todos los módulos.
 - Pruebas: `cargo test --test darfes` → 3 pruebas (CRUD/documentos/depósito, canasta mensual y
-  permisos). Suite completa del servidor: 87 pruebas sin fallos.
+  permisos); pruebas unitarias de extracción del PDF de depósito (coincidencia y diferencias).
+  Suite completa del servidor: 89 pruebas sin fallos.
 - Versión `0.1.5` del escritorio con esta ampliación de DARFES.
 - Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
   `infra/updates/`. **Pendiente**: publicar `0.1.5` en el VPS; el servidor responde por HTTPS y

@@ -31,11 +31,7 @@ const CAMPOS_DOCUMENTO: [&str; 6] = [
     "DEPOSITO",
 ];
 const LIMITE_DOCUMENTO: usize = 8 * 1024 * 1024;
-const DESCRIPCIONES_CANASTA: [&str; 3] = [
-    "1ra canasta 3",
-    "2da canasta de 3",
-    "3ra canasta de 3",
-];
+const DESCRIPCIONES_CANASTA: [&str; 3] = ["1ra canasta 3", "2da canasta de 3", "3ra canasta de 3"];
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -347,12 +343,8 @@ pub async fn actualizar(
         ));
     }
     let descripcion = if tipo_actual == "CANASTA" {
-        item.and_then(|valor| {
-            DESCRIPCIONES_CANASTA
-                .get((valor - 1) as usize)
-                .copied()
-        })
-        .unwrap_or(datos.descripcion.as_str())
+        item.and_then(|valor| DESCRIPCIONES_CANASTA.get((valor - 1) as usize).copied())
+            .unwrap_or(datos.descripcion.as_str())
     } else {
         datos.descripcion.as_str()
     };
@@ -449,13 +441,19 @@ pub async fn subir_documento(
         return Err(ApiError::inprocesable("Campo de documento no permitido"));
     }
     if input.nombre.trim().is_empty() || input.nombre.len() > 200 {
-        return Err(ApiError::inprocesable("El nombre del documento es obligatorio"));
+        return Err(ApiError::inprocesable(
+            "El nombre del documento es obligatorio",
+        ));
     }
     let contenido = STANDARD
         .decode(input.contenido_base64.as_bytes())
-        .map_err(|_| ApiError::solicitud_invalida("El contenido del documento no es base64 válido"))?;
+        .map_err(|_| {
+            ApiError::solicitud_invalida("El contenido del documento no es base64 válido")
+        })?;
     if contenido.is_empty() || contenido.len() > LIMITE_DOCUMENTO {
-        return Err(ApiError::inprocesable("El documento debe pesar entre 1 byte y 8 MiB"));
+        return Err(ApiError::inprocesable(
+            "El documento debe pesar entre 1 byte y 8 MiB",
+        ));
     }
 
     let datos: Option<(String, f64, String)> = sqlx::query_as(
@@ -540,11 +538,13 @@ pub async fn documento(
         .status(StatusCode::OK)
         .header(
             header::CONTENT_TYPE,
-            HeaderValue::from_str(&mime).unwrap_or(HeaderValue::from_static("application/octet-stream")),
+            HeaderValue::from_str(&mime)
+                .unwrap_or(HeaderValue::from_static("application/octet-stream")),
         )
         .header(
             header::CONTENT_DISPOSITION,
-            HeaderValue::from_str(&disposicion).map_err(|error| ApiError::interno(error.to_string()))?,
+            HeaderValue::from_str(&disposicion)
+                .map_err(|error| ApiError::interno(error.to_string()))?,
         )
         .body(Body::from(contenido))
         .map_err(|error| ApiError::interno(error.to_string()))
@@ -595,38 +595,67 @@ pub async fn exportar(
     hoja.set_name("DARFES").map_err(error_excel)?;
     let encabezado = Format::new().set_bold();
     let columnas = [
-        "NO. DARFE", "FECHA", "NOMBRE", "DESCRIPCIÓN", "MONTO", "NO. CUENTA",
-        "EXPEDIENTE", "REGISTRO", "ESTADO CUENTA", "BANCO", "IDENTIFICACIÓN",
-        "CURP", "RFC", "TIPO", "ESTATUS", "CAMPOS ADICIONALES", "DEPÓSITO COINCIDE",
+        "NO. DARFE",
+        "FECHA",
+        "NOMBRE",
+        "DESCRIPCIÓN",
+        "MONTO",
+        "NO. CUENTA",
+        "EXPEDIENTE",
+        "REGISTRO",
+        "ESTADO CUENTA",
+        "BANCO",
+        "IDENTIFICACIÓN",
+        "CURP",
+        "RFC",
+        "TIPO",
+        "ESTATUS",
+        "CAMPOS ADICIONALES",
+        "DEPÓSITO COINCIDE",
     ];
     for (indice, titulo) in columnas.iter().enumerate() {
         hoja.write_string_with_format(0, indice as u16, *titulo, &encabezado)
             .map_err(error_excel)?;
-        hoja.set_column_width(indice as u16, 18).map_err(error_excel)?;
+        hoja.set_column_width(indice as u16, 18)
+            .map_err(error_excel)?;
     }
 
     for (fila, registro) in registros.iter().enumerate() {
         let renglon = fila as u32 + 1;
-        for (columna, clave) in [
-            "numero_darfe", "fecha", "nombre", "descripcion",
-        ]
-        .iter()
-        .enumerate()
+        for (columna, clave) in ["numero_darfe", "fecha", "nombre", "descripcion"]
+            .iter()
+            .enumerate()
         {
-            hoja.write_string(renglon, columna as u16, registro[*clave].as_str().unwrap_or(""))
-                .map_err(error_excel)?;
+            hoja.write_string(
+                renglon,
+                columna as u16,
+                registro[*clave].as_str().unwrap_or(""),
+            )
+            .map_err(error_excel)?;
         }
         hoja.write_number(renglon, 4, registro["monto"].as_f64().unwrap_or(0.0))
             .map_err(error_excel)?;
         for (indice, clave) in [
-            "numero_cuenta", "expediente", "registro", "estado_cuenta", "banco",
-            "identificacion", "curp", "rfc", "tipo", "estatus",
+            "numero_cuenta",
+            "expediente",
+            "registro",
+            "estado_cuenta",
+            "banco",
+            "identificacion",
+            "curp",
+            "rfc",
+            "tipo",
+            "estatus",
         ]
         .iter()
         .enumerate()
         {
-            hoja.write_string(renglon, indice as u16 + 5, registro[*clave].as_str().unwrap_or(""))
-                .map_err(error_excel)?;
+            hoja.write_string(
+                renglon,
+                indice as u16 + 5,
+                registro[*clave].as_str().unwrap_or(""),
+            )
+            .map_err(error_excel)?;
         }
         hoja.write_string(renglon, 15, &registro["campos_extra"].to_string())
             .map_err(error_excel)?;
@@ -635,7 +664,8 @@ pub async fn exportar(
             Some(false) => "NO",
             None => "",
         };
-        hoja.write_string(renglon, 16, deposito).map_err(error_excel)?;
+        hoja.write_string(renglon, 16, deposito)
+            .map_err(error_excel)?;
     }
 
     let bytes = libro.save_to_buffer().map_err(error_excel)?;
@@ -645,11 +675,14 @@ pub async fn exportar(
         .status(StatusCode::OK)
         .header(
             header::CONTENT_TYPE,
-            HeaderValue::from_static("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            HeaderValue::from_static(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ),
         )
         .header(
             header::CONTENT_DISPOSITION,
-            HeaderValue::from_str(&disposicion).map_err(|error| ApiError::interno(error.to_string()))?,
+            HeaderValue::from_str(&disposicion)
+                .map_err(|error| ApiError::interno(error.to_string()))?,
         )
         .body(Body::from(bytes))
         .map_err(|error| ApiError::interno(error.to_string()))
@@ -737,8 +770,16 @@ async fn consultar_lista(
 ) -> Result<(i64, Vec<Value>), ApiError> {
     let buscar = patron(&filtro.buscar);
     let banco = patron(&filtro.banco);
-    let estatus = filtro.estatus.as_deref().map(str::trim).filter(|v| !v.is_empty());
-    let tipo = filtro.tipo.as_deref().map(str::trim).filter(|v| !v.is_empty());
+    let estatus = filtro
+        .estatus
+        .as_deref()
+        .map(str::trim)
+        .filter(|v| !v.is_empty());
+    let tipo = filtro
+        .tipo
+        .as_deref()
+        .map(str::trim)
+        .filter(|v| !v.is_empty());
     let pagina = filtro.pagina.unwrap_or(1).max(1);
     let tamano = filtro.tamano.unwrap_or(25).clamp(1, 100);
     let (limite, offset) = if paginar {
@@ -875,19 +916,27 @@ async fn consultar(app: &AppState, id: Uuid) -> Result<Value, ApiError> {
 fn validar(input: DarfeInput) -> Result<DatosDarfe, ApiError> {
     let numero_darfe = input.numero_darfe.trim().to_string();
     if numero_darfe.is_empty() || numero_darfe.chars().count() > 100 {
-        return Err(ApiError::inprocesable("El número de DARFE es obligatorio y admite hasta 100 caracteres"));
+        return Err(ApiError::inprocesable(
+            "El número de DARFE es obligatorio y admite hasta 100 caracteres",
+        ));
     }
     let nombre = input.nombre.trim().to_string();
     if nombre.is_empty() || nombre.chars().count() > 200 {
-        return Err(ApiError::inprocesable("El nombre es obligatorio y admite hasta 200 caracteres"));
+        return Err(ApiError::inprocesable(
+            "El nombre es obligatorio y admite hasta 200 caracteres",
+        ));
     }
     let tipo = input.tipo.trim().to_uppercase();
     if !["CANASTA", "REEMBOLSO"].contains(&tipo.as_str()) {
-        return Err(ApiError::inprocesable("El tipo debe ser CANASTA o REEMBOLSO"));
+        return Err(ApiError::inprocesable(
+            "El tipo debe ser CANASTA o REEMBOLSO",
+        ));
     }
     let estatus = input.estatus.trim().to_uppercase();
     if !["PENDIENTE", "INCOMPLETO", "COMPLETO"].contains(&estatus.as_str()) {
-        return Err(ApiError::inprocesable("El estatus debe ser PENDIENTE, INCOMPLETO o COMPLETO"));
+        return Err(ApiError::inprocesable(
+            "El estatus debe ser PENDIENTE, INCOMPLETO o COMPLETO",
+        ));
     }
     if !input.monto.is_finite() || input.monto < 0.0 || input.monto > 1_000_000_000_000.0 {
         return Err(ApiError::inprocesable("El monto no es válido"));
@@ -896,23 +945,34 @@ fn validar(input: DarfeInput) -> Result<DatosDarfe, ApiError> {
     let campo = |valor: String, max: usize, nombre_campo: &str| -> Result<String, ApiError> {
         let valor = valor.trim().to_string();
         if valor.chars().count() > max {
-            return Err(ApiError::inprocesable(format!("{nombre_campo} admite hasta {max} caracteres")));
+            return Err(ApiError::inprocesable(format!(
+                "{nombre_campo} admite hasta {max} caracteres"
+            )));
         }
         Ok(valor)
     };
     if input.campos_extra.len() > 30 {
-        return Err(ApiError::inprocesable("El registro admite hasta 30 campos adicionales"));
+        return Err(ApiError::inprocesable(
+            "El registro admite hasta 30 campos adicionales",
+        ));
     }
     let mut campos_extra = Vec::with_capacity(input.campos_extra.len());
     for extra in input.campos_extra {
         let nombre_extra = extra.nombre.trim().to_string();
         if nombre_extra.is_empty() || nombre_extra.chars().count() > 80 {
-            return Err(ApiError::inprocesable("Cada campo adicional requiere un nombre de hasta 80 caracteres"));
+            return Err(ApiError::inprocesable(
+                "Cada campo adicional requiere un nombre de hasta 80 caracteres",
+            ));
         }
         if extra.valor.chars().count() > 500 {
-            return Err(ApiError::inprocesable("Cada valor adicional admite hasta 500 caracteres"));
+            return Err(ApiError::inprocesable(
+                "Cada valor adicional admite hasta 500 caracteres",
+            ));
         }
-        campos_extra.push(CampoExtra { nombre: nombre_extra, valor: extra.valor.trim().to_string() });
+        campos_extra.push(CampoExtra {
+            nombre: nombre_extra,
+            valor: extra.valor.trim().to_string(),
+        });
     }
 
     Ok(DatosDarfe {
@@ -936,7 +996,11 @@ fn validar(input: DarfeInput) -> Result<DatosDarfe, ApiError> {
 }
 
 fn patron(valor: &Option<String>) -> Option<String> {
-    valor.as_deref().map(str::trim).filter(|v| !v.is_empty()).map(|v| format!("%{v}%"))
+    valor
+        .as_deref()
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .map(|v| format!("%{v}%"))
 }
 
 fn duplicado(error: sqlx::Error) -> ApiError {
@@ -971,11 +1035,11 @@ fn validar_deposito(
     };
     let cuenta = capturar(
         &texto,
-        r"(?i)(?:n[uú]mero\s+de\s+cuenta|no\.?\s*de\s*cuenta|cuenta)[^\d]{0,30}([0-9][0-9\s-]{7,30})",
+        r"(?i)(?:n[uú]mero\s+de\s+cuenta|no\.?\s*de\s*cuenta|cuenta)[^\d\r\n]{0,30}([0-9][0-9\s-]{7,30})",
     );
     let monto = capturar(
         &texto,
-        r"(?i)(?:monto|importe|total|dep[oó]sito)[^\d]{0,30}\$?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)",
+        r"(?i)(?:monto|importe|total|dep[oó]sito)[^\d\r\n]{0,30}\$?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)",
     );
     let nombre = capturar(
         &texto,
@@ -995,7 +1059,8 @@ fn validar_deposito(
         .map(|valor| {
             let capturado = normalizar_nombre(nombre_capturado);
             let extraido = normalizar_nombre(valor);
-            !capturado.is_empty() && (extraido.contains(&capturado) || capturado.contains(&extraido))
+            !capturado.is_empty()
+                && (extraido.contains(&capturado) || capturado.contains(&extraido))
         })
         .unwrap_or(false);
 
@@ -1055,4 +1120,70 @@ fn normalizar_nombre(texto: &str) -> String {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+    use genpdf::{
+        elements::Paragraph,
+        fonts::{FontData, FontFamily},
+        Document,
+    };
+
+    fn pdf_con(lineas: &[&str]) -> Vec<u8> {
+        let fuente = FontData::new(
+            include_bytes!("../../assets/NotoSans-Regular.ttf").to_vec(),
+            None,
+        )
+        .expect("fuente del PDF");
+        let familia = FontFamily {
+            regular: fuente.clone(),
+            bold: fuente.clone(),
+            italic: fuente.clone(),
+            bold_italic: fuente,
+        };
+        let mut documento = Document::new(familia);
+        documento.set_font_size(11);
+        for linea in lineas {
+            documento.push(Paragraph::new(*linea));
+        }
+        let mut pdf = Vec::new();
+        documento.render(&mut pdf).expect("PDF en memoria");
+        pdf
+    }
+
+    #[test]
+    fn el_deposito_coincide_con_cuenta_monto_y_nombre() {
+        let pdf = pdf_con(&[
+            "Comprobante de deposito",
+            "Numero de cuenta: 1234567890",
+            "Monto: $1,500.50",
+            "Nombre: JUAN PEREZ LOPEZ",
+        ]);
+        let (extraidos, coincide) =
+            validar_deposito(&pdf, "1234567890", 1500.50, "Juan Pérez López");
+        assert_eq!(coincide, Some(true), "{extraidos}");
+        assert_eq!(extraidos["numero_cuenta"], "1234567890");
+        assert_eq!(extraidos["monto"], 1500.50);
+    }
+
+    #[test]
+    fn el_deposito_reporta_las_diferencias() {
+        let pdf = pdf_con(&[
+            "Numero de cuenta: 9999999999",
+            "Monto: $1,500.50",
+            "Nombre: JUAN PEREZ LOPEZ",
+        ]);
+        let (extraidos, coincide) =
+            validar_deposito(&pdf, "1234567890", 1500.50, "Juan Pérez López");
+        assert_eq!(coincide, Some(false), "{extraidos}");
+        let diferencias = extraidos["diferencias"].as_array().expect("diferencias");
+        assert!(
+            diferencias
+                .iter()
+                .any(|valor| valor.as_str().unwrap_or("").contains("cuenta")),
+            "{extraidos}"
+        );
+    }
 }

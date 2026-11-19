@@ -25,8 +25,7 @@ impl AuthUser {
     pub fn puede(&self, permiso: &str) -> bool {
         // El rol Administrador conserva acceso a todos los módulos, incluidos
         // los que se agreguen en migraciones posteriores.
-        self.roles.iter().any(|rol| rol == "ADMINISTRADOR")
-            || self.permisos.contains(permiso)
+        self.roles.iter().any(|rol| rol == "ADMINISTRADOR") || self.permisos.contains(permiso)
     }
 
     pub fn exigir(&self, permiso: &str) -> Result<(), ApiError> {
@@ -70,8 +69,8 @@ impl FromRequestParts<AppState> for AuthUser {
         .fetch_optional(&estado.db)
         .await?;
 
-        let (_id, nombre, correo, activo, revocada, expira_en, _dispositivo, ultima_actividad) = fila
-            .ok_or_else(|| ApiError::no_autenticado("Sesión no válida o expirada"))?;
+        let (_id, nombre, correo, activo, revocada, expira_en, _dispositivo, ultima_actividad) =
+            fila.ok_or_else(|| ApiError::no_autenticado("Sesión no válida o expirada"))?;
 
         if revocada || !activo || expira_en <= Utc::now() {
             return Err(ApiError::no_autenticado("Sesión no válida o expirada"));

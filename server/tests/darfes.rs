@@ -333,6 +333,12 @@ async fn genera_recibo_pdf_con_folio_consecutivo() {
         .await;
         assert_eq!(estado, StatusCode::OK);
         assert!(pdf.starts_with(b"%PDF"));
+        if folios.is_empty() {
+            let texto = pdf_extract::extract_text_from_mem(&pdf).expect("texto del recibo");
+            assert!(texto.contains("557"), "{texto}");
+            assert!(texto.contains("EXP-DARFE-1"), "{texto}");
+            assert!(texto.contains("1,500.50"), "{texto}");
+        }
         let disposicion = encabezados
             .get(header::CONTENT_DISPOSITION)
             .and_then(|valor| valor.to_str().ok())

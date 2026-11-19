@@ -1057,14 +1057,36 @@ pub async fn generar_formato(
     let anio = fecha_recibo.year();
 
     let mut tx = app.db.begin().await?;
-    let fila: Option<(String, f64, String, String, Option<i32>, Option<i32>)> = sqlx::query_as(
-        "SELECT nombre, monto::float8, expediente, descripcion, folio_formato, folio_anio
+    let fila: Option<(
+        String,
+        f64,
+        String,
+        String,
+        String,
+        Option<i16>,
+        NaiveDate,
+        Option<i32>,
+        Option<i32>,
+    )> = sqlx::query_as(
+        "SELECT nombre, monto::float8, expediente, descripcion, tipo, item_canasta, fecha,
+                folio_formato, folio_anio
          FROM darfes WHERE id=$1 AND eliminado_en IS NULL FOR UPDATE",
     )
     .bind(id)
     .fetch_optional(&mut *tx)
     .await?;
-    let Some((nombre, monto, expediente, descripcion, folio_actual, anio_actual)) = fila else {
+    let Some((
+        nombre,
+        monto,
+        expediente,
+        descripcion,
+        tipo,
+        item_canasta,
+        fecha,
+        folio_actual,
+        anio_actual,
+    )) = fila
+    else {
         return Err(ApiError::no_encontrado("DARFE no encontrado"));
     };
 
@@ -1096,12 +1118,13 @@ pub async fn generar_formato(
 
     let pdf = generar_formato_pdf(
         folio,
-        folio_anio,
         &nombre,
         monto,
         &expediente,
         &descripcion,
-        fecha_recibo,
+        &tipo,
+        item_canasta,
+        fecha,
     )?;
 
     audit::registrar(
@@ -1135,13 +1158,15 @@ pub async fn generar_formato(
 #[allow(clippy::too_many_arguments)]
 fn generar_formato_pdf(
     folio: i32,
-    anio: i32,
     nombre: &str,
     monto: f64,
     expediente: &str,
     descripcion: &str,
+    tipo: &str,
+    item_canasta: Option<i16>,
     fecha: NaiveDate,
 ) -> Result<Vec<u8>, ApiError> {
+    let anio = fecha.year();
     let fuente = FontData::new(
         include_bytes!("../../assets/NotoSans-Regular.ttf").to_vec(),
         None,
@@ -1157,8 +1182,8 @@ fn generar_formato_pdf(
     };
     let mut documento = Document::new(familia);
     documento.set_title(format!("Recibo de ayuda {folio}"));
-    documento.set_font_size(11);
-    documento.set_line_spacing(1.4);
+    documento.set_font_size(12);
+    documento.set_line_spacing(1.45);
     let mut decorador = SimplePageDecorator::new();
     decorador.set_margins(18);
     documento.set_page_decorator(decorador);
@@ -1175,37 +1200,73 @@ fn generar_formato_pdf(
     encabezado.set_alignment(Alignment::Center);
     documento.push(encabezado);
 
+    for linea in [
+        "COMISION EJECUTIVA ESTATAL DE ATENCIÓN",
+        "A VÍCTIMAS DEL ESTADO DE PUEBLA",
+        "DIRECCIÓN DE ADMINISTRACIÓN Y FINANZAS",
+    ] {
+        let mut parrafo = Paragraph::new(linea);
+        parrafo.set_alignment(Alignment::Center);
+        documento.push(parrafo.styled(Style::new().bold().with_font_size(12)));
+    }
+    documento.push(Paragraph::new(""));
+
     let mut folio_parrafo = Paragraph::new(format!("FOLIO {folio}"));
     folio_parrafo.set_alignment(Alignment::Right);
-    documento.push(folio_parrafo.styled(Style::new().bold()));
+    documento.push(folio_parrafo.styled(Style::new().bold().with_font_size(12)));
 
+    documento.push(Paragraph::new(""));
     let mut titulo = Paragraph::new(format!("RECIBO DE AYUDA A VÍCTIMAS {anio}"));
     titulo.set_alignment(Alignment::Center);
     documento.push(titulo.styled(Style::new().bold().with_font_size(14)));
+    documento.push(Paragraph::new(""));
 
-    let descripcion = if descripcion.trim().is_empty() {
-        "APOYO"
+    let (medida, detalle) = if tipo == "CANASTA" {
+        (
+            "CANASTA BASICA",
+            item_canasta
+                .map(|item| format!("{item} DE 3"))
+                .unwrap_or_else(|| descripcion.trim().to_string()),
+        )
     } else {
-        descripcion.trim()
+        (
+            "OTRAS AYUDAS",
+            if descripcion.trim().is_empty() {
+                "APOYO".to_string()
+            } else {
+                descripcion.trim().to_string()
+            },
+        )
     };
+    let detalle = if detalle.trim().is_empty() {
+        "APOYO".to_string()
+    } else {
+        detalle
+    };
+
     documento.push(Paragraph::new(format!(
-        "LA AYUDA QUE A CONTINUACIÓN SE DESCRIBRE: TRANSFERENCIA DE RECURSOS POR ACCESO A LA MEDIDA DE OTRAS AYUDAS CON CARGO A LOS RECURSOS DEL FONDO DE AYUDA, ASISTENCIA Y REPARACIÓN INTEGRAL DEL ESTADO DE PUEBLA {anio} (FAARI), CORRESPONDIENTES A: {descripcion}."
+        "LA AYUDA QUE A CONTINUACIÓN SE DESCRIBRE: TRANSFERENCIA DE RECURSOS POR ACCESO A LA MEDIDA DE {medida} CON CARGO A LOS RECURSOS DEL FONDO DE AYUDA, ASISTENCIA Y REPARACIÓN INTEGRAL DEL ESTADO DE PUEBLA {anio} (FAARI), CORRESPONDIENTES A: {detalle}."
     )));
     documento.push(Paragraph::new(""));
     documento.push(Paragraph::new(format!("BENEFICIARIO: {nombre}")).styled(Style::new().bold()));
+    documento.push(Paragraph::new(""));
     documento.push(Paragraph::new(format!(
-        "RECIBE LA CANTIDAD DE: ${}",
+        "RECIBE LA CANTIDAD DE: $ {}",
         monto_con_comas(monto)
     )));
+    documento.push(Paragraph::new(""));
     documento.push(Paragraph::new(format!("EXPEDIENTE: {expediente}")));
     documento.push(Paragraph::new(""));
     documento.push(Paragraph::new(""));
-    documento.push(Paragraph::new(format!(
-        "PUEBLA, PUE. A {} DE {} DEL {}",
-        fecha.day(),
+
+    let mut fecha_parrafo = Paragraph::new(format!(
+        "PUEBLA, PUE. A ______ DE {} DEL {}",
         nombre_mes(fecha.month()),
-        fecha.year()
-    )));
+        anio
+    ));
+    fecha_parrafo.set_alignment(Alignment::Right);
+    documento.push(fecha_parrafo);
+
     documento.push(Paragraph::new(""));
     documento.push(Paragraph::new(""));
     documento.push(Paragraph::new(""));
@@ -1213,9 +1274,26 @@ fn generar_formato_pdf(
     let mut firma = Paragraph::new("________________________________");
     firma.set_alignment(Alignment::Center);
     documento.push(firma);
+    documento.push(Paragraph::new(""));
     let mut leyenda = Paragraph::new("NOMBRE Y FIRMA DE QUIEN RECIBE");
     leyenda.set_alignment(Alignment::Center);
     documento.push(leyenda);
+
+    for linea in [
+        "17 poniente 1701, Barrio de Santiago Puebla, Pue. C.P. 72000 Tel. (222) 945 63 01 |",
+        "direccion.general@ceeavi.puebla.gob.mx | atencionavictimas.puebla.gob.mx",
+        "Página 1 de 1",
+    ] {
+        let mut pie = Paragraph::new(linea);
+        pie.set_alignment(Alignment::Center);
+        documento.push(
+            pie.styled(
+                Style::new()
+                    .with_font_size(7)
+                    .with_line_spacing(1.0),
+            ),
+        );
+    }
 
     let mut pdf = Vec::new();
     documento

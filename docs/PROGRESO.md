@@ -532,7 +532,11 @@ servidor Debian de destino.
   encabezado institucional. El folio inicia en 557, es consecutivo por año, reinicia cada año y se
   conserva en las reimpresiones. La migración `0016_darfe_folios.sql` crea `darfe_folios` y las
   columnas `folio_formato`/`folio_anio`.
+- Versión `0.1.10`: el recibo usa el formato **F-554** con los datos del ítem (beneficiario, monto,
+  expediente, detalle `1 DE 3` para canastas y fecha del DARFE), encabezado con CEEAVI y pie de
+  página institucional. El formulario agrega el botón **Duplicar**, que abre un nuevo DARFE con los
+  mismos datos y el número de DARFE en blanco.
 - Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
-  `infra/updates/`. **Pendiente**: publicar `0.1.9` en el VPS; el servidor responde por HTTPS y
+  `infra/updates/`. **Pendiente**: publicar `0.1.10` en el VPS; el servidor responde por HTTPS y
   sigue sirviendo `0.1.4`, pero el puerto SSH `2702` presenta una clave de host distinta a la
   registrada, por lo que no se desplegó sin validarla.

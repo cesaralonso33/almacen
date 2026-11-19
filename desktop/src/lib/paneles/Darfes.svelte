@@ -191,6 +191,14 @@
         modal = true;
     }
 
+    function duplicar() {
+        editandoId = null;
+        documentosExistentes = [];
+        archivos = vacioArchivos();
+        errorFormulario = '';
+        form = { ...form, numero_darfe: '' };
+    }
+
     function abrirEdicion(registro: any) {
         editandoId = registro.id;
         documentosExistentes = Array.isArray(registro.documentos) ? registro.documentos : [];
@@ -968,6 +976,17 @@
             {/if}
 
             <div class="flex flex-wrap justify-end gap-2">
+                {#if editandoId}
+                    <button
+                        class="btn-secundario"
+                        type="button"
+                        onclick={duplicar}
+                        disabled={guardando}
+                        title="Crea un nuevo DARFE con los mismos datos; el número se captura de nuevo"
+                    >
+                        Duplicar
+                    </button>
+                {/if}
                 <button
                     class="btn-secundario"
                     type="button"

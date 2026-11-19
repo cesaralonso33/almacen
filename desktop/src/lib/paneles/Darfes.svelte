@@ -82,9 +82,7 @@
         nombre: '',
         expediente: '',
         registro: '',
-        estado_cuenta: '',
         banco: '',
-        identificacion: '',
         curp: '',
         rfc: '',
         telefono: '',
@@ -178,9 +176,7 @@
             nombre: '',
             expediente: '',
             registro: '',
-            estado_cuenta: '',
             banco: '',
-            identificacion: '',
             curp: '',
             rfc: '',
             telefono: '',
@@ -206,9 +202,7 @@
             nombre: registro.nombre,
             expediente: registro.expediente ?? '',
             registro: registro.registro ?? '',
-            estado_cuenta: registro.estado_cuenta ?? '',
             banco: registro.banco ?? '',
-            identificacion: registro.identificacion ?? '',
             curp: registro.curp ?? '',
             rfc: registro.rfc ?? '',
             telefono: registro.telefono ?? '',
@@ -253,57 +247,60 @@
         });
     }
 
+    async function persistir(): Promise<{ ids: string[]; depositoCoincide: boolean | null }> {
+        const cuerpo = {
+            numero_darfe: form.numero_darfe,
+            fecha: form.fecha,
+            nombre: form.nombre,
+            expediente: form.expediente,
+            registro: form.registro,
+            banco: form.banco,
+            curp: form.curp,
+            rfc: form.rfc,
+            telefono: form.telefono,
+            correo: form.correo,
+            descripcion: form.descripcion,
+            monto: Number(form.monto),
+            numero_cuenta: form.numero_cuenta,
+            tipo: form.tipo,
+            estatus: form.estatus,
+            campos_extra: form.campos_extra.filter(
+                (campo) => campo.nombre.trim() !== '' || campo.valor.trim() !== ''
+            )
+        };
+        let ids: string[] = [];
+        if (editandoId) {
+            const respuesta = await api<any>('PUT', `/api/v1/darfes/${editandoId}`, cuerpo);
+            ids = [respuesta.id];
+        } else {
+            const respuesta = await api<any>('POST', '/api/v1/darfes', cuerpo);
+            ids = Array.isArray(respuesta.darfes)
+                ? respuesta.darfes.map((item: any) => item.id)
+                : [respuesta.id];
+        }
+
+        let depositoCoincide: boolean | null = null;
+        for (const id of ids) {
+            for (const campo of CAMPOS_DOCUMENTO) {
+                const archivo = archivos[campo.clave];
+                if (!archivo) continue;
+                const resultado = await api<any>('POST', `/api/v1/darfes/${id}/documentos`, {
+                    campo: campo.clave,
+                    nombre: archivo.name,
+                    mime: archivo.type || 'application/octet-stream',
+                    contenido_base64: await leerBase64(archivo)
+                });
+                if (campo.clave === 'DEPOSITO') depositoCoincide = resultado.coincide;
+            }
+        }
+        return { ids, depositoCoincide };
+    }
+
     async function guardar() {
         guardando = true;
         errorFormulario = '';
         try {
-            const cuerpo = {
-                numero_darfe: form.numero_darfe,
-                fecha: form.fecha,
-                nombre: form.nombre,
-                expediente: form.expediente,
-                registro: form.registro,
-                estado_cuenta: form.estado_cuenta,
-                banco: form.banco,
-                identificacion: form.identificacion,
-                curp: form.curp,
-                rfc: form.rfc,
-                telefono: form.telefono,
-                correo: form.correo,
-                descripcion: form.descripcion,
-                monto: Number(form.monto),
-                numero_cuenta: form.numero_cuenta,
-                tipo: form.tipo,
-                estatus: form.estatus,
-                campos_extra: form.campos_extra.filter(
-                    (campo) => campo.nombre.trim() !== '' || campo.valor.trim() !== ''
-                )
-            };
-            let ids: string[] = [];
-            if (editandoId) {
-                const respuesta = await api<any>('PUT', `/api/v1/darfes/${editandoId}`, cuerpo);
-                ids = [respuesta.id];
-            } else {
-                const respuesta = await api<any>('POST', '/api/v1/darfes', cuerpo);
-                ids = Array.isArray(respuesta.darfes)
-                    ? respuesta.darfes.map((item: any) => item.id)
-                    : [respuesta.id];
-            }
-
-            let depositoCoincide: boolean | null = null;
-            for (const id of ids) {
-                for (const campo of CAMPOS_DOCUMENTO) {
-                    const archivo = archivos[campo.clave];
-                    if (!archivo) continue;
-                    const resultado = await api<any>('POST', `/api/v1/darfes/${id}/documentos`, {
-                        campo: campo.clave,
-                        nombre: archivo.name,
-                        mime: archivo.type || 'application/octet-stream',
-                        contenido_base64: await leerBase64(archivo)
-                    });
-                    if (campo.clave === 'DEPOSITO') depositoCoincide = resultado.coincide;
-                }
-            }
+            const { ids, depositoCoincide } = await persistir();
 
             if (ids.length > 1) {
                 app.avisar(`${ids.length} canastas creadas`);
@@ -318,6 +315,32 @@
             modal = false;
             pagina = 1;
             await cargar();
+        } catch (fallo) {
+            errorFormulario = String(fallo);
+        } finally {
+            guardando = false;
+        }
+    }
+
+    async function generarFormato() {
+        guardando = true;
+        errorFormulario = '';
+        try {
+            const esNuevo = !editandoId;
+            let id = editandoId;
+            if (!id) {
+                const { ids } = await persistir();
+                id = ids[0] ?? null;
+            }
+            if (!id) throw new Error('No se pudo guardar el DARFE para generar el formato');
+
+            const ruta = await invoke<string>('guardar_formato_darfe', { id });
+            app.avisar(`Formato PDF guardado en ${ruta}`);
+            if (esNuevo) {
+                modal = false;
+                pagina = 1;
+                await cargar();
+            }
         } catch (fallo) {
             errorFormulario = String(fallo);
         } finally {
@@ -837,10 +860,6 @@
                         <span class="mb-1 block font-medium text-slate-600">Banco</span>
                         <input class="campo" bind:value={form.banco} />
                     </label>
-                    <label class="block text-sm">
-                        <span class="mb-1 block font-medium text-slate-600">Estado de cuenta</span>
-                        <input class="campo" bind:value={form.estado_cuenta} />
-                    </label>
                 </div>
             </section>
 
@@ -882,10 +901,6 @@
                             bind:value={form.correo}
                             placeholder="persona@ejemplo.mx"
                         />
-                    </label>
-                    <label class="block text-sm sm:col-span-2">
-                        <span class="mb-1 block font-medium text-slate-600">Identificación</span>
-                        <input class="campo" bind:value={form.identificacion} />
                     </label>
                 </div>
             </section>
@@ -952,7 +967,16 @@
                 <p class="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{errorFormulario}</p>
             {/if}
 
-            <div class="flex justify-end gap-2">
+            <div class="flex flex-wrap justify-end gap-2">
+                <button
+                    class="btn-secundario"
+                    type="button"
+                    onclick={generarFormato}
+                    disabled={guardando}
+                    title="Asigna el folio anual y genera el recibo en PDF"
+                >
+                    Generar formato PDF
+                </button>
                 <button class="btn-secundario" type="button" onclick={() => (modal = false)} disabled={guardando}>
                     Cancelar
                 </button>

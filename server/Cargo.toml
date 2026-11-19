@@ -17,7 +17,7 @@ argon2 = "0.5"
 axum = "0.8"
 base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
-genpdf = "0.2"
+genpdf = { version = "0.2", features = ["images"] }
 hex = "0.4"
 pdf-extract = "0.12"
 regex = "1"

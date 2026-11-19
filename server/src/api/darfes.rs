@@ -6,7 +6,13 @@ use axum::{
     Json,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
-use chrono::{Months, NaiveDate, Utc};
+use chrono::{Datelike, Duration, Months, NaiveDate, Utc};
+use genpdf::{
+    elements::{Image, Paragraph},
+    fonts::{FontData, FontFamily},
+    style::Style,
+    Alignment, Document, Element, SimplePageDecorator,
+};
 use pdf_extract::extract_text_from_mem;
 use regex::Regex;
 use rust_xlsxwriter::{Format, Workbook};
@@ -52,11 +58,7 @@ pub struct DarfeInput {
     #[serde(default)]
     pub registro: String,
     #[serde(default)]
-    pub estado_cuenta: String,
-    #[serde(default)]
     pub banco: String,
-    #[serde(default)]
-    pub identificacion: String,
     #[serde(default)]
     pub curp: String,
     #[serde(default)]
@@ -114,9 +116,7 @@ struct FilaDarfe {
     numero_cuenta: String,
     expediente: String,
     registro: String,
-    estado_cuenta: String,
     banco: String,
-    identificacion: String,
     curp: String,
     rfc: String,
     telefono: String,
@@ -135,9 +135,7 @@ struct DatosDarfe {
     nombre: String,
     expediente: String,
     registro: String,
-    estado_cuenta: String,
     banco: String,
-    identificacion: String,
     curp: String,
     rfc: String,
     telefono: String,
@@ -232,9 +230,7 @@ async fn crear_canasta(
             nombre: datos.nombre.clone(),
             expediente: datos.expediente.clone(),
             registro: datos.registro.clone(),
-            estado_cuenta: datos.estado_cuenta.clone(),
             banco: datos.banco.clone(),
-            identificacion: datos.identificacion.clone(),
             curp: datos.curp.clone(),
             rfc: datos.rfc.clone(),
             telefono: datos.telefono.clone(),
@@ -298,10 +294,10 @@ async fn insertar(
     sqlx::query_scalar(
         "INSERT INTO darfes
             (numero_darfe, fecha, nombre, descripcion, monto, numero_cuenta, tipo,
-             grupo_canasta, item_canasta, expediente, registro, estado_cuenta, banco,
-             identificacion, curp, rfc, telefono, correo, estatus, campos_extra,
+             grupo_canasta, item_canasta, expediente, registro, banco,
+             curp, rfc, telefono, correo, estatus, campos_extra,
              creado_por, actualizado_por)
-         VALUES ($1,$2,$3,$4,$5::numeric,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$21)
+         VALUES ($1,$2,$3,$4,$5::numeric,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$19)
          RETURNING id",
     )
     .bind(&datos.numero_darfe)
@@ -315,9 +311,7 @@ async fn insertar(
     .bind(item_canasta)
     .bind(&datos.expediente)
     .bind(&datos.registro)
-    .bind(&datos.estado_cuenta)
     .bind(&datos.banco)
-    .bind(&datos.identificacion)
     .bind(&datos.curp)
     .bind(&datos.rfc)
     .bind(&datos.telefono)
@@ -368,9 +362,9 @@ pub async fn actualizar(
         "UPDATE darfes
          SET numero_darfe=$2, fecha=$3, nombre=$4, descripcion=$5, monto=$6::numeric,
              numero_cuenta=$7, tipo=$8, grupo_canasta=$9, item_canasta=$10,
-             expediente=$11, registro=$12, estado_cuenta=$13, banco=$14,
-             identificacion=$15, curp=$16, rfc=$17, telefono=$18, correo=$19,
-             estatus=$20, campos_extra=$21, actualizado_por=$22, actualizado_en=now()
+             expediente=$11, registro=$12, banco=$13, curp=$14, rfc=$15,
+             telefono=$16, correo=$17, estatus=$18, campos_extra=$19,
+             actualizado_por=$20, actualizado_en=now()
          WHERE id=$1",
     )
     .bind(id)
@@ -385,9 +379,7 @@ pub async fn actualizar(
     .bind(item)
     .bind(&datos.expediente)
     .bind(&datos.registro)
-    .bind(&datos.estado_cuenta)
     .bind(&datos.banco)
-    .bind(&datos.identificacion)
     .bind(&datos.curp)
     .bind(&datos.rfc)
     .bind(&datos.telefono)
@@ -619,9 +611,7 @@ pub async fn exportar(
         "NO. CUENTA",
         "EXPEDIENTE",
         "REGISTRO",
-        "ESTADO CUENTA",
         "BANCO",
-        "IDENTIFICACIÓN",
         "TELÉFONO",
         "CORREO",
         "CURP",
@@ -654,9 +644,7 @@ pub async fn exportar(
             ("NO. CUENTA", "numero_cuenta"),
             ("EXPEDIENTE", "expediente"),
             ("REGISTRO", "registro"),
-            ("ESTADO CUENTA", "estado_cuenta"),
             ("BANCO", "banco"),
-            ("IDENTIFICACIÓN", "identificacion"),
             ("TELÉFONO", "telefono"),
             ("CORREO", "correo"),
             ("CURP", "curp"),
@@ -817,8 +805,8 @@ async fn consultar_lista(
         "SELECT count(*) FROM darfes
          WHERE eliminado_en IS NULL
            AND ($1::text IS NULL OR (numero_darfe ILIKE $1 OR nombre ILIKE $1 OR descripcion ILIKE $1
-                OR expediente ILIKE $1 OR registro ILIKE $1 OR estado_cuenta ILIKE $1
-                OR banco ILIKE $1 OR identificacion ILIKE $1 OR curp ILIKE $1 OR rfc ILIKE $1
+                OR expediente ILIKE $1 OR registro ILIKE $1
+                OR banco ILIKE $1 OR curp ILIKE $1 OR rfc ILIKE $1
                 OR telefono ILIKE $1 OR correo ILIKE $1
                 OR numero_cuenta ILIKE $1 OR tipo ILIKE $1))
            AND ($2::date IS NULL OR fecha >= $2)
@@ -839,7 +827,7 @@ async fn consultar_lista(
     let filas: Vec<FilaDarfe> = sqlx::query_as(
         "SELECT d.id, d.numero_darfe, d.fecha, d.nombre, d.descripcion,
                 d.monto::float8, d.numero_cuenta, d.expediente, d.registro,
-                d.estado_cuenta, d.banco, d.identificacion, d.curp, d.rfc,
+                d.banco, d.curp, d.rfc,
                 d.telefono, d.correo, d.tipo, d.estatus, d.campos_extra,
                 ARRAY(SELECT campo FROM darfe_documentos WHERE darfe_id=d.id ORDER BY campo) AS documentos,
                 (SELECT coincide FROM darfe_documentos WHERE darfe_id=d.id AND campo='DEPOSITO') AS deposito_coincide,
@@ -847,8 +835,8 @@ async fn consultar_lista(
          FROM darfes d
          WHERE d.eliminado_en IS NULL
            AND ($1::text IS NULL OR (d.numero_darfe ILIKE $1 OR d.nombre ILIKE $1 OR d.descripcion ILIKE $1
-                OR d.expediente ILIKE $1 OR d.registro ILIKE $1 OR d.estado_cuenta ILIKE $1
-                OR d.banco ILIKE $1 OR d.identificacion ILIKE $1 OR d.curp ILIKE $1 OR d.rfc ILIKE $1
+                OR d.expediente ILIKE $1 OR d.registro ILIKE $1
+                OR d.banco ILIKE $1 OR d.curp ILIKE $1 OR d.rfc ILIKE $1
                 OR d.telefono ILIKE $1 OR d.correo ILIKE $1
                 OR d.numero_cuenta ILIKE $1 OR d.tipo ILIKE $1))
            AND ($2::date IS NULL OR d.fecha >= $2)
@@ -883,9 +871,7 @@ async fn consultar_lista(
                 "numero_cuenta": fila.numero_cuenta,
                 "expediente": fila.expediente,
                 "registro": fila.registro,
-                "estado_cuenta": fila.estado_cuenta,
                 "banco": fila.banco,
-                "identificacion": fila.identificacion,
                 "curp": fila.curp,
                 "rfc": fila.rfc,
                 "telefono": fila.telefono,
@@ -905,7 +891,7 @@ async fn consultar(app: &AppState, id: Uuid) -> Result<Value, ApiError> {
     let fila: Option<FilaDarfe> = sqlx::query_as(
         "SELECT d.id, d.numero_darfe, d.fecha, d.nombre, d.descripcion,
                 d.monto::float8, d.numero_cuenta, d.expediente, d.registro,
-                d.estado_cuenta, d.banco, d.identificacion, d.curp, d.rfc,
+                d.banco, d.curp, d.rfc,
                 d.telefono, d.correo, d.tipo, d.estatus, d.campos_extra,
                 ARRAY(SELECT campo FROM darfe_documentos WHERE darfe_id=d.id ORDER BY campo) AS documentos,
                 (SELECT coincide FROM darfe_documentos WHERE darfe_id=d.id AND campo='DEPOSITO') AS deposito_coincide,
@@ -928,9 +914,7 @@ async fn consultar(app: &AppState, id: Uuid) -> Result<Value, ApiError> {
         "numero_cuenta": fila.numero_cuenta,
         "expediente": fila.expediente,
         "registro": fila.registro,
-        "estado_cuenta": fila.estado_cuenta,
         "banco": fila.banco,
-        "identificacion": fila.identificacion,
         "curp": fila.curp,
         "rfc": fila.rfc,
         "telefono": fila.telefono,
@@ -1024,9 +1008,7 @@ fn validar(input: DarfeInput) -> Result<DatosDarfe, ApiError> {
         nombre,
         expediente: campo(input.expediente, 200, "El expediente")?,
         registro: campo(input.registro, 100, "El registro")?,
-        estado_cuenta: campo(input.estado_cuenta, 100, "El estado de cuenta")?,
         banco: campo(input.banco, 120, "El banco")?,
-        identificacion: campo(input.identificacion, 100, "La identificación")?,
         curp: campo(input.curp.to_uppercase(), 18, "La CURP")?,
         rfc: campo(input.rfc.to_uppercase(), 13, "El RFC")?,
         telefono: campo(input.telefono, 30, "El teléfono")?,
@@ -1061,6 +1043,218 @@ fn duplicado(error: sqlx::Error) -> ApiError {
 
 fn error_excel(error: rust_xlsxwriter::XlsxError) -> ApiError {
     ApiError::interno(format!("No se pudo generar el Excel: {error}"))
+}
+
+pub async fn generar_formato(
+    State(app): State<AppState>,
+    user: AuthUser,
+    Path(id): Path<Uuid>,
+) -> Result<Response, ApiError> {
+    user.exigir("darfes:editar")?;
+
+    // El folio reinicia cada año calendario en la zona de México central.
+    let fecha_recibo = (Utc::now() - Duration::hours(6)).date_naive();
+    let anio = fecha_recibo.year();
+
+    let mut tx = app.db.begin().await?;
+    let fila: Option<(String, f64, String, String, Option<i32>, Option<i32>)> = sqlx::query_as(
+        "SELECT nombre, monto::float8, expediente, descripcion, folio_formato, folio_anio
+         FROM darfes WHERE id=$1 AND eliminado_en IS NULL FOR UPDATE",
+    )
+    .bind(id)
+    .fetch_optional(&mut *tx)
+    .await?;
+    let Some((nombre, monto, expediente, descripcion, folio_actual, anio_actual)) = fila else {
+        return Err(ApiError::no_encontrado("DARFE no encontrado"));
+    };
+
+    let (folio, folio_anio) = match (folio_actual, anio_actual) {
+        (Some(folio), Some(anio_folio)) => (folio, anio_folio),
+        _ => {
+            let folio: i32 = sqlx::query_scalar(
+                "INSERT INTO darfe_folios (anio, ultimo) VALUES ($1, 557)
+                 ON CONFLICT (anio) DO UPDATE SET ultimo = darfe_folios.ultimo + 1
+                 RETURNING ultimo",
+            )
+            .bind(anio)
+            .fetch_one(&mut *tx)
+            .await?;
+            sqlx::query(
+                "UPDATE darfes
+                 SET folio_formato=$2, folio_anio=$3, actualizado_por=$4, actualizado_en=now()
+                 WHERE id=$1",
+            )
+            .bind(id)
+            .bind(folio)
+            .bind(anio)
+            .bind(user.id)
+            .execute(&mut *tx)
+            .await?;
+            (folio, anio)
+        }
+    };
+
+    let pdf = generar_formato_pdf(
+        folio,
+        folio_anio,
+        &nombre,
+        monto,
+        &expediente,
+        &descripcion,
+        fecha_recibo,
+    )?;
+
+    audit::registrar(
+        &mut tx,
+        Some(user.id),
+        "darfes.formato",
+        "darfes",
+        id,
+        "EXITO",
+        json!({ "folio": folio, "anio": folio_anio }),
+    )
+    .await?;
+    tx.commit().await?;
+
+    let disposicion = format!("attachment; filename=\"Recibo-{folio}.pdf\"");
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("application/pdf"),
+        )
+        .header(
+            header::CONTENT_DISPOSITION,
+            HeaderValue::from_str(&disposicion)
+                .map_err(|error| ApiError::interno(error.to_string()))?,
+        )
+        .body(Body::from(pdf))
+        .map_err(|error| ApiError::interno(error.to_string()))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn generar_formato_pdf(
+    folio: i32,
+    anio: i32,
+    nombre: &str,
+    monto: f64,
+    expediente: &str,
+    descripcion: &str,
+    fecha: NaiveDate,
+) -> Result<Vec<u8>, ApiError> {
+    let fuente = FontData::new(
+        include_bytes!("../../assets/NotoSans-Regular.ttf").to_vec(),
+        None,
+    )
+    .map_err(|error| {
+        ApiError::interno(format!("No se pudo cargar la fuente del recibo: {error}"))
+    })?;
+    let familia = FontFamily {
+        regular: fuente.clone(),
+        bold: fuente.clone(),
+        italic: fuente.clone(),
+        bold_italic: fuente,
+    };
+    let mut documento = Document::new(familia);
+    documento.set_title(format!("Recibo de ayuda {folio}"));
+    documento.set_font_size(11);
+    documento.set_line_spacing(1.4);
+    let mut decorador = SimplePageDecorator::new();
+    decorador.set_margins(18);
+    documento.set_page_decorator(decorador);
+
+    let mut encabezado = Image::from_reader(std::io::Cursor::new(
+        include_bytes!("../../assets/ceeavi-encabezado.jpg").to_vec(),
+    ))
+    .map_err(|error| {
+        ApiError::interno(format!(
+            "No se pudo cargar el encabezado del recibo: {error}"
+        ))
+    })?;
+    encabezado.set_scale(genpdf::Scale::new(1.6, 1.6));
+    encabezado.set_alignment(Alignment::Center);
+    documento.push(encabezado);
+
+    let mut folio_parrafo = Paragraph::new(format!("FOLIO {folio}"));
+    folio_parrafo.set_alignment(Alignment::Right);
+    documento.push(folio_parrafo.styled(Style::new().bold()));
+
+    let mut titulo = Paragraph::new(format!("RECIBO DE AYUDA A VÍCTIMAS {anio}"));
+    titulo.set_alignment(Alignment::Center);
+    documento.push(titulo.styled(Style::new().bold().with_font_size(14)));
+
+    let descripcion = if descripcion.trim().is_empty() {
+        "APOYO"
+    } else {
+        descripcion.trim()
+    };
+    documento.push(Paragraph::new(format!(
+        "LA AYUDA QUE A CONTINUACIÓN SE DESCRIBRE: TRANSFERENCIA DE RECURSOS POR ACCESO A LA MEDIDA DE OTRAS AYUDAS CON CARGO A LOS RECURSOS DEL FONDO DE AYUDA, ASISTENCIA Y REPARACIÓN INTEGRAL DEL ESTADO DE PUEBLA {anio} (FAARI), CORRESPONDIENTES A: {descripcion}."
+    )));
+    documento.push(Paragraph::new(""));
+    documento.push(Paragraph::new(format!("BENEFICIARIO: {nombre}")).styled(Style::new().bold()));
+    documento.push(Paragraph::new(format!(
+        "RECIBE LA CANTIDAD DE: ${}",
+        monto_con_comas(monto)
+    )));
+    documento.push(Paragraph::new(format!("EXPEDIENTE: {expediente}")));
+    documento.push(Paragraph::new(""));
+    documento.push(Paragraph::new(""));
+    documento.push(Paragraph::new(format!(
+        "PUEBLA, PUE. A {} DE {} DEL {}",
+        fecha.day(),
+        nombre_mes(fecha.month()),
+        fecha.year()
+    )));
+    documento.push(Paragraph::new(""));
+    documento.push(Paragraph::new(""));
+    documento.push(Paragraph::new(""));
+
+    let mut firma = Paragraph::new("________________________________");
+    firma.set_alignment(Alignment::Center);
+    documento.push(firma);
+    let mut leyenda = Paragraph::new("NOMBRE Y FIRMA DE QUIEN RECIBE");
+    leyenda.set_alignment(Alignment::Center);
+    documento.push(leyenda);
+
+    let mut pdf = Vec::new();
+    documento
+        .render(&mut pdf)
+        .map_err(|error| ApiError::interno(format!("No se pudo generar el recibo: {error}")))?;
+    Ok(pdf)
+}
+
+fn monto_con_comas(monto: f64) -> String {
+    let texto = format!("{monto:.2}");
+    let (entero, decimales) = texto.split_once('.').unwrap_or((texto.as_str(), "00"));
+    let signo = if entero.starts_with('-') { "-" } else { "" };
+    let digitos = entero.trim_start_matches('-');
+    let mut agrupado = String::new();
+    for (indice, caracter) in digitos.chars().enumerate() {
+        if indice > 0 && (digitos.len() - indice) % 3 == 0 {
+            agrupado.push(',');
+        }
+        agrupado.push(caracter);
+    }
+    format!("{signo}{agrupado}.{decimales}")
+}
+
+fn nombre_mes(mes: u32) -> &'static str {
+    match mes {
+        1 => "ENERO",
+        2 => "FEBRERO",
+        3 => "MARZO",
+        4 => "ABRIL",
+        5 => "MAYO",
+        6 => "JUNIO",
+        7 => "JULIO",
+        8 => "AGOSTO",
+        9 => "SEPTIEMBRE",
+        10 => "OCTUBRE",
+        11 => "NOVIEMBRE",
+        12 => "DICIEMBRE",
+        _ => "",
+    }
 }
 
 fn validar_deposito(

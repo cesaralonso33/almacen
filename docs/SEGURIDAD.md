@@ -40,6 +40,8 @@
   la carga; queda visible para revisión humana y en la auditoría.
 - En los reportes SPEI se toma la cuenta/CLABE y el nombre del **beneficiario**; la cuenta y el
   nombre del **ordenante** se ignoran para no comparar contra los datos de la institución.
+- La generación del recibo PDF exige `darfes:editar`, asigna el folio dentro de una transacción con
+  bloqueo de la fila del DARFE y registra `darfes.formato` en la auditoría.
 
 ## Transporte y secretos
 

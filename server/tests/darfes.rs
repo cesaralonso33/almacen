@@ -19,9 +19,7 @@ fn darfe(numero: &str, nombre: &str) -> serde_json::Value {
         "nombre": nombre,
         "expediente": "EXP-DARFE-1",
         "registro": "REG-1",
-        "estado_cuenta": "CUENTA-1",
         "banco": "Banco Institucional",
-        "identificacion": "INE-1",
         "curp": "ABCD800101HDFXYZ01",
         "rfc": "ABCD800101XYZ",
         "telefono": "555-0101",
@@ -57,6 +55,37 @@ async fn descargar(t: &TestApp, token: &str, ruta: &str) -> (StatusCode, Vec<u8>
         .to_bytes()
         .to_vec();
     (estado, bytes)
+}
+
+async fn descargar_encabezados(
+    t: &TestApp,
+    token: &str,
+    metodo: &str,
+    ruta: &str,
+) -> (StatusCode, axum::http::HeaderMap, Vec<u8>) {
+    let respuesta = t
+        .app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(metodo)
+                .uri(ruta)
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let estado = respuesta.status();
+    let encabezados = respuesta.headers().clone();
+    let bytes = respuesta
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes()
+        .to_vec();
+    (estado, encabezados, bytes)
 }
 
 #[tokio::test]
@@ -263,6 +292,75 @@ async fn canasta_crea_tres_items_mensuales() {
     )
     .await;
     assert_eq!(listado["total"], 3);
+
+    t.cerrar().await;
+}
+
+#[tokio::test]
+async fn genera_recibo_pdf_con_folio_consecutivo() {
+    let t = setup().await;
+    crear_usuario(&t.db, "admin@test.mx", "ADMINISTRATIVO").await;
+    let (tok, _) = iniciar_sesion(&t.app, "admin@test.mx").await;
+
+    // Un contador del año anterior no afecta el primer folio del año en curso.
+    sqlx::query("INSERT INTO darfe_folios (anio, ultimo) VALUES (2025, 600)")
+        .execute(&t.db)
+        .await
+        .unwrap();
+
+    let mut ids = Vec::new();
+    for (indice, numero) in ["DARFE-F-1", "DARFE-F-2", "DARFE-F-3"].iter().enumerate() {
+        let (estado, creado) = pedir(
+            &t.app,
+            "POST",
+            "/api/v1/darfes",
+            Some(&tok),
+            Some(darfe(numero, &format!("Persona Recibo {indice}"))),
+        )
+        .await;
+        assert_eq!(estado, StatusCode::OK, "{creado}");
+        ids.push(creado["id"].as_str().unwrap().to_string());
+    }
+
+    let mut folios = Vec::new();
+    for id in &ids {
+        let (estado, encabezados, pdf) = descargar_encabezados(
+            &t,
+            &tok,
+            "POST",
+            &format!("/api/v1/darfes/{id}/formato"),
+        )
+        .await;
+        assert_eq!(estado, StatusCode::OK);
+        assert!(pdf.starts_with(b"%PDF"));
+        let disposicion = encabezados
+            .get(header::CONTENT_DISPOSITION)
+            .and_then(|valor| valor.to_str().ok())
+            .unwrap_or_default();
+        let folio: i32 = disposicion
+            .split("Recibo-")
+            .nth(1)
+            .and_then(|resto| resto.split('.').next())
+            .and_then(|valor| valor.parse().ok())
+            .unwrap_or_default();
+        folios.push(folio);
+    }
+    assert_eq!(folios, vec![557, 558, 559]);
+
+    // Una reimpresión conserva el folio asignado.
+    let (estado, encabezados, _) = descargar_encabezados(
+        &t,
+        &tok,
+        "POST",
+        &format!("/api/v1/darfes/{}/formato", ids[0]),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK);
+    let disposicion = encabezados
+        .get(header::CONTENT_DISPOSITION)
+        .and_then(|valor| valor.to_str().ok())
+        .unwrap_or_default();
+    assert!(disposicion.contains("Recibo-557.pdf"), "{disposicion}");
 
     t.cerrar().await;
 }

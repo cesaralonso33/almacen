@@ -582,7 +582,17 @@ async fn guardar_documento_darfe(
 ) -> Result<String, String> {
     Uuid::parse_str(&id).map_err(|_| "Identificador DARFE inválido".to_string())?;
     let campo = campo.trim().to_uppercase();
-    if !["CURP", "RFC", "REGISTRO", "IDENTIFICACION", "ESTADO_CUENTA"].contains(&campo.as_str()) {
+    if ![
+        "CURP",
+        "RFC",
+        "REGISTRO",
+        "IDENTIFICACION",
+        "ESTADO_CUENTA",
+        "DEPOSITO",
+        "ESCRITO_LIBRE",
+    ]
+    .contains(&campo.as_str())
+    {
         return Err("Campo de documento no permitido".to_string());
     }
     let base = base_url(&estado)?;
@@ -620,6 +630,27 @@ async fn guardar_exportacion_darfes(
         .await
         .map_err(api::describir)?;
     guardar_descarga(respuesta, &app, "DARFES.xlsx").await
+}
+
+#[tauri::command]
+async fn guardar_formato_darfe(
+    id: String,
+    app: tauri::AppHandle,
+    estado: tauri::State<'_, EstadoApp>,
+) -> Result<String, String> {
+    Uuid::parse_str(&id).map_err(|_| "Identificador DARFE inválido".to_string())?;
+    let base = base_url(&estado)?;
+    let token = token_actual(&estado, &base).await?;
+    let respuesta = reqwest::Client::new()
+        .post(format!(
+            "{}/api/v1/darfes/{id}/formato",
+            base.trim_end_matches('/')
+        ))
+        .bearer_auth(token)
+        .send()
+        .await
+        .map_err(api::describir)?;
+    guardar_descarga(respuesta, &app, &format!("Recibo-{id}.pdf")).await
 }
 
 #[tauri::command]
@@ -681,6 +712,7 @@ pub fn run() {
             guardar_documento_pa,
             guardar_documento_darfe,
             guardar_exportacion_darfes,
+            guardar_formato_darfe,
             servidor_actual,
             configurar_servidor
         ])

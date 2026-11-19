@@ -650,7 +650,7 @@ async fn guardar_formato_darfe(
         .send()
         .await
         .map_err(api::describir)?;
-    guardar_descarga(respuesta, &app, &format!("Recibo-{id}.pdf")).await
+    guardar_descarga(respuesta, &app, &format!("Recibo-{id}.docx")).await
 }
 
 #[tauri::command]

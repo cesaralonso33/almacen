@@ -20,7 +20,7 @@ use axum::{
     http::{header, HeaderName, HeaderValue, StatusCode},
     middleware::{self, Next},
     response::Response,
-    routing::{get, post},
+    routing::{get, post, put},
     Json, Router,
 };
 use serde_json::{json, Value};
@@ -103,6 +103,7 @@ pub fn router(estado: AppState) -> Router {
             post(darfes::subir_documento),
         )
         .route("/api/v1/darfes/{id}/formato", post(darfes::generar_formato))
+        .route("/api/v1/darfes/{id}/folio", put(darfes::actualizar_folio))
         .route(
             "/api/v1/darfes/{id}/documentos/{campo}",
             get(darfes::documento).delete(darfes::eliminar_documento),

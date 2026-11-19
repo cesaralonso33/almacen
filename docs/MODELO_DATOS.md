@@ -33,7 +33,8 @@ Migraciones en `server/migrations` (SQLx, aplicadas al iniciar la API).
   tabla por historial, pero ya no se capturan ni se exponen.
 - `folio_formato` y `folio_anio` guardan el folio del recibo asignado una sola vez por DARFE.
   `darfe_folios` lleva el consecutivo por año y reinicia en 557 al comenzar un año nuevo.
-  `formato_fecha` conserva el mes y año con los que se emitió el recibo.
+  `formato_fecha` conserva el mes y año con los que se emitió el recibo. El administrador puede
+  reasignar el folio de un DARFE; la base impide repetirlo dentro del mismo año.
 - `tipo` admite `CANASTA`, `REEMBOLSO`, `APOYO PARA VIÁTICOS`, `MEDICAMENTO`, `OTRAS AYUDAS`,
   `VIATICOS`, `AYUDAS EN MATERIA DE SALUD` y `GASTOS DE TRASLADO, HOSPEDAJE (VIATICOS)`. El número
   de DARFE es único para todos los tipos salvo `CANASTA`, cuyos tres registros lo comparten.

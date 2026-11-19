@@ -83,6 +83,8 @@
     let errorFormulario = $state('');
     let documentosExistentes = $state<string[]>([]);
     let archivos = $state<Archivos>(vacioArchivos());
+    let folioFormulario = $state('');
+    let guardandoFolio = $state(false);
     let columnas = $state<Record<ClaveColumna, boolean>>({ ...COLUMNAS_PREDETERMINADAS });
     let menuColumnas = $state(false);
     let menuColumnasEl = $state<HTMLDivElement | undefined>(undefined);
@@ -177,6 +179,7 @@
 
     function abrirNuevo() {
         editandoId = null;
+        folioFormulario = '';
         documentosExistentes = [];
         archivos = vacioArchivos();
         errorFormulario = '';
@@ -211,6 +214,7 @@
 
     function abrirEdicion(registro: any) {
         editandoId = registro.id;
+        folioFormulario = registro.folio_formato ? String(registro.folio_formato) : '';
         documentosExistentes = Array.isArray(registro.documentos) ? registro.documentos : [];
         archivos = vacioArchivos();
         errorFormulario = '';
@@ -353,7 +357,7 @@
             if (!id) throw new Error('No se pudo guardar el DARFE para generar el formato');
 
             const ruta = await invoke<string>('guardar_formato_darfe', { id });
-            app.avisar(`Formato PDF guardado en ${ruta}`);
+            app.avisar(`Formato DOCX guardado en ${ruta}`);
             if (esNuevo) {
                 modal = false;
                 pagina = 1;
@@ -363,6 +367,29 @@
             errorFormulario = String(fallo);
         } finally {
             guardando = false;
+        }
+    }
+
+    async function guardarFolio() {
+        if (!editandoId) return;
+        const folio = Number(folioFormulario);
+        if (!Number.isInteger(folio) || folio <= 0) {
+            errorFormulario = 'El folio debe ser un número positivo';
+            return;
+        }
+        guardandoFolio = true;
+        errorFormulario = '';
+        try {
+            const actualizado = await api<any>('PUT', `/api/v1/darfes/${editandoId}/folio`, {
+                folio
+            });
+            folioFormulario = String(actualizado.folio_formato ?? folio);
+            app.avisar(`Folio ${folio} asignado`);
+            await cargar();
+        } catch (fallo) {
+            errorFormulario = String(fallo);
+        } finally {
+            guardandoFolio = false;
         }
     }
 
@@ -865,6 +892,35 @@
                 </div>
             </section>
 
+            {#if editandoId && app.permiso('darfes:folio')}
+                <section class="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+                    <h3 class="mb-3 text-sm font-semibold text-slate-700">Folio del recibo</h3>
+                    <div class="flex flex-wrap items-end gap-2">
+                        <label class="block text-sm">
+                            <span class="mb-1 block font-medium text-slate-600">Folio</span>
+                            <input
+                                class="campo w-40"
+                                type="number"
+                                min="1"
+                                step="1"
+                                bind:value={folioFormulario}
+                            />
+                        </label>
+                        <button
+                            class="btn-secundario"
+                            type="button"
+                            onclick={guardarFolio}
+                            disabled={guardandoFolio || guardando}
+                        >
+                            {guardandoFolio ? 'Guardando…' : 'Guardar folio'}
+                        </button>
+                        <span class="text-xs text-slate-500">
+                            Solo el administrador puede cambiar el folio asignado.
+                        </span>
+                    </div>
+                </section>
+            {/if}
+
             <section class="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
                 <h3 class="mb-3 text-sm font-semibold text-slate-700">Datos de pago</h3>
                 <div class="grid gap-3 sm:grid-cols-2">
@@ -988,7 +1044,7 @@
             {/if}
 
             <div class="flex flex-wrap justify-end gap-2">
-                {#if editandoId}
+                {#if editandoId && app.permiso('darfes:duplicar')}
                     <button
                         class="btn-secundario"
                         type="button"
@@ -1004,9 +1060,9 @@
                     type="button"
                     onclick={generarFormato}
                     disabled={guardando}
-                    title="Asigna el folio anual y genera el recibo en PDF"
+                    title="Asigna el folio anual y descarga el recibo en Word"
                 >
-                    Generar formato PDF
+                    Descargar formato DOCX
                 </button>
                 <button class="btn-secundario" type="button" onclick={() => (modal = false)} disabled={guardando}>
                     Cancelar

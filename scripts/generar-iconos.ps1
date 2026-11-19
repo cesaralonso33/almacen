@@ -26,36 +26,63 @@ function New-Lienzo([int]$size) {
 
     $fondo = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 18, 58, 94))
     $g.FillPath($fondo, $ruta)
+    $fondo.Dispose()
 
-    # Documento blanco con esquina doblada.
-    $anchoDoc = $lado * 0.44
-    $altoDoc = $lado * 0.56
-    $x = ($size - $anchoDoc) / 2
-    $y = ($size - $altoDoc) / 2
-    $doblez = $anchoDoc * 0.28
+    # Carpeta blanca con insignia de verificación.
+    $fx = $size * 0.23
+    $fy = $size * 0.31
+    $fw = $size * 0.48
+    $fh = $size * 0.38
+    $radioCarpeta = $size * 0.045
+    $d = 2 * $radioCarpeta
 
-    $doc = New-Object System.Drawing.Drawing2D.GraphicsPath
-    $doc.AddLine($x, $y, ($x + $anchoDoc - $doblez), $y)
-    $doc.AddLine(($x + $anchoDoc - $doblez), $y, ($x + $anchoDoc), ($y + $doblez))
-    $doc.AddLine(($x + $anchoDoc), ($y + $doblez), ($x + $anchoDoc), ($y + $altoDoc))
-    $doc.AddLine(($x + $anchoDoc), ($y + $altoDoc), $x, ($y + $altoDoc))
-    $doc.CloseFigure()
-    $g.FillPath([System.Drawing.Brushes]::White, $doc)
+    # Pestaña de la carpeta.
+    $pestana = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $tw = $fw * 0.42
+    $th = $size * 0.075
+    $pestana.AddArc($fx, $fy - $th, $d, $d, 180, 90)
+    $pestana.AddLine($fx + $tw - $radioCarpeta, $fy - $th, $fx + $tw, $fy - $th + $radioCarpeta)
+    $pestana.AddLine($fx + $tw, $fy - $th + $radioCarpeta, $fx + $tw, $fy + $th)
+    $pestana.AddLine($fx + $tw, $fy + $th, $fx, $fy + $th)
+    $pestana.CloseFigure()
+    $g.FillPath([System.Drawing.Brushes]::White, $pestana)
 
-    $pliegue = New-Object System.Drawing.Drawing2D.GraphicsPath
-    $pliegue.AddLine(($x + $anchoDoc - $doblez), $y, ($x + $anchoDoc - $doblez), ($y + $doblez))
-    $pliegue.AddLine(($x + $anchoDoc - $doblez), ($y + $doblez), ($x + $anchoDoc), ($y + $doblez))
-    $pliegue.CloseFigure()
-    $g.FillPath((New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 199, 211, 224))), $pliegue)
+    # Cuerpo de la carpeta.
+    $cuerpo = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $cuerpo.AddArc($fx, $fy, $d, $d, 180, 90)
+    $cuerpo.AddArc($fx + $fw - $d, $fy, $d, $d, 270, 90)
+    $cuerpo.AddArc($fx + $fw - $d, $fy + $fh - $d, $d, $d, 0, 90)
+    $cuerpo.AddArc($fx, $fy + $fh - $d, $d, $d, 90, 90)
+    $cuerpo.CloseFigure()
+    $g.FillPath([System.Drawing.Brushes]::White, $cuerpo)
 
-    # Renglones del documento.
-    $lapiz = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(255, 120, 144, 168)), ([Math]::Max(1, $size / 128))
-    for ($i = 0; $i -lt 3; $i++) {
-        $ly = $y + $altoDoc * (0.42 + 0.16 * $i)
-        $g.DrawLine($lapiz, ($x + $anchoDoc * 0.16), $ly, ($x + $anchoDoc * 0.84), $ly)
-    }
+    # Frente de la carpeta en azul claro.
+    $frente = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $fyFrente = $fy + $size * 0.055
+    $fhFrente = $fh - $size * 0.055
+    $frente.AddArc($fx, $fyFrente, $d, $d, 180, 90)
+    $frente.AddArc($fx + $fw - $d, $fyFrente, $d, $d, 270, 90)
+    $frente.AddArc($fx + $fw - $d, $fyFrente + $fhFrente - $d, $d, $d, 0, 90)
+    $frente.AddArc($fx, $fyFrente + $fhFrente - $d, $d, $d, 90, 90)
+    $frente.CloseFigure()
+    $brochaFrente = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 226, 236, 246))
+    $g.FillPath($brochaFrente, $frente)
+    $brochaFrente.Dispose()
 
-    $lapiz.Dispose()
+    # Insignia dorada con palomita.
+    $bx = $fx + $fw * 0.74
+    $by = $fy + $fh * 0.70
+    $br = $size * 0.155
+    $brochaInsignia = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 201, 162, 39))
+    $g.FillEllipse($brochaInsignia, ($bx - $br), ($by - $br), (2 * $br), (2 * $br))
+    $brochaInsignia.Dispose()
+
+    $pluma = New-Object System.Drawing.Pen ([System.Drawing.Color]::White), ([Math]::Max(1.6, $size * 0.035))
+    $pluma.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+    $pluma.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
+    $g.DrawLine($pluma, ($bx - $br * 0.45), $by, ($bx - $br * 0.10), ($by + $br * 0.35))
+    $g.DrawLine($pluma, ($bx - $br * 0.10), ($by + $br * 0.35), ($bx + $br * 0.50), ($by - $br * 0.38))
+    $pluma.Dispose()
     $g.Dispose()
     return $bmp
 }

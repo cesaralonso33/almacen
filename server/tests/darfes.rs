@@ -8,9 +8,21 @@ use axum::{
 };
 use http_body_util::BodyExt;
 use serde_json::json;
+use std::io::Read;
 use tower::ServiceExt;
 
 use common::*;
+
+fn texto_docx(bytes: &[u8]) -> String {
+    let mut archivo = zip::ZipArchive::new(std::io::Cursor::new(bytes)).expect("DOCX válido");
+    let mut xml = String::new();
+    archivo
+        .by_name("word/document.xml")
+        .expect("document.xml")
+        .read_to_string(&mut xml)
+        .expect("leer document.xml");
+    xml
+}
 
 fn darfe(numero: &str, nombre: &str) -> serde_json::Value {
     json!({
@@ -297,7 +309,7 @@ async fn canasta_crea_tres_items_mensuales() {
 }
 
 #[tokio::test]
-async fn genera_recibo_pdf_con_folio_consecutivo() {
+async fn genera_recibo_docx_con_folio_consecutivo() {
     let t = setup().await;
     crear_usuario(&t.db, "admin@test.mx", "ADMINISTRATIVO").await;
     let (tok, _) = iniciar_sesion(&t.app, "admin@test.mx").await;
@@ -324,7 +336,7 @@ async fn genera_recibo_pdf_con_folio_consecutivo() {
 
     let mut folios = Vec::new();
     for id in &ids {
-        let (estado, encabezados, pdf) = descargar_encabezados(
+        let (estado, encabezados, docx) = descargar_encabezados(
             &t,
             &tok,
             "POST",
@@ -332,9 +344,10 @@ async fn genera_recibo_pdf_con_folio_consecutivo() {
         )
         .await;
         assert_eq!(estado, StatusCode::OK);
-        assert!(pdf.starts_with(b"%PDF"));
+        assert!(docx.starts_with(b"PK"));
         if folios.is_empty() {
-            let texto = pdf_extract::extract_text_from_mem(&pdf).expect("texto del recibo");
+            let texto = texto_docx(&docx);
+            assert!(!texto.contains("{{"), "{texto}");
             assert!(texto.contains("557"), "{texto}");
             assert!(texto.contains("DARFE-F-1"), "{texto}");
             assert!(texto.contains("1,500.50"), "{texto}");
@@ -366,7 +379,7 @@ async fn genera_recibo_pdf_con_folio_consecutivo() {
         .get(header::CONTENT_DISPOSITION)
         .and_then(|valor| valor.to_str().ok())
         .unwrap_or_default();
-    assert!(disposicion.contains("Recibo-557.pdf"), "{disposicion}");
+    assert!(disposicion.contains("Recibo-557.docx"), "{disposicion}");
 
     t.cerrar().await;
 }
@@ -392,7 +405,7 @@ async fn genera_recibo_con_tipo_de_apoyo() {
     assert_eq!(creado["tipo"], "MEDICAMENTO");
     let id = creado["id"].as_str().unwrap();
 
-    let (estado, _, pdf) = descargar_encabezados(
+    let (estado, _, docx) = descargar_encabezados(
         &t,
         &tok,
         "POST",
@@ -400,7 +413,9 @@ async fn genera_recibo_con_tipo_de_apoyo() {
     )
     .await;
     assert_eq!(estado, StatusCode::OK);
-    let texto = pdf_extract::extract_text_from_mem(&pdf).expect("texto del recibo");
+    assert!(docx.starts_with(b"PK"));
+    let texto = texto_docx(&docx);
+    assert!(!texto.contains("{{"), "{texto}");
     assert!(texto.contains("MEDICAMENTO"), "{texto}");
     assert!(texto.contains("OTRAS AYUDAS"), "{texto}");
     assert!(texto.contains("DARFE-MED-1"), "{texto}");
@@ -430,6 +445,72 @@ async fn genera_recibo_con_tipo_de_apoyo() {
     )
     .await;
     assert_eq!(estado, StatusCode::UNPROCESSABLE_ENTITY);
+
+    t.cerrar().await;
+}
+
+#[tokio::test]
+async fn solo_administrador_cambia_el_folio() {
+    let t = setup().await;
+    crear_usuario(&t.db, "admin@test.mx", "ADMINISTRADOR").await;
+    crear_usuario(&t.db, "aux@test.mx", "ADMINISTRATIVO").await;
+    let (tok_admin, _) = iniciar_sesion(&t.app, "admin@test.mx").await;
+    let (tok_aux, _) = iniciar_sesion(&t.app, "aux@test.mx").await;
+
+    let (estado, creado) = pedir(
+        &t.app,
+        "POST",
+        "/api/v1/darfes",
+        Some(&tok_admin),
+        Some(darfe("DARFE-FOLIO-1", "Persona Folio")),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK, "{creado}");
+    let id = creado["id"].as_str().unwrap();
+
+    // El perfil administrativo no puede cambiar el folio.
+    let (estado, _) = pedir(
+        &t.app,
+        "PUT",
+        &format!("/api/v1/darfes/{id}/folio"),
+        Some(&tok_aux),
+        Some(json!({ "folio": 700 })),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::FORBIDDEN);
+
+    // El administrador sí puede y el cambio queda reflejado.
+    let (estado, actualizado) = pedir(
+        &t.app,
+        "PUT",
+        &format!("/api/v1/darfes/{id}/folio"),
+        Some(&tok_admin),
+        Some(json!({ "folio": 700 })),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK, "{actualizado}");
+    assert_eq!(actualizado["folio_formato"], 700);
+
+    // El folio no puede repetirse dentro del mismo año.
+    let (estado, otro) = pedir(
+        &t.app,
+        "POST",
+        "/api/v1/darfes",
+        Some(&tok_admin),
+        Some(darfe("DARFE-FOLIO-2", "Otra Persona")),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK, "{otro}");
+    let otro_id = otro["id"].as_str().unwrap();
+    let (estado, _) = pedir(
+        &t.app,
+        "PUT",
+        &format!("/api/v1/darfes/{otro_id}/folio"),
+        Some(&tok_admin),
+        Some(json!({ "folio": 700 })),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::CONFLICT);
 
     t.cerrar().await;
 }

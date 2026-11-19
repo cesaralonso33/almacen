@@ -7,17 +7,12 @@ use axum::{
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::{Datelike, Duration, Months, NaiveDate, Utc};
-use genpdf::{
-    elements::{Image, Paragraph},
-    fonts::{FontData, FontFamily},
-    style::Style,
-    Alignment, Document, Element, SimplePageDecorator,
-};
 use pdf_extract::extract_text_from_mem;
 use regex::Regex;
 use rust_xlsxwriter::{Format, Workbook};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::io::{Read, Write};
 use uuid::Uuid;
 
 use crate::{
@@ -104,6 +99,12 @@ fn mime_predeterminado() -> String {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct FolioInput {
+    pub folio: i32,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DarfeFiltro {
     pub buscar: Option<String>,
     pub fecha_desde: Option<NaiveDate>,
@@ -136,6 +137,8 @@ struct FilaDarfe {
     campos_extra: Value,
     documentos: Vec<String>,
     deposito_coincide: Option<bool>,
+    folio_formato: Option<i32>,
+    folio_anio: Option<i32>,
     actualizado_en: chrono::DateTime<Utc>,
 }
 
@@ -841,6 +844,7 @@ async fn consultar_lista(
                 d.telefono, d.correo, d.tipo, d.estatus, d.campos_extra,
                 ARRAY(SELECT campo FROM darfe_documentos WHERE darfe_id=d.id ORDER BY campo) AS documentos,
                 (SELECT coincide FROM darfe_documentos WHERE darfe_id=d.id AND campo='DEPOSITO') AS deposito_coincide,
+                d.folio_formato, d.folio_anio,
                 d.actualizado_en
          FROM darfes d
          WHERE d.eliminado_en IS NULL
@@ -891,6 +895,8 @@ async fn consultar_lista(
                 "campos_extra": fila.campos_extra,
                 "documentos": fila.documentos,
                 "deposito_coincide": fila.deposito_coincide,
+                "folio_formato": fila.folio_formato,
+                "folio_anio": fila.folio_anio,
             })
         })
         .collect();
@@ -905,6 +911,7 @@ async fn consultar(app: &AppState, id: Uuid) -> Result<Value, ApiError> {
                 d.telefono, d.correo, d.tipo, d.estatus, d.campos_extra,
                 ARRAY(SELECT campo FROM darfe_documentos WHERE darfe_id=d.id ORDER BY campo) AS documentos,
                 (SELECT coincide FROM darfe_documentos WHERE darfe_id=d.id AND campo='DEPOSITO') AS deposito_coincide,
+                d.folio_formato, d.folio_anio,
                 d.actualizado_en
          FROM darfes d WHERE d.id=$1 AND d.eliminado_en IS NULL",
     )
@@ -934,6 +941,8 @@ async fn consultar(app: &AppState, id: Uuid) -> Result<Value, ApiError> {
         "campos_extra": fila.campos_extra,
         "documentos": fila.documentos,
         "deposito_coincide": fila.deposito_coincide,
+        "folio_formato": fila.folio_formato,
+        "folio_anio": fila.folio_anio,
         "actualizado_en": fila.actualizado_en,
     }))
 }
@@ -1129,7 +1138,7 @@ pub async fn generar_formato(
     };
     let fecha_formato = formato_fecha.unwrap_or(fecha_recibo);
 
-    let pdf = generar_formato_pdf(
+    let docx = generar_recibo_docx(
         folio,
         &numero_darfe,
         &nombre,
@@ -1152,24 +1161,92 @@ pub async fn generar_formato(
     .await?;
     tx.commit().await?;
 
-    let disposicion = format!("attachment; filename=\"Recibo-{folio}.pdf\"");
+    let disposicion = format!("attachment; filename=\"Recibo-{folio}.docx\"");
     Response::builder()
         .status(StatusCode::OK)
         .header(
             header::CONTENT_TYPE,
-            HeaderValue::from_static("application/pdf"),
+            HeaderValue::from_static(
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ),
         )
         .header(
             header::CONTENT_DISPOSITION,
             HeaderValue::from_str(&disposicion)
                 .map_err(|error| ApiError::interno(error.to_string()))?,
         )
-        .body(Body::from(pdf))
+        .body(Body::from(docx))
         .map_err(|error| ApiError::interno(error.to_string()))
 }
 
+pub async fn actualizar_folio(
+    State(app): State<AppState>,
+    user: AuthUser,
+    Path(id): Path<Uuid>,
+    ApiJson(input): ApiJson<FolioInput>,
+) -> Result<Json<Value>, ApiError> {
+    user.exigir("darfes:folio")?;
+    if input.folio <= 0 {
+        return Err(ApiError::inprocesable(
+            "El folio debe ser un número positivo",
+        ));
+    }
+
+    let fecha_hoy = (Utc::now() - Duration::hours(6)).date_naive();
+    let anio_actual = fecha_hoy.year();
+    let mut tx = app.db.begin().await?;
+    let fila: Option<(Option<i32>,)> = sqlx::query_as(
+        "SELECT folio_anio FROM darfes WHERE id=$1 AND eliminado_en IS NULL FOR UPDATE",
+    )
+    .bind(id)
+    .fetch_optional(&mut *tx)
+    .await?;
+    let Some((folio_anio,)) = fila else {
+        return Err(ApiError::no_encontrado("DARFE no encontrado"));
+    };
+    let anio = folio_anio.unwrap_or(anio_actual);
+
+    sqlx::query(
+        "UPDATE darfes
+         SET folio_formato=$2, folio_anio=$3, formato_fecha=COALESCE(formato_fecha,$4),
+             actualizado_por=$5, actualizado_en=now()
+         WHERE id=$1",
+    )
+    .bind(id)
+    .bind(input.folio)
+    .bind(anio)
+    .bind(fecha_hoy)
+    .bind(user.id)
+    .execute(&mut *tx)
+    .await
+    .map_err(|error| {
+        if error
+            .as_database_error()
+            .map(|base| base.is_unique_violation())
+            .unwrap_or(false)
+        {
+            ApiError::conflicto("Ese folio ya está asignado en el año")
+        } else {
+            ApiError::from(error)
+        }
+    })?;
+
+    audit::registrar(
+        &mut tx,
+        Some(user.id),
+        "darfes.folio.editar",
+        "darfes",
+        id,
+        "EXITO",
+        json!({ "folio": input.folio, "anio": anio }),
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(Json(consultar(&app, id).await?))
+}
+
 #[allow(clippy::too_many_arguments)]
-fn generar_formato_pdf(
+fn generar_recibo_docx(
     folio: i32,
     numero_darfe: &str,
     nombre: &str,
@@ -1179,61 +1256,8 @@ fn generar_formato_pdf(
     item_canasta: Option<i16>,
     fecha: NaiveDate,
 ) -> Result<Vec<u8>, ApiError> {
-    let anio = fecha.year();
-    let fuente = FontData::new(
-        include_bytes!("../../assets/NotoSans-Regular.ttf").to_vec(),
-        None,
-    )
-    .map_err(|error| {
-        ApiError::interno(format!("No se pudo cargar la fuente del recibo: {error}"))
-    })?;
-    let familia = FontFamily {
-        regular: fuente.clone(),
-        bold: fuente.clone(),
-        italic: fuente.clone(),
-        bold_italic: fuente,
-    };
-    let mut documento = Document::new(familia);
-    documento.set_title(format!("Recibo de ayuda {folio}"));
-    documento.set_font_size(12);
-    documento.set_line_spacing(1.45);
-    let mut decorador = SimplePageDecorator::new();
-    decorador.set_margins(18);
-    documento.set_page_decorator(decorador);
-
-    let mut encabezado = Image::from_reader(std::io::Cursor::new(
-        include_bytes!("../../assets/ceeavi-encabezado.jpg").to_vec(),
-    ))
-    .map_err(|error| {
-        ApiError::interno(format!(
-            "No se pudo cargar el encabezado del recibo: {error}"
-        ))
-    })?;
-    encabezado.set_scale(genpdf::Scale::new(1.6, 1.6));
-    encabezado.set_alignment(Alignment::Center);
-    documento.push(encabezado);
-
-    for linea in [
-        "COMISION EJECUTIVA ESTATAL DE ATENCIÓN",
-        "A VÍCTIMAS DEL ESTADO DE PUEBLA",
-        "DIRECCIÓN DE ADMINISTRACIÓN Y FINANZAS",
-    ] {
-        let mut parrafo = Paragraph::new(linea);
-        parrafo.set_alignment(Alignment::Center);
-        documento.push(parrafo.styled(Style::new().bold().with_font_size(12)));
-    }
-    documento.push(Paragraph::new(""));
-
-    let mut folio_parrafo = Paragraph::new(format!("FOLIO {folio}"));
-    folio_parrafo.set_alignment(Alignment::Right);
-    documento.push(folio_parrafo.styled(Style::new().bold().with_font_size(12)));
-
-    documento.push(Paragraph::new(""));
-    let mut titulo = Paragraph::new(format!("RECIBO DE AYUDA A VÍCTIMAS {anio}"));
-    titulo.set_alignment(Alignment::Center);
-    documento.push(titulo.styled(Style::new().bold().with_font_size(14)));
-    documento.push(Paragraph::new(""));
-
+    let anio = fecha.year().to_string();
+    let mes = nombre_mes(fecha.month());
     let (medida, detalle) = if tipo == "CANASTA" {
         (
             "CANASTA BASICA",
@@ -1257,62 +1281,123 @@ fn generar_formato_pdf(
         detalle
     };
 
-    documento.push(Paragraph::new(format!(
-        "LA AYUDA QUE A CONTINUACIÓN SE DESCRIBRE: TRANSFERENCIA DE RECURSOS POR ACCESO A LA MEDIDA DE {medida} CON CARGO A LOS RECURSOS DEL FONDO DE AYUDA, ASISTENCIA Y REPARACIÓN INTEGRAL DEL ESTADO DE PUEBLA {anio} (FAARI), CORRESPONDIENTES A: {detalle}."
-    )));
-    documento.push(Paragraph::new(""));
-    documento.push(Paragraph::new(format!("BENEFICIARIO: {nombre}")).styled(Style::new().bold()));
-    documento.push(Paragraph::new(""));
-    documento.push(Paragraph::new(format!(
-        "RECIBE LA CANTIDAD DE: $ {}",
-        monto_con_comas(monto)
-    )));
-    documento.push(Paragraph::new(""));
-    documento.push(Paragraph::new(format!("EXPEDIENTE: {numero_darfe}")));
-    documento.push(Paragraph::new(""));
-    documento.push(Paragraph::new(""));
+    let plantilla: &[u8] = include_bytes!("../../assets/plantillas/recibo_ayuda.docx");
+    let mut archivo = zip::ZipArchive::new(std::io::Cursor::new(plantilla)).map_err(|error| {
+        ApiError::interno(format!("No se pudo abrir la plantilla del recibo: {error}"))
+    })?;
+    let mut salida = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    let opciones = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
 
-    let mut fecha_parrafo = Paragraph::new(format!(
-        "PUEBLA, PUE. A ______ DE {} DEL {}",
-        nombre_mes(fecha.month()),
-        anio
-    ));
-    fecha_parrafo.set_alignment(Alignment::Right);
-    documento.push(fecha_parrafo);
-
-    documento.push(Paragraph::new(""));
-    documento.push(Paragraph::new(""));
-    documento.push(Paragraph::new(""));
-
-    let mut firma = Paragraph::new("________________________________");
-    firma.set_alignment(Alignment::Center);
-    documento.push(firma);
-    documento.push(Paragraph::new(""));
-    let mut leyenda = Paragraph::new("NOMBRE Y FIRMA DE QUIEN RECIBE");
-    leyenda.set_alignment(Alignment::Center);
-    documento.push(leyenda);
-
-    for linea in [
-        "17 poniente 1701, Barrio de Santiago Puebla, Pue. C.P. 72000 Tel. (222) 945 63 01 |",
-        "direccion.general@ceeavi.puebla.gob.mx | atencionavictimas.puebla.gob.mx",
-        "Página 1 de 1",
-    ] {
-        let mut pie = Paragraph::new(linea);
-        pie.set_alignment(Alignment::Center);
-        documento.push(
-            pie.styled(
-                Style::new()
-                    .with_font_size(7)
-                    .with_line_spacing(1.0),
-            ),
-        );
+    for indice in 0..archivo.len() {
+        let mut entrada = archivo.by_index(indice).map_err(|error| {
+            ApiError::interno(format!("No se pudo leer la plantilla del recibo: {error}"))
+        })?;
+        let nombre_archivo = entrada
+            .name()
+            .map_err(|error| {
+                ApiError::interno(format!("Nombre inválido en la plantilla del recibo: {error}"))
+            })?
+            .to_string();
+        if nombre_archivo.ends_with('/') {
+            continue;
+        }
+        let mut contenido = Vec::new();
+        entrada.read_to_end(&mut contenido).map_err(|error| {
+            ApiError::interno(format!("No se pudo leer la plantilla del recibo: {error}"))
+        })?;
+        if nombre_archivo == "word/document.xml" {
+            let xml = String::from_utf8(contenido).map_err(|error| {
+                ApiError::interno(format!("La plantilla del recibo no es UTF-8: {error}"))
+            })?;
+            contenido = reemplazar_plantilla(
+                &xml,
+                folio,
+                numero_darfe,
+                nombre,
+                monto,
+                &anio,
+                mes,
+                medida,
+                &detalle,
+            )
+            .into_bytes();
+        }
+        salida.start_file(nombre_archivo, opciones).map_err(|error| {
+            ApiError::interno(format!("No se pudo escribir el recibo: {error}"))
+        })?;
+        salida.write_all(&contenido).map_err(|error| {
+            ApiError::interno(format!("No se pudo escribir el recibo: {error}"))
+        })?;
     }
 
-    let mut pdf = Vec::new();
-    documento
-        .render(&mut pdf)
-        .map_err(|error| ApiError::interno(format!("No se pudo generar el recibo: {error}")))?;
-    Ok(pdf)
+    let cursor = salida.finish().map_err(|error| {
+        ApiError::interno(format!("No se pudo cerrar el recibo generado: {error}"))
+    })?;
+    Ok(cursor.into_inner())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn reemplazar_plantilla(
+    xml: &str,
+    folio: i32,
+    numero_darfe: &str,
+    nombre: &str,
+    monto: f64,
+    anio: &str,
+    mes: &str,
+    medida: &str,
+    detalle: &str,
+) -> String {
+    let mut xml = normalizar_marcadores(xml);
+    if medida == "CANASTA BASICA" {
+        xml = xml.replace("OTRAS AYUDAS", "CANASTA BASICA");
+    }
+    xml = xml.replace("{{YEAR_ACTUAL}}(FAARI)", &format!("{anio} (FAARI)"));
+    xml = xml.replace("DE{{MES_ACTUAL}}DEL", &format!("DE {mes} DEL"));
+    let reemplazos = [
+        ("{{FOLIO}}", folio.to_string()),
+        ("{{BENEFICIARIO}}", escapar_xml(nombre)),
+        ("{{MONTO}}", monto_con_comas(monto)),
+        ("{{No_DARFE}}", escapar_xml(numero_darfe)),
+        ("{{TIPO}}", escapar_xml(detalle)),
+        ("{{MES_ACTUAL}}", mes.to_string()),
+        ("{{YEAR_ACTUAL}}", anio.to_string()),
+    ];
+    for (marcador, valor) in reemplazos {
+        xml = xml.replace(marcador, &valor);
+    }
+    xml
+}
+
+/// Une los marcadores que Word haya dividido entre varias ejecuciones de texto.
+fn normalizar_marcadores(xml: &str) -> String {
+    let marcador = Regex::new(r"\{\{[\s\S]*?\}\}").expect("regex de marcadores");
+    let etiquetas = Regex::new(r"<[^>]*>").expect("regex de etiquetas");
+    marcador
+        .replace_all(xml, |capturas: &regex::Captures| {
+            let span = capturas.get(0).map(|m| m.as_str()).unwrap_or_default();
+            let texto = etiquetas.replace_all(span, "");
+            let limpio = texto
+                .trim()
+                .trim_start_matches("{{")
+                .trim_end_matches("}}")
+                .trim();
+            let mut resultado = String::from("{{");
+            resultado.push_str(limpio);
+            resultado.push_str("}}");
+            resultado
+        })
+        .to_string()
+}
+
+fn escapar_xml(texto: &str) -> String {
+    texto
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&apos;")
 }
 
 fn monto_con_comas(monto: f64) -> String {

@@ -42,6 +42,10 @@
   nombre del **ordenante** se ignoran para no comparar contra los datos de la institución.
 - La generación del recibo PDF exige `darfes:editar`, asigna el folio dentro de una transacción con
   bloqueo de la fila del DARFE y registra `darfes.formato` en la auditoría.
+- `darfes:folio` y `darfes:duplicar` se conceden únicamente a `ADMINISTRADOR`. El primero habilita
+  la edición del folio del recibo; el segundo, el botón **Duplicar** del formulario.
+- El recibo se entrega como DOCX generado a partir de `server/assets/plantillas/recibo_ayuda.docx`.
+  La plantilla no contiene datos personales; solo marcadores que el servidor sustituye.
 
 ## Transporte y secretos
 

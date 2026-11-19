@@ -829,7 +829,7 @@ async fn consultar_lista(
            AND ($4::text IS NULL OR d.estatus = $4)
            AND ($5::text IS NULL OR d.banco ILIKE $5)
            AND ($6::text IS NULL OR d.tipo = $6)
-         ORDER BY d.fecha DESC, d.numero_darfe DESC
+         ORDER BY d.creado_en DESC, d.id DESC
          LIMIT $7 OFFSET $8",
     )
     .bind(&buscar)

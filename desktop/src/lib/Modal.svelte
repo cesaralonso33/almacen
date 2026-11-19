@@ -2,10 +2,11 @@
     interface Props {
         titulo: string;
         oncerrar: () => void;
+        ancho?: number;
         children: any;
     }
 
-    let { titulo, oncerrar, children }: Props = $props();
+    let { titulo, oncerrar, ancho, children }: Props = $props();
 </script>
 
 <div
@@ -16,7 +17,10 @@
     }}
 >
     <div
-        class="mt-8 w-full max-w-3xl rounded-xl bg-white shadow-2xl"
+        class="mt-8 w-full rounded-xl bg-white shadow-2xl"
+        style:width={ancho ? `${ancho}%` : undefined}
+        style:max-width={ancho ? 'none' : undefined}
+        class:max-w-3xl={!ancho}
         role="dialog"
         aria-modal="true"
         aria-label={titulo}

@@ -517,7 +517,12 @@ servidor Debian de destino.
   nombre del ordenante. Se validó contra un PDF real del banco y se agregaron dos pruebas con
   datos ficticios. El login oculta el campo Servidor y lo muestra con un icono en la esquina
   inferior derecha.
+- Versión `0.1.7`: formulario DARFE al 78 % del ancho; número de expediente, número de registro,
+  CURP y RFC en renglones completos; columna «Número de expediente» con registro, CURP y RFC en
+  líneas separadas; selector de columnas visibles; orden por fecha de creación y semáforo de
+  estatus (PENDIENTE rojo, INCOMPLETO ámbar, COMPLETO verde). La migración
+  `0014_darfes_orden_creacion.sql` agrega el índice por `creado_en`.
 - Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
-  `infra/updates/`. **Pendiente**: publicar `0.1.6` en el VPS; el servidor responde por HTTPS y
+  `infra/updates/`. **Pendiente**: publicar `0.1.7` en el VPS; el servidor responde por HTTPS y
   sigue sirviendo `0.1.4`, pero el puerto SSH `2702` presenta una clave de host distinta a la
   registrada, por lo que no se desplegó sin validarla.

@@ -36,6 +36,8 @@ Migraciones en `server/migrations` (SQLx, aplicadas al iniciar la API).
   `ESTADO_CUENTA`, `DEPOSITO`) como `bytea` (máximo 8 MiB). Para `DEPOSITO` guarda
   `datos_extraidos` y `coincide`, resultado de comparar cuenta, monto y nombre del PDF contra lo
   capturado.
+- El listado se ordena por `creado_en` descendente; el índice parcial `darfes_creado_en`
+  (`0014`) sostiene ese orden.
 
 ## Estados
 

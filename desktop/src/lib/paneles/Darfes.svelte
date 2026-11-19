@@ -18,6 +18,21 @@
         { clave: 'DEPOSITO', etiqueta: 'Depósito' }
     ];
 
+    const COLUMNAS = [
+        { clave: 'numero_darfe', etiqueta: 'No. DARFE' },
+        { clave: 'fecha', etiqueta: 'Fecha' },
+        { clave: 'nombre', etiqueta: 'Nombre' },
+        { clave: 'expediente', etiqueta: 'Número de expediente' },
+        { clave: 'descripcion', etiqueta: 'Descripción' },
+        { clave: 'monto', etiqueta: 'Monto' },
+        { clave: 'tipo', etiqueta: 'Tipo' },
+        { clave: 'banco', etiqueta: 'Banco' },
+        { clave: 'estatus', etiqueta: 'Estatus' },
+        { clave: 'documentos', etiqueta: 'Documentos' }
+    ] as const;
+
+    type ClaveColumna = (typeof COLUMNAS)[number]['clave'];
+
     type CampoExtra = { nombre: string; valor: string };
     type Archivos = Record<string, File | null>;
 
@@ -42,6 +57,20 @@
     let errorFormulario = $state('');
     let documentosExistentes = $state<string[]>([]);
     let archivos = $state<Archivos>(vacioArchivos());
+    let columnas = $state<Record<ClaveColumna, boolean>>({
+        numero_darfe: true,
+        fecha: true,
+        nombre: true,
+        expediente: true,
+        descripcion: true,
+        monto: true,
+        tipo: true,
+        banco: true,
+        estatus: true,
+        documentos: true
+    });
+    let menuColumnas = $state(false);
+    let menuColumnasEl = $state<HTMLDivElement | undefined>(undefined);
     let form = $state({
         numero_darfe: '',
         fecha: fechaHoy(),
@@ -62,6 +91,9 @@
     });
 
     const paginas = $derived(totalPaginas(total, TAMANO));
+    const columnasVisibles = $derived(
+        COLUMNAS.filter((columna) => columnas[columna.clave]).length
+    );
 
     onMount(cargar);
 
@@ -319,11 +351,31 @@
         return new Date(`${fecha}T00:00:00`).toLocaleDateString('es-MX');
     }
 
+    function alternarColumna(clave: ClaveColumna, visible: boolean) {
+        if (!visible && columnasVisibles === 1) return;
+        columnas = { ...columnas, [clave]: visible };
+    }
+
+    function cerrarMenuColumnas(evento: MouseEvent) {
+        if (!menuColumnas) return;
+        const destino = evento.target as Node | null;
+        if (destino && menuColumnasEl?.contains(destino)) return;
+        menuColumnas = false;
+    }
+
+    function claseEstatus(estatus: string): string {
+        if (estatus === 'COMPLETO') return 'bg-emerald-100 text-emerald-700';
+        if (estatus === 'INCOMPLETO') return 'bg-amber-100 text-amber-700';
+        return 'bg-red-100 text-red-700';
+    }
+
     function pares(valor: any): Array<{ clave: string; total: number }> {
         if (!valor || typeof valor !== 'object') return [];
         return Object.entries(valor).map(([clave, total]) => ({ clave, total: Number(total) }));
     }
 </script>
+
+<svelte:window onclick={cerrarMenuColumnas} />
 
 <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
@@ -373,6 +425,45 @@
                 <button class="btn-secundario" type="button" onclick={() => (avanzado = !avanzado)}>
                     {avanzado ? 'Ocultar filtros' : 'Filtros'}
                 </button>
+                <div class="relative" bind:this={menuColumnasEl}>
+                    <button
+                        class="btn-secundario"
+                        type="button"
+                        onclick={() => (menuColumnas = !menuColumnas)}
+                        aria-expanded={menuColumnas}
+                        aria-haspopup="true"
+                    >
+                        Columnas
+                    </button>
+                    {#if menuColumnas}
+                        <div
+                            class="absolute right-0 z-20 mt-1 w-64 rounded-lg border border-slate-200 bg-white p-3 shadow-xl"
+                            role="group"
+                            aria-label="Columnas visibles"
+                        >
+                            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                Columnas visibles
+                            </p>
+                            <div class="space-y-1">
+                                {#each COLUMNAS as columna}
+                                    <label class="flex items-center gap-2 text-sm text-slate-700">
+                                        <input
+                                            type="checkbox"
+                                            checked={columnas[columna.clave]}
+                                            disabled={columnas[columna.clave] && columnasVisibles === 1}
+                                            onchange={(evento) =>
+                                                alternarColumna(
+                                                    columna.clave,
+                                                    evento.currentTarget.checked
+                                                )}
+                                        />
+                                        {columna.etiqueta}
+                                    </label>
+                                {/each}
+                            </div>
+                        </div>
+                    {/if}
+                </div>
                 {#if app.permiso('darfes:exportar')}
                     <button class="btn-secundario" type="button" onclick={exportar}>Exportar Excel</button>
                 {/if}
@@ -422,76 +513,109 @@
                 <table class="tabla">
                     <thead>
                         <tr>
-                            <th>No. DARFE</th>
-                            <th>Fecha</th>
-                            <th>Nombre</th>
-                            <th>Descripción</th>
-                            <th>Monto</th>
-                            <th>Tipo</th>
-                            <th>Banco</th>
-                            <th>Estatus</th>
-                            <th>Documentos</th>
+                            {#if columnas.numero_darfe}<th>No. DARFE</th>{/if}
+                            {#if columnas.fecha}<th>Fecha</th>{/if}
+                            {#if columnas.nombre}<th>Nombre</th>{/if}
+                            {#if columnas.expediente}<th>Número de expediente</th>{/if}
+                            {#if columnas.descripcion}<th>Descripción</th>{/if}
+                            {#if columnas.monto}<th>Monto</th>{/if}
+                            {#if columnas.tipo}<th>Tipo</th>{/if}
+                            {#if columnas.banco}<th>Banco</th>{/if}
+                            {#if columnas.estatus}<th>Estatus</th>{/if}
+                            {#if columnas.documentos}<th>Documentos</th>{/if}
                             <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         {#each registros as registro (registro.id)}
                             <tr>
-                                <td class="font-mono text-xs font-medium text-institucional-600">
-                                    {registro.numero_darfe}
-                                </td>
-                                <td>{fechaVisible(registro.fecha)}</td>
-                                <td>{registro.nombre}</td>
-                                <td>{registro.descripcion || '—'}</td>
-                                <td>${Number(registro.monto ?? 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
-                                <td>{registro.tipo}</td>
-                                <td>{registro.banco || '—'}</td>
-                                <td>
-                                    <span
-                                        class="insignia {registro.estatus === 'COMPLETO'
-                                            ? 'bg-emerald-100 text-emerald-700'
-                                            : registro.estatus === 'INCOMPLETO'
-                                              ? 'bg-amber-100 text-amber-700'
-                                              : 'bg-slate-100 text-slate-600'}"
-                                    >
-                                        {registro.estatus}
-                                    </span>
-                                </td>
-                                <td>
-                                    <div class="flex flex-wrap gap-1">
-                                        {#each CAMPOS_DOCUMENTO as campo}
-                                            {#if registro.documentos?.includes(campo.clave)}
-                                                <button
-                                                    class="text-xs underline text-institucional-600"
-                                                    type="button"
-                                                    onclick={() => descargarDocumento(registro, campo.clave)}
+                                {#if columnas.numero_darfe}
+                                    <td class="font-mono text-xs font-medium text-institucional-600">
+                                        {registro.numero_darfe}
+                                    </td>
+                                {/if}
+                                {#if columnas.fecha}
+                                    <td>{fechaVisible(registro.fecha)}</td>
+                                {/if}
+                                {#if columnas.nombre}
+                                    <td>{registro.nombre}</td>
+                                {/if}
+                                {#if columnas.expediente}
+                                    <td class="whitespace-nowrap text-xs leading-5">
+                                        <span class="block font-medium text-slate-700">
+                                            {registro.expediente || '—'}
+                                        </span>
+                                        <span class="block text-slate-500">
+                                            Registro: {registro.registro || '—'}
+                                        </span>
+                                        <span class="block text-slate-500">
+                                            CURP: {registro.curp || '—'}
+                                        </span>
+                                        <span class="block text-slate-500">
+                                            RFC: {registro.rfc || '—'}
+                                        </span>
+                                    </td>
+                                {/if}
+                                {#if columnas.descripcion}
+                                    <td>{registro.descripcion || '—'}</td>
+                                {/if}
+                                {#if columnas.monto}
+                                    <td>
+                                        ${Number(registro.monto ?? 0).toLocaleString('es-MX', {
+                                            minimumFractionDigits: 2
+                                        })}
+                                    </td>
+                                {/if}
+                                {#if columnas.tipo}
+                                    <td>{registro.tipo}</td>
+                                {/if}
+                                {#if columnas.banco}
+                                    <td>{registro.banco || '—'}</td>
+                                {/if}
+                                {#if columnas.estatus}
+                                    <td>
+                                        <span class="insignia {claseEstatus(registro.estatus)}">
+                                            {registro.estatus}
+                                        </span>
+                                    </td>
+                                {/if}
+                                {#if columnas.documentos}
+                                    <td>
+                                        <div class="flex flex-wrap gap-1">
+                                            {#each CAMPOS_DOCUMENTO as campo}
+                                                {#if registro.documentos?.includes(campo.clave)}
+                                                    <button
+                                                        class="text-xs underline text-institucional-600"
+                                                        type="button"
+                                                        onclick={() => descargarDocumento(registro, campo.clave)}
+                                                    >
+                                                        {campo.etiqueta}
+                                                    </button>
+                                                {/if}
+                                            {/each}
+                                            {#if registro.documentos?.includes('DEPOSITO')}
+                                                <span
+                                                    class="insignia {registro.deposito_coincide === true
+                                                        ? 'bg-emerald-100 text-emerald-700'
+                                                        : registro.deposito_coincide === false
+                                                          ? 'bg-red-100 text-red-700'
+                                                          : 'bg-slate-100 text-slate-600'}"
+                                                    title={registro.deposito_coincide === true
+                                                        ? 'Cuenta, monto y nombre del depósito coinciden'
+                                                        : registro.deposito_coincide === false
+                                                          ? 'Los datos del depósito no coinciden con lo capturado'
+                                                          : 'Depósito cargado sin validación'}
                                                 >
-                                                    {campo.etiqueta}
-                                                </button>
+                                                    Depósito {registro.deposito_coincide === true
+                                                        ? '✓'
+                                                        : registro.deposito_coincide === false
+                                                          ? '✗'
+                                                          : '·'}
+                                                </span>
                                             {/if}
-                                        {/each}
-                                        {#if registro.documentos?.includes('DEPOSITO')}
-                                            <span
-                                                class="insignia {registro.deposito_coincide === true
-                                                    ? 'bg-emerald-100 text-emerald-700'
-                                                    : registro.deposito_coincide === false
-                                                      ? 'bg-red-100 text-red-700'
-                                                      : 'bg-slate-100 text-slate-600'}"
-                                                title={registro.deposito_coincide === true
-                                                    ? 'Cuenta, monto y nombre del depósito coinciden'
-                                                    : registro.deposito_coincide === false
-                                                      ? 'Los datos del depósito no coinciden con lo capturado'
-                                                      : 'Depósito cargado sin validación'}
-                                            >
-                                                Depósito {registro.deposito_coincide === true
-                                                    ? '✓'
-                                                    : registro.deposito_coincide === false
-                                                      ? '✗'
-                                                      : '·'}
-                                            </span>
-                                        {/if}
-                                    </div>
-                                </td>
+                                        </div>
+                                    </td>
+                                {/if}
                                 <td class="space-x-2 whitespace-nowrap text-right">
                                     {#if app.permiso('darfes:editar')}
                                         <button class="btn-secundario" type="button" onclick={() => abrirEdicion(registro)}>
@@ -507,7 +631,7 @@
                             </tr>
                         {:else}
                             <tr>
-                                <td colspan="10" class="py-8 text-center text-sm text-slate-500">
+                                <td colspan={columnasVisibles + 1} class="py-8 text-center text-sm text-slate-500">
                                     No hay DARFES con esos filtros.
                                 </td>
                             </tr>
@@ -573,7 +697,7 @@
                         <span class="font-mono text-xs text-institucional-600">{item.numero_darfe}</span>
                         <span class="flex-1 truncate text-slate-600">{item.nombre}</span>
                         <span class="text-slate-500">{fechaVisible(item.fecha)}</span>
-                        <span class="insignia bg-slate-100 text-slate-600">{item.estatus}</span>
+                        <span class="insignia {claseEstatus(item.estatus)}">{item.estatus}</span>
                     </li>
                 {:else}
                     <li class="text-slate-500">Sin registros.</li>
@@ -584,7 +708,11 @@
 </div>
 
 {#if modal}
-    <Modal titulo={editandoId ? 'Editar DARFE' : 'Nuevo DARFE'} oncerrar={() => (modal = false)}>
+    <Modal
+        titulo={editandoId ? 'Editar DARFE' : 'Nuevo DARFE'}
+        ancho={78}
+        oncerrar={() => (modal = false)}
+    >
         <form
             class="space-y-4"
             onsubmit={(evento) => {
@@ -637,13 +765,21 @@
                         </span>
                     {/if}
                 </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">Expediente</span>
-                    <input class="campo" bind:value={form.expediente} />
+                <label class="block text-sm sm:col-span-2">
+                    <span class="mb-1 block font-medium text-slate-600">Número de expediente</span>
+                    <input class="campo" maxlength="200" bind:value={form.expediente} />
                 </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">Registro</span>
-                    <input class="campo" bind:value={form.registro} />
+                <label class="block text-sm sm:col-span-2">
+                    <span class="mb-1 block font-medium text-slate-600">Número de registro</span>
+                    <input class="campo" maxlength="100" bind:value={form.registro} />
+                </label>
+                <label class="block text-sm sm:col-span-2">
+                    <span class="mb-1 block font-medium text-slate-600">CURP</span>
+                    <input class="campo font-mono uppercase" maxlength="18" bind:value={form.curp} />
+                </label>
+                <label class="block text-sm sm:col-span-2">
+                    <span class="mb-1 block font-medium text-slate-600">RFC</span>
+                    <input class="campo font-mono uppercase" maxlength="13" bind:value={form.rfc} />
                 </label>
                 <label class="block text-sm">
                     <span class="mb-1 block font-medium text-slate-600">Estado de cuenta</span>
@@ -656,14 +792,6 @@
                 <label class="block text-sm">
                     <span class="mb-1 block font-medium text-slate-600">Identificación</span>
                     <input class="campo" bind:value={form.identificacion} />
-                </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">CURP</span>
-                    <input class="campo font-mono uppercase" bind:value={form.curp} />
-                </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">RFC</span>
-                    <input class="campo font-mono uppercase" bind:value={form.rfc} />
                 </label>
                 <label class="block text-sm">
                     <span class="mb-1 block font-medium text-slate-600">Estatus</span>

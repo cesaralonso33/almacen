@@ -512,3 +512,7 @@ servidor Debian de destino.
 - Pruebas: `cargo test --test darfes` → 3 pruebas (CRUD/documentos/depósito, canasta mensual y
   permisos). Suite completa del servidor: 87 pruebas sin fallos.
 - Versión `0.1.5` del escritorio con esta ampliación de DARFES.
+- Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
+  `infra/updates/`. **Pendiente**: publicar `0.1.5` en el VPS; el servidor responde por HTTPS y
+  sigue sirviendo `0.1.4`, pero el puerto SSH `2702` presenta una clave de host distinta a la
+  registrada, por lo que no se desplegó sin validarla.

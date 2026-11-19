@@ -42,8 +42,8 @@
     }
 </script>
 
-<main class="flex min-h-screen items-center justify-center bg-gradient-to-br from-institucional-900 via-institucional-700 to-slate-900 p-6">
-    <div class="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl">
+<main class="flex min-h-screen items-center justify-center bg-gradient-to-br from-institucional-900 via-institucional-700 to-slate-900 p-3 sm:p-6">
+    <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl sm:p-8">
         <div class="mb-6">
             <p class="text-xs font-semibold uppercase tracking-widest text-institucional-500">
                 Institución

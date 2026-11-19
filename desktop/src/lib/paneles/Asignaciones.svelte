@@ -155,7 +155,7 @@
 
     <section class="card overflow-hidden p-0">
         <div class="overflow-x-auto">
-            <table class="tabla">
+            <table class="tabla min-w-[800px]">
                 <thead>
                     <tr>
                         <th class="w-10"></th>

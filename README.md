@@ -143,7 +143,7 @@ La llave privada no se versiona. Si se genera una nueva, hay que reemplazar la l
 `desktop/src-tauri/tauri.conf.json` antes de distribuir. El instalador queda en:
 
 ```
-desktop/src-tauri/target/release/bundle/nsis/Custodia CradSystem_0.1.13_x64-setup.exe
+desktop/src-tauri/target/release/bundle/nsis/Custodia CradSystem_0.1.14_x64-setup.exe
 ```
 
 ### Configurar el primer acceso
@@ -168,6 +168,7 @@ manda la dirección guardada en la pantalla de acceso.
 
 - Navegación por permisos: Inicio, Expedientes, Mis pedidos, Almacén, Entregas, Mis custodias,
   Devoluciones, Reportes y Administración.
+- Interfaz adaptable: menú lateral colapsable en ventanas pequeñas, tablas con desplazamiento horizontal y formularios que reorganizan sus columnas.
 - Módulo **P.A.**: CRUD de personas con folio consecutivo por año, campos adicionales libres, filtros avanzados y constancia PDF generada al guardar; el municipio se elige de la lista de los **217 municipios de Puebla**, con la opción **Otros** al final.
 - Módulo **DARFES** para el perfil Administrativo: CRUD con formulario en tarjetas, documentos adjuntos (incluidos el PDF de depósito validado y el escrito libre), teléfono y correo, exportación a Excel, buscador, campos libres, columnas configurables por usuario y reportes/indicadores.
 - **Recibo de ayuda en DOCX**: se descarga desde el formulario usando la plantilla institucional y sustituye folio, año/mes, tipo, beneficiario, monto y No. DARFE. El folio es consecutivo anual, inicia en 557 y se conserva en reimpresiones; solo el administrador puede modificarlo y ver el botón **Duplicar**.

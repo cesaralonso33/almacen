@@ -142,7 +142,7 @@
     {/if}
 
     <section class="tarjeta overflow-hidden">
-        <table class="tabla">
+        <div class="overflow-x-auto"><table class="tabla min-w-[640px]">
             <thead>
                 <tr>
                     <th>Nombre</th>
@@ -174,7 +174,7 @@
                     </tr>
                 {/each}
             </tbody>
-        </table>
+        </table></div>
         <Paginacion {pagina} {paginas} total={usuarios.length} onCambiar={(valor) => (pagina = valor)} />
     </section>
 

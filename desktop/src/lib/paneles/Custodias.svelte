@@ -158,7 +158,7 @@
                 <h2 class="text-sm font-semibold text-slate-700">Transferencias por aceptar</h2>
                 <span class="insignia bg-amber-100 text-amber-700">{pendientes.length}</span>
             </header>
-            <table class="tabla">
+            <div class="overflow-x-auto"><table class="tabla min-w-[720px]">
                 <thead>
                     <tr>
                         <th>Expediente</th>
@@ -186,12 +186,12 @@
                         </tr>
                     {/each}
                 </tbody>
-            </table>
+            </table></div>
         </section>
     {/if}
 
     <div class="tarjeta overflow-hidden">
-        <table class="tabla">
+        <div class="overflow-x-auto"><table class="tabla min-w-[720px]">
             <thead>
                 <tr>
                     <th>Expediente</th>
@@ -226,7 +226,7 @@
                     </td></tr>
                 {/if}
             </tbody>
-        </table>
+        </table></div>
         <Paginacion {pagina} {paginas} total={custodias.length} onCambiar={(valor) => (pagina = valor)} />
     </div>
 </div>

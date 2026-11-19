@@ -100,7 +100,7 @@
     </div>
 
     <div class="tarjeta overflow-hidden">
-        <table class="tabla">
+        <div class="overflow-x-auto"><table class="tabla min-w-[640px]">
             <thead>
                 <tr>
                     <th>Solicitante</th>
@@ -122,7 +122,7 @@
                     <tr><td colspan="4" class="py-6 text-center text-slate-400">Sin pedidos por atender</td></tr>
                 {/if}
             </tbody>
-        </table>
+        </table></div>
     </div>
     <Paginacion {pagina} {paginas} total={pedidos.length} onCambiar={(valor) => (pagina = valor)} />
 </div>

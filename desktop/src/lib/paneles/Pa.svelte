@@ -224,7 +224,7 @@
 
         <div class="flex flex-wrap gap-2">
             <input
-                class="campo min-w-64 flex-1"
+                class="campo min-w-0 flex-1 sm:min-w-64"
                 placeholder="Buscar por folio, CURP, nombre, municipio u observaciones"
                 bind:value={filtros.buscar}
                 onkeydown={(evento) => evento.key === 'Enter' && buscar()}
@@ -295,7 +295,7 @@
 
     <section class="tarjeta overflow-hidden">
         <div class="max-h-[62vh] overflow-auto">
-            <table class="tabla">
+            <table class="tabla min-w-[900px]">
                 <thead>
                     <tr>
                         <th>Folio</th>

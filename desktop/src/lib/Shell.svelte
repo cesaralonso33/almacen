@@ -34,6 +34,7 @@
     let conflictos = $state<any[]>([]);
     let verConflictos = $state(false);
     let verPassword = $state(false);
+    let menuAbierto = $state(false);
 
     const titulo = $derived(items.find((item) => item.id === app.panel)?.etiqueta ?? 'Inicio');
     const estadoSync = $derived(app.sync?.estado ?? 'SIN_CONEXION');
@@ -55,8 +56,28 @@
     }
 </script>
 
+<svelte:window
+    onkeydown={(evento) => {
+        if (evento.key === 'Escape') menuAbierto = false;
+    }}
+/>
+
 <div class="flex h-screen overflow-hidden">
-    <aside class="flex w-60 shrink-0 flex-col bg-institucional-900 text-slate-200">
+    {#if menuAbierto}
+        <button
+            class="fixed inset-0 z-30 bg-slate-900/50 lg:hidden"
+            type="button"
+            aria-label="Cerrar menú"
+            onclick={() => (menuAbierto = false)}
+        ></button>
+    {/if}
+
+    <aside
+        class="fixed inset-y-0 left-0 z-40 flex w-60 shrink-0 flex-col bg-institucional-900 text-slate-200 transition-transform lg:static lg:translate-x-0 {menuAbierto
+            ? 'translate-x-0'
+            : '-translate-x-full'}"
+        aria-label="Menú lateral"
+    >
         <div class="px-5 py-5">
             <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-institucional-100/70">
                 Institución
@@ -64,14 +85,17 @@
             <h1 class="mt-1 text-base font-semibold text-white">Custodia CradSystem</h1>
         </div>
 
-        <nav class="flex-1 space-y-1 px-3" aria-label="Navegación principal">
+        <nav class="flex-1 space-y-1 overflow-y-auto px-3 pb-4" aria-label="Navegación principal">
             {#each items as item}
                 {#if !item.permiso || app.permiso(item.permiso)}
                     <button
                         class="w-full rounded-lg px-3 py-2 text-left text-sm transition {app.panel === item.id
                             ? 'bg-white/10 font-semibold text-white'
                             : 'text-slate-300 hover:bg-white/5'}"
-                        onclick={() => (app.panel = item.id)}
+                        onclick={() => {
+                            app.panel = item.id;
+                            menuAbierto = false;
+                        }}
                         aria-current={app.panel === item.id ? 'page' : undefined}
                     >
                         {item.etiqueta}
@@ -90,10 +114,35 @@
     </aside>
 
     <div class="flex min-w-0 flex-1 flex-col">
-        <header class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-6 py-3">
-            <h2 class="text-lg font-semibold text-slate-800">{titulo}</h2>
+        <header
+            class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 py-2 sm:px-6 sm:py-3"
+        >
+            <div class="flex min-w-0 items-center gap-2">
+                <button
+                    class="btn-secundario px-2 py-1 lg:hidden"
+                    type="button"
+                    aria-label="Abrir menú"
+                    onclick={() => (menuAbierto = true)}
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        class="h-5 w-5"
+                        aria-hidden="true"
+                    >
+                        <line x1="4" y1="6" x2="20" y2="6" />
+                        <line x1="4" y1="12" x2="20" y2="12" />
+                        <line x1="4" y1="18" x2="20" y2="18" />
+                    </svg>
+                </button>
+                <h2 class="truncate text-base font-semibold text-slate-800 sm:text-lg">{titulo}</h2>
+            </div>
 
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center gap-2 sm:gap-3">
                 {#if app.inseguro}
                     <span
                         class="insignia bg-amber-100 text-amber-800"
@@ -122,7 +171,7 @@
             </div>
         </header>
 
-        <main class="flex-1 overflow-y-auto p-6">
+        <main class="flex-1 overflow-y-auto p-3 sm:p-6">
             {#if app.panel === 'inicio'}<Inicio />{/if}
             {#if app.panel === 'expedientes'}<Expedientes />{/if}
             {#if app.panel === 'pa'}<Pa />{/if}

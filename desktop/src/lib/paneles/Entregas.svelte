@@ -42,7 +42,7 @@
     </div>
 
     <div class="tarjeta overflow-hidden">
-        <table class="tabla">
+        <div class="overflow-x-auto"><table class="tabla min-w-[640px]">
             <thead>
                 <tr>
                     <th>Expediente</th>
@@ -74,7 +74,7 @@
                     </td></tr>
                 {/if}
             </tbody>
-        </table>
+        </table></div>
     </div>
     <Paginacion {pagina} {paginas} total={entregas.length} onCambiar={(valor) => (pagina = valor)} />
 </div>

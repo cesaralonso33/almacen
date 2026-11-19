@@ -550,7 +550,11 @@ servidor Debian de destino.
   el administrador puede editar el folio del recibo desde el formulario y es el único que ve el
   botón **Duplicar**. La migración `0018_darfes_permisos_admin.sql` crea los permisos
   `darfes:folio` y `darfes:duplicar`, exclusivos de `ADMINISTRADOR`.
+- Versión `0.1.14`: interfaz adaptable. El menú lateral se convierte en un cajón con botón de
+  menú por debajo de 1024 px; el encabezado, las barras de herramientas y los formularios ajustan
+  sus columnas; las tablas tienen desplazamiento horizontal y ancho mínimo legible; el acceso y los
+  modales reducen márgenes en pantallas pequeñas.
 - Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
-  `infra/updates/`. **Pendiente**: publicar `0.1.13` en el VPS; el servidor responde por HTTPS y
+  `infra/updates/`. **Pendiente**: publicar `0.1.14` en el VPS; el servidor responde por HTTPS y
   sigue sirviendo `0.1.4`, pero el puerto SSH `2702` presenta una clave de host distinta a la
   registrada, por lo que no se desplegó sin validarla.

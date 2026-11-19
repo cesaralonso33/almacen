@@ -10,7 +10,7 @@
 </script>
 
 <div
-    class="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4"
+    class="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-2 sm:p-4"
     role="presentation"
     onclick={(evento) => {
         if (evento.target === evento.currentTarget) oncerrar();
@@ -30,7 +30,7 @@
             <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-600">{titulo}</h2>
             <button class="btn-secundario" type="button" onclick={oncerrar}>Cerrar</button>
         </header>
-        <div class="max-h-[75vh] overflow-y-auto p-5">
+        <div class="max-h-[75vh] overflow-y-auto p-4 sm:p-5">
             {@render children?.()}
         </div>
     </div>

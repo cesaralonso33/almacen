@@ -528,7 +528,7 @@
         <section class="tarjeta space-y-3 p-4">
             <div class="flex flex-wrap gap-2">
                 <input
-                    class="campo min-w-64 flex-1"
+                    class="campo min-w-0 flex-1 sm:min-w-64"
                     placeholder="Buscar por número, nombre, expediente, CURP, RFC, teléfono, correo, banco…"
                     bind:value={filtros.buscar}
                     onkeydown={(evento) => evento.key === 'Enter' && buscar()}
@@ -584,7 +584,7 @@
             </div>
 
             {#if avanzado}
-                <div class="grid gap-3 md:grid-cols-4">
+                <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <label class="block text-sm">
                         <span class="mb-1 block font-medium text-slate-600">Fecha desde</span>
                         <input class="campo" type="date" bind:value={filtros.fecha_desde} />
@@ -625,7 +625,7 @@
 
         <section class="tarjeta overflow-hidden">
             <div class="max-h-[62vh] overflow-auto">
-                <table class="tabla">
+                <table class="tabla min-w-[1100px]">
                     <thead>
                         <tr>
                             {#if columnas.numero_darfe}<th>No. DARFE</th>{/if}
@@ -771,7 +771,7 @@
             />
         </section>
     {:else}
-        <section class="grid gap-4 sm:grid-cols-4">
+        <section class="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <div class="tarjeta p-4">
                 <p class="text-xs uppercase tracking-wide text-slate-500">Total</p>
                 <p class="mt-1 text-2xl font-semibold text-institucional-600">{reportes?.total ?? 0}</p>

@@ -66,7 +66,7 @@
             <button class="btn-secundario" onclick={cargar}>Actualizar</button>
         </header>
         <div class="overflow-x-auto">
-            <table class="tabla">
+            <table class="tabla min-w-[640px]">
                 <thead>
                     <tr>
                         <th>Solicitante</th>

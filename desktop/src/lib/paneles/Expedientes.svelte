@@ -332,7 +332,7 @@
 
     <div class="tarjeta overflow-hidden">
         <div class="max-h-[62vh] overflow-auto">
-            <table class="tabla">
+            <table class="tabla min-w-[900px]">
                 <thead>
                     <tr>
                         <th>Número</th>

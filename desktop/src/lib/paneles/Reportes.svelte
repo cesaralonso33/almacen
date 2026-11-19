@@ -119,7 +119,7 @@
             </div>
         </div>
 
-        <table class="tabla">
+        <div class="overflow-x-auto"><table class="tabla min-w-[560px]">
             <thead>
                 <tr>
                     <th>Periodo</th>
@@ -143,7 +143,7 @@
                     </tr>
                 {/if}
             </tbody>
-        </table>
+        </table></div>
         <Paginacion
             pagina={paginaAltas}
             paginas={paginasAltas}

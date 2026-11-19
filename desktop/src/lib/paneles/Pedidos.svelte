@@ -126,7 +126,7 @@
 
     <div class="tarjeta overflow-hidden">
         <div class="max-h-[65vh] overflow-auto">
-            <table class="tabla">
+            <table class="tabla min-w-[800px]">
                 <thead>
                     <tr>
                         <th>Solicitante</th>
@@ -174,7 +174,7 @@
             </div>
 
             <div class="max-h-72 overflow-auto rounded-lg border border-slate-200">
-                <table class="tabla">
+                <table class="tabla min-w-[800px]">
                     <tbody>
                         {#each visiblesBusqueda as expediente}
                             <tr>

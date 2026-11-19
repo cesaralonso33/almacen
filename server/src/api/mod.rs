@@ -1,6 +1,7 @@
 pub mod admin;
 pub mod auth;
 pub mod consultas;
+pub mod darfes;
 pub mod directorio;
 pub mod devoluciones;
 pub mod entrada;
@@ -30,7 +31,7 @@ use tower_http::{
 
 use crate::{error::ApiError, AppState};
 
-const LIMITE_CUERPO: usize = 2 * 1024 * 1024;
+const LIMITE_CUERPO: usize = 12 * 1024 * 1024;
 
 async fn cabeceras_seguridad(solicitud: Request, siguiente: Next) -> Response {
     let mut respuesta = siguiente.run(solicitud).await;
@@ -76,6 +77,18 @@ pub fn router(estado: AppState) -> Router {
         .route("/api/v1/admin/usuarios/{id}/activar", post(admin::activar))
         .route("/api/v1/admin/usuarios/{id}/desactivar", post(admin::desactivar))
         .route("/api/v1/admin/roles", get(admin::listar_roles))
+        .route("/api/v1/darfes", get(darfes::listar).post(darfes::crear))
+        .route("/api/v1/darfes/exportar", get(darfes::exportar))
+        .route("/api/v1/darfes/reportes", get(darfes::reportes))
+        .route(
+            "/api/v1/darfes/{id}",
+            get(darfes::detalle).put(darfes::actualizar).delete(darfes::eliminar),
+        )
+        .route("/api/v1/darfes/{id}/documentos", post(darfes::subir_documento))
+        .route(
+            "/api/v1/darfes/{id}/documentos/{campo}",
+            get(darfes::documento).delete(darfes::eliminar_documento),
+        )
         .route("/api/v1/pa", get(pa::listar).post(pa::crear))
         .route(
             "/api/v1/pa/{id}",

@@ -454,7 +454,7 @@ La dirección del servidor se guarda en la base local del equipo, no en el insta
 ### Actualizaciones firmadas del escritorio
 
 La versión `0.1.1` fue la primera con el updater de Tauri. Una instalación anterior requiere
-**una instalación manual única**; a partir de `0.1.3` la aplicación revisa al iniciar y cada 6
+**una instalación manual única**; a partir de `0.1.4` la aplicación revisa al iniciar y cada 6
 horas.
 
 La llave pública está en `desktop/src-tauri/tauri.conf.json`. La privada **no se versiona**:
@@ -476,7 +476,7 @@ Genere el manifiesto y copie los artefactos:
 
 ```bash
 powershell -ExecutionPolicy Bypass -File scripts/publicar-actualizacion.ps1 \
-  -Version 0.1.3 \
+  -Version 0.1.4 \
   -BaseUrl https://129-121-117-177.sslip.io
 ```
 

@@ -29,6 +29,9 @@
 - P.A. contiene datos personales sensibles. `pa:leer` se asigna a todos los roles; crear/editar a
   Administración, Almacén y Usuario; eliminar solo a Administración. Cada mutación y cada consulta
   de documento requieren sesión y quedan sujetas a auditoría.
+- DARFES está reservado al perfil `ADMINISTRATIVO` y a `ADMINISTRADOR`. Los documentos adjuntos se
+  limitan a 8 MiB, se guardan en la base y requieren `darfes:documentos`; la exportación y los
+  reportes tienen permisos separados.
 
 ## Transporte y secretos
 

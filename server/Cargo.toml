@@ -15,9 +15,11 @@ path = "src/main.rs"
 anyhow = "1"
 argon2 = "0.5"
 axum = "0.8"
+base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
 genpdf = "0.2"
 hex = "0.4"
+rust_xlsxwriter = "0.89"
 jsonwebtoken = "9"
 rand = "0.8"
 serde = { version = "1", features = ["derive"] }

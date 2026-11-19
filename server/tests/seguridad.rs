@@ -39,7 +39,7 @@ async fn rechaza_cuerpos_demasiado_grandes() {
     let t = setup().await;
     let cuerpo = format!(
         "{{\"correo\":\"a@test.mx\",\"password\":\"{}\"}}",
-        "x".repeat(2 * 1024 * 1024 + 100)
+        "x".repeat(12 * 1024 * 1024 + 100)
     );
     let respuesta = t
         .app

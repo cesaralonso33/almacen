@@ -455,8 +455,8 @@ servidor Debian de destino.
   cada 6 horas, y panel de actualización con confirmación antes de reiniciar.
 - La API publica `/updates` desde el volumen `UPDATES_DIR`; el manifiesto y el NSIS se generan con
   `scripts/publicar-actualizacion.ps1`.
-- Versión `0.1.3`: listado de años del alta de expedientes desde 2020 hasta el año en curso.
-  Incluye P.A. sobre la base de updater/SQLCipher de `0.1.1`; las instalaciones anteriores a
+- Versión `0.1.4`: agrega el perfil Administrativo y DARFES. Incluye P.A. y el listado de años
+  desde 2020 sobre la base de updater/SQLCipher de `0.1.1`; las instalaciones anteriores a
   `0.1.1` requieren una instalación manual única.
 - CI añadido para pruebas del servidor y escritorio; release de escritorio en tag `desktop-v*`.
 - Firma Authenticode pendiente de certificado institucional.
@@ -484,3 +484,12 @@ servidor Debian de destino.
 - Filtros por fecha, folio, CURP, nombre, género, municipio, edad y campos adicionales.
 - Constancia PDF generada al crear/editar y almacenada; descarga desde la app.
 - Fuente Noto Sans incluida en `server/assets` con licencia OFL.
+
+## Perfil Administrativo y DARFES (18/11/2026)
+
+- Nuevo rol `ADMINISTRATIVO`; también se habilitó DARFES para `ADMINISTRADOR`.
+- Tablas `darfes` y `darfe_documentos`; CRUD, búsqueda avanzada, campos adicionales y borrado lógico.
+- Documentos de CURP, RFC, registro, identificación y estado de cuenta (máximo 8 MiB).
+- Exportación `.xlsx` con los filtros activos y reportes por estatus, banco, mes y documentos.
+- El perfil recibe `sync:pull` y `pedidos:leer` para que el escritorio sincronice sin poder enviar
+  operaciones.

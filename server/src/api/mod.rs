@@ -89,6 +89,7 @@ pub fn router(estado: AppState) -> Router {
             post(admin::desactivar),
         )
         .route("/api/v1/admin/roles", get(admin::listar_roles))
+        .route("/api/v1/admin/backup", post(admin::respaldar_base))
         .route("/api/v1/darfes", get(darfes::listar).post(darfes::crear))
         .route("/api/v1/darfes/exportar", get(darfes::exportar))
         .route("/api/v1/darfes/reportes", get(darfes::reportes))

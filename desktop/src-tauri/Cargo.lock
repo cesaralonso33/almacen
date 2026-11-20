@@ -1124,7 +1124,7 @@ dependencies = [
 
 [[package]]
 name = "expedientes-desktop"
-version = "0.1.15"
+version = "0.1.16"
 dependencies = [
  "async-trait",
  "base64 0.22.1",

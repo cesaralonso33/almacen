@@ -664,6 +664,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "url",
  "uuid",
  "zip 9.7.3",
 ]

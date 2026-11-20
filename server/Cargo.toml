@@ -32,6 +32,7 @@ tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.6", features = ["trace", "catch-panic", "limit", "timeout", "fs"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+url = "2"
 uuid = { version = "1", features = ["serde", "v4"] }
 zip = { version = "9.7.3", default-features = false, features = ["deflate"] }
 

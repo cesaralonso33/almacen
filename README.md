@@ -143,7 +143,7 @@ La llave privada no se versiona. Si se genera una nueva, hay que reemplazar la l
 `desktop/src-tauri/tauri.conf.json` antes de distribuir. El instalador queda en:
 
 ```
-desktop/src-tauri/target/release/bundle/nsis/Custodia CradSystem_0.1.15_x64-setup.exe
+desktop/src-tauri/target/release/bundle/nsis/Custodia CradSystem_0.1.16_x64-setup.exe
 ```
 
 ### Configurar el primer acceso
@@ -172,6 +172,7 @@ manda la dirección guardada en la pantalla de acceso.
 - Módulo **P.A.**: CRUD de personas con folio consecutivo por año, campos adicionales libres, filtros avanzados y constancia PDF generada al guardar; el municipio se elige de la lista de los **217 municipios de Puebla**, con la opción **Otros** al final.
 - Módulo **DARFES** para el perfil Administrativo: CRUD con formulario en tarjetas, documentos adjuntos que se pueden **visualizar** (PDF e imágenes) o descargar, teléfono y correo, exportación a Excel, buscador, campos libres, columnas configurables por usuario y reportes/indicadores.
 - **Recibo de ayuda en DOCX**: se descarga desde el formulario usando la plantilla institucional y sustituye folio, año/mes, tipo, beneficiario, monto y No. DARFE. El folio es consecutivo anual, inicia en 557 y se conserva en reimpresiones; solo el administrador puede modificarlo y ver el botón **Duplicar**.
+- **Respaldo de la base de datos** desde Administración: el administrador genera un `.dump` restaurable con `pg_restore`; el archivo se descarga al equipo y la acción queda auditada.
 - DARFES con tipo **REEMBOLSO** o **CANASTA**: al guardar una canasta se generan tres registros mensuales con descripción automática (`1ra canasta 3`, `2da canasta de 3`, `3ra canasta de 3`). Los campos de archivo aceptan arrastrar y soltar.
 - Asignación masiva: un administrador selecciona un listado de expedientes y crea un pedido a nombre de otro usuario; almacén lo prepara y el destinatario confirma la recepción.
 - Alta de expedientes por cualquier usuario operativo: el creador queda como custodio inicial hasta que lo devuelva al almacén.

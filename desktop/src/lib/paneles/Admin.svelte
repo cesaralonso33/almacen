@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import { invoke } from '@tauri-apps/api/core';
     import { api } from '../api';
     import { app } from '../estado.svelte';
     import Modal from '../Modal.svelte';
@@ -24,6 +25,22 @@
     let passwordEdicion = $state('');
     let guardandoEdicion = $state(false);
     let errorEdicion = $state('');
+    let generandoRespaldo = $state(false);
+    let respaldoRuta = $state('');
+
+    async function generarRespaldo() {
+        generandoRespaldo = true;
+        respaldoRuta = '';
+        try {
+            const ruta = await invoke<string>('guardar_respaldo_base');
+            respaldoRuta = ruta;
+            app.avisar('Respaldo de la base de datos generado');
+        } catch (error) {
+            app.avisar(String(error), 'error');
+        } finally {
+            generandoRespaldo = false;
+        }
+    }
 
     function abrirEdicion(usuario: any) {
         editando = usuario;
@@ -190,6 +207,32 @@
             {/each}
         </div>
     </section>
+
+    {#if app.permiso('admin:backup')}
+        <section class="tarjeta space-y-3 p-4">
+            <div>
+                <h2 class="text-sm font-semibold text-slate-700">Respaldo de la base de datos</h2>
+                <p class="mt-1 text-sm text-slate-500">
+                    Genera una copia completa en formato <code>.dump</code>, restaurable con
+                    <code>pg_restore</code>. El archivo se guarda en la carpeta de descargas del
+                    equipo.
+                </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <button
+                    class="btn-primario"
+                    type="button"
+                    onclick={generarRespaldo}
+                    disabled={generandoRespaldo}
+                >
+                    {generandoRespaldo ? 'Generando respaldo…' : 'Generar y descargar respaldo'}
+                </button>
+                {#if respaldoRuta}
+                    <span class="text-xs text-slate-500">Guardado en {respaldoRuta}</span>
+                {/if}
+            </div>
+        </section>
+    {/if}
 </div>
 
 {#if editando}

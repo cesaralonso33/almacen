@@ -46,6 +46,10 @@
   la edición del folio del recibo; el segundo, el botón **Duplicar** del formulario.
 - El recibo se entrega como DOCX generado a partir de `server/assets/plantillas/recibo_ayuda.docx`.
   La plantilla no contiene datos personales; solo marcadores que el servidor sustituye.
+- `admin:backup` se concede únicamente a `ADMINISTRADOR`. La API ejecuta `pg_dump` con las
+  credenciales de `DATABASE_URL`, escribe el archivo en el directorio temporal, lo entrega y lo
+  elimina; el contenido del respaldo no se registra en logs. La acción queda en auditoría como
+  `admin.backup`.
 
 ## Transporte y secretos
 

@@ -415,7 +415,10 @@ Si el stack no se llama `expedientes`, agregue `--proyecto NOMBRE`.
   `infra/.env`. Un comando por SSH puede corregir el contenedor de forma temporal, pero la
   siguiente actualización desde Portainer puede revertirlo.
 - Programe los respaldos por SSH y cron (`backup/backup.sh`); no dependa del contenedor de
-  Portainer para conservar copias.
+  Portainer para conservar copias. Además, el administrador puede generar un respaldo bajo demanda
+  desde **Administración → Respaldo de la base de datos**: la API ejecuta
+  `pg_dump --format=custom` y entrega un archivo `.dump` que se guarda en el equipo del usuario.
+  La imagen de la API incluye `postgresql-client-17`; restaure con `pg_restore`.
 - Antes de *Update the stack*, ejecute un respaldo. Las migraciones se aplican al iniciar la API y
   `restore/restore.sh` permite volver al respaldo previo si una falla.
 
@@ -476,7 +479,7 @@ Genere el manifiesto y copie los artefactos:
 
 ```bash
 powershell -ExecutionPolicy Bypass -File scripts/publicar-actualizacion.ps1 \
-  -Version 0.1.15 \
+  -Version 0.1.16 \
   -BaseUrl https://129-121-117-177.sslip.io
 ```
 

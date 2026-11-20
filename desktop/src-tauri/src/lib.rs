@@ -726,6 +726,22 @@ async fn guardar_formato_darfe(
 }
 
 #[tauri::command]
+async fn guardar_respaldo_base(
+    app: tauri::AppHandle,
+    estado: tauri::State<'_, EstadoApp>,
+) -> Result<String, String> {
+    let base = base_url(&estado)?;
+    let token = token_actual(&estado, &base).await?;
+    let respuesta = reqwest::Client::new()
+        .post(format!("{}/api/v1/admin/backup", base.trim_end_matches('/')))
+        .bearer_auth(token)
+        .send()
+        .await
+        .map_err(api::describir)?;
+    guardar_descarga(respuesta, &app, "respaldo.dump").await
+}
+
+#[tauri::command]
 fn servidor_actual(estado: tauri::State<'_, EstadoApp>) -> Result<String, String> {
     base_url(&estado)
 }
@@ -786,6 +802,7 @@ pub fn run() {
             ver_documento_darfe,
             guardar_exportacion_darfes,
             guardar_formato_darfe,
+            guardar_respaldo_base,
             servidor_actual,
             configurar_servidor
         ])

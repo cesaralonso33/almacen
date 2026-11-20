@@ -1,9 +1,16 @@
 use axum::{
+    body::Body,
     extract::{Path, State},
+    http::{header, HeaderValue, StatusCode},
+    response::Response,
     Json,
 };
+use chrono::Utc;
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::time::Duration;
+use tokio::process::Command;
+use url::Url;
 use uuid::Uuid;
 
 use crate::{api::entrada::ApiJson, audit, auth::AuthUser, error::ApiError, AppState};
@@ -368,4 +375,105 @@ pub async fn editar_usuario(
     tx.commit().await?;
 
     Ok(Json(json!({ "usuario_id": id })))
+}
+
+pub async fn respaldar_base(
+    State(app): State<AppState>,
+    user: AuthUser,
+) -> Result<Response, ApiError> {
+    user.exigir("admin:backup")?;
+
+    let conexion = Url::parse(&app.config.database_url)
+        .map_err(|error| ApiError::interno(format!("DATABASE_URL no es válida: {error}")))?;
+    let host = conexion.host_str().unwrap_or("127.0.0.1").to_string();
+    let puerto = conexion.port().unwrap_or(5432).to_string();
+    let usuario = conexion.username().to_string();
+    let clave = conexion.password().unwrap_or_default().to_string();
+    let base = conexion.path().trim_start_matches('/').to_string();
+    if base.is_empty() {
+        return Err(ApiError::interno(
+            "La URL de la base de datos no incluye el nombre de la base",
+        ));
+    }
+
+    let nombre = format!("respaldo-{}.dump", Utc::now().format("%Y%m%d-%H%M%S"));
+    let ruta = std::env::temp_dir().join(&nombre);
+
+    let comando = Command::new("pg_dump")
+        .arg("--format=custom")
+        .arg("--no-owner")
+        .arg("--no-privileges")
+        .arg("--host")
+        .arg(&host)
+        .arg("--port")
+        .arg(&puerto)
+        .arg("--username")
+        .arg(&usuario)
+        .arg("--dbname")
+        .arg(&base)
+        .arg("--file")
+        .arg(&ruta)
+        .env("PGPASSWORD", clave)
+        .kill_on_drop(true)
+        .output();
+
+    let salida = tokio::time::timeout(Duration::from_secs(300), comando)
+        .await
+        .map_err(|_| ApiError::interno("El respaldo excedió el tiempo máximo de 5 minutos"))?
+        .map_err(|error| {
+            ApiError::interno(format!("No se pudo ejecutar pg_dump: {error}"))
+        })?;
+
+    if !salida.status.success() {
+        let _ = tokio::fs::remove_file(&ruta).await;
+        tracing::error!(
+            error = %String::from_utf8_lossy(&salida.stderr),
+            "falló la generación del respaldo"
+        );
+        return Err(ApiError::interno(
+            "No se pudo generar el respaldo de la base de datos",
+        ));
+    }
+
+    let metadatos = tokio::fs::metadata(&ruta).await.map_err(|error| {
+        ApiError::interno(format!("No se pudo leer el respaldo generado: {error}"))
+    })?;
+    if metadatos.len() == 0 || metadatos.len() > 512 * 1024 * 1024 {
+        let _ = tokio::fs::remove_file(&ruta).await;
+        return Err(ApiError::interno(
+            "El respaldo generado está vacío o excede el tamaño permitido",
+        ));
+    }
+    let bytes = tokio::fs::read(&ruta).await.map_err(|error| {
+        ApiError::interno(format!("No se pudo leer el respaldo generado: {error}"))
+    })?;
+    let _ = tokio::fs::remove_file(&ruta).await;
+
+    let mut tx = app.db.begin().await?;
+    audit::registrar(
+        &mut tx,
+        Some(user.id),
+        "admin.backup",
+        "base_datos",
+        Uuid::nil(),
+        "EXITO",
+        json!({ "archivo": nombre, "tamano": bytes.len() }),
+    )
+    .await?;
+    tx.commit().await?;
+
+    let disposicion = format!("attachment; filename=\"{nombre}\"");
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("application/octet-stream"),
+        )
+        .header(
+            header::CONTENT_DISPOSITION,
+            HeaderValue::from_str(&disposicion)
+                .map_err(|error| ApiError::interno(error.to_string()))?,
+        )
+        .body(Body::from(bytes))
+        .map_err(|error| ApiError::interno(error.to_string()))
 }

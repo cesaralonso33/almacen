@@ -137,3 +137,59 @@ async fn edicion_valida_correo_unico_permisos_y_longitud() {
 
     t.cerrar().await;
 }
+
+#[tokio::test]
+async fn solo_administrador_genera_respaldo() {
+    use axum::{
+        body::Body,
+        http::{header, Request},
+    };
+    use http_body_util::BodyExt;
+    use tower::ServiceExt;
+
+    let t = setup().await;
+    let tok_admin = administrador(&t, "admin@test.mx").await;
+    crear_usuario(&t.db, "usuario@test.mx", "USUARIO").await;
+    let (tok_usuario, _) = iniciar_sesion(&t.app, "usuario@test.mx").await;
+
+    let (estado, _) = pedir(
+        &t.app,
+        "POST",
+        "/api/v1/admin/backup",
+        Some(&tok_usuario),
+        None,
+    )
+    .await;
+    assert_eq!(estado, StatusCode::FORBIDDEN);
+
+    let respuesta = t
+        .app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/admin/backup")
+                .header(header::AUTHORIZATION, format!("Bearer {tok_admin}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(respuesta.status(), StatusCode::OK);
+    let disposicion = respuesta
+        .headers()
+        .get(header::CONTENT_DISPOSITION)
+        .and_then(|valor| valor.to_str().ok())
+        .unwrap_or_default()
+        .to_string();
+    assert!(disposicion.contains(".dump"), "{disposicion}");
+    let bytes = respuesta
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes();
+    assert!(bytes.starts_with(b"PGDMP"), "no es un respaldo de pg_dump");
+
+    t.cerrar().await;
+}

@@ -14,6 +14,7 @@
     let destino = $state('');
     let observaciones = $state('');
     let pagina = $state(1);
+    let buscar = $state('');
 
     let agregando = $state(false);
     let numero = $state('');
@@ -22,8 +23,24 @@
     let descripcion = $state('');
     let guardando = $state(false);
 
-    const paginas = $derived(totalPaginas(custodias.length, POR_PAGINA));
-    const visibles = $derived(recortar(custodias, pagina, POR_PAGINA));
+    function normalizar(valor: unknown): string {
+        return String(valor ?? '')
+            .toLocaleLowerCase('es-MX')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+    }
+
+    const custodiasFiltradas = $derived.by(() => {
+        const termino = normalizar(buscar).trim();
+        if (!termino) return custodias;
+        return custodias.filter((custodia) =>
+            [custodia.numero, custodia.descripcion, custodia.estado, custodia.unidad]
+                .map((valor) => normalizar(valor))
+                .some((valor) => valor.includes(termino))
+        );
+    });
+    const paginas = $derived(totalPaginas(custodiasFiltradas.length, POR_PAGINA));
+    const visibles = $derived(recortar(custodiasFiltradas, pagina, POR_PAGINA));
 
     onMount(() => {
         cargar();
@@ -144,7 +161,15 @@
 <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
         <p class="text-sm text-slate-500">Expedientes bajo mi custodia</p>
-        <div class="flex gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+            <input
+                class="campo w-full min-w-0 sm:w-72"
+                type="search"
+                placeholder="Buscar por número, descripción o estado…"
+                aria-label="Buscar en mis custodias"
+                bind:value={buscar}
+                oninput={() => (pagina = 1)}
+            />
             {#if app.permiso('expedientes:crear')}
                 <button class="btn-primario" onclick={abrirAlta}>Agregar expediente</button>
             {/if}
@@ -220,14 +245,16 @@
                         </td>
                     </tr>
                 {/each}
-                {#if custodias.length === 0}
+                {#if custodiasFiltradas.length === 0}
                     <tr><td colspan="5" class="py-6 text-center text-slate-400">
-                        No tienes expedientes en custodia
+                        {custodias.length === 0
+                            ? 'No tienes expedientes en custodia'
+                            : 'No hay custodias que coincidan con la búsqueda'}
                     </td></tr>
                 {/if}
             </tbody>
         </table></div>
-        <Paginacion {pagina} {paginas} total={custodias.length} onCambiar={(valor) => (pagina = valor)} />
+        <Paginacion {pagina} {paginas} total={custodiasFiltradas.length} onCambiar={(valor) => (pagina = valor)} />
     </div>
 </div>
 

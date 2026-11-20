@@ -561,7 +561,9 @@ servidor Debian de destino.
   Administración. La API ejecuta `pg_dump --format=custom`, entrega un archivo `.dump` y registra
   `admin.backup`; la imagen incluye `postgresql-client-17`. La migración
   `0019_admin_backup.sql` crea el permiso `admin:backup`, exclusivo de `ADMINISTRADOR`.
+- Versión `0.1.17`: **Mis custodias** incluye un buscador por número, descripción o estado, con
+  normalización de acentos y paginación sobre los resultados filtrados.
 - Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
-  `infra/updates/`. **Pendiente**: publicar `0.1.16` en el VPS; el servidor responde por HTTPS y
+  `infra/updates/`. **Pendiente**: publicar `0.1.17` en el VPS; el servidor responde por HTTPS y
   sigue sirviendo `0.1.4`, pero el puerto SSH `2702` presenta una clave de host distinta a la
   registrada, por lo que no se desplegó sin validarla.

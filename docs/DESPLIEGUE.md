@@ -357,7 +357,7 @@ fiables** los montajes relativos (`./Caddyfile`, `./certs`) ni la compilación d
 ```bash
 cd /opt/expedientes/almacen/infra     # ajuste la ruta de su clon
 git pull
-docker compose -f docker-compose.yml build api
+docker compose -f docker-compose.yml build --pull --no-cache api
 chmod +x preparar-vps.sh verificar-tls.sh
 ./preparar-vps.sh --portainer --sitio 129-121-117-177.sslip.io
 ```
@@ -378,6 +378,35 @@ Portainer no compila la API en este flujo: usa la imagen local construida en el 
 la imagen no existe en el host, el servicio `api` no arranca; construya y etiquete la imagen antes
 de desplegar. Este flujo supone que Portainer administra el Docker del **mismo VPS**; con un
 entorno remoto, publique `API_IMAGE` en un registro accesible desde ese host.
+
+### Error `GLIBC_2.39 not found`
+
+Si al iniciar la API aparece:
+
+```text
+/usr/local/bin/expedientes-api: /lib/x86_64-linux-gnu/libc.so.6:
+version `GLIBC_2.39' not found
+```
+
+el binario se compiló con una glibc más nueva que la de la imagen final. El `Dockerfile` fija el
+builder a `rust:1.90-slim-bookworm` para que coincida con `debian:bookworm-slim`. Reconstruya la
+imagen sin caché y sin copiar binarios compilados en el host:
+
+```bash
+cd /opt/expedientes/almacen/infra
+git pull
+docker compose build --pull --no-cache api
+docker compose up -d api
+docker compose logs --tail=50 api
+```
+
+La API debe aplicar las migraciones pendientes al iniciar. Verifique que la ruta nueva responda
+401 (y no 404):
+
+```bash
+curl -k -o /dev/null -w "%{http_code}\n" \
+  -X POST https://129-121-117-177.sslip.io/api/v1/admin/backup
+```
 
 Mantenga actualizado el clon del host (`git pull`) antes de *Update the stack*: las rutas absolutas
 de Caddy apuntan a ese clon. Un cambio de `CADDYFILE` o `CERTS_DIR` no se aplica hasta recrear

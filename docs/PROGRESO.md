@@ -563,6 +563,9 @@ servidor Debian de destino.
   `0019_admin_backup.sql` crea el permiso `admin:backup`, exclusivo de `ADMINISTRADOR`.
 - Versión `0.1.17`: **Mis custodias** incluye un buscador por número, descripción o estado, con
   normalización de acentos y paginación sobre los resultados filtrados.
+- El `Dockerfile` de la API fija el builder en `rust:1.90-slim-bookworm` para que el binario enlace
+  con la glibc de `debian:bookworm-slim` y evitar `GLIBC_2.39 not found`. La reconstrucción debe
+  hacerse con `--pull --no-cache`.
 - Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
   `infra/updates/`. **Pendiente**: publicar `0.1.17` en el VPS; el servidor responde por HTTPS y
   sigue sirviendo `0.1.4`, pero el puerto SSH `2702` presenta una clave de host distinta a la

@@ -1,5 +1,8 @@
 # API de expedientes — imagen de producción
-FROM rust:1.90-slim AS compilacion
+# El builder se fija a bookworm para enlazar con la misma glibc (2.36) que la
+# imagen final debian:bookworm-slim. El tag sin sufijo puede resolver a una base
+# más nueva y producir "GLIBC_2.39 not found" al iniciar el contenedor.
+FROM rust:1.90-slim-bookworm AS compilacion
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends pkg-config ca-certificates \

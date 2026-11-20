@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use chrono::{DateTime, Utc};
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use rusqlite::params;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -37,6 +38,13 @@ struct SesionInfo {
     nombre: String,
     usuario_id: String,
     permisos: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct DocumentoVista {
+    nombre: String,
+    mime: String,
+    contenido_base64: String,
 }
 
 #[derive(Serialize)]
@@ -610,6 +618,70 @@ async fn guardar_documento_darfe(
 }
 
 #[tauri::command]
+async fn ver_documento_darfe(
+    id: String,
+    campo: String,
+    estado: tauri::State<'_, EstadoApp>,
+) -> Result<DocumentoVista, String> {
+    Uuid::parse_str(&id).map_err(|_| "Identificador DARFE inválido".to_string())?;
+    let campo = campo.trim().to_uppercase();
+    if ![
+        "CURP",
+        "RFC",
+        "REGISTRO",
+        "IDENTIFICACION",
+        "ESTADO_CUENTA",
+        "DEPOSITO",
+        "ESCRITO_LIBRE",
+    ]
+    .contains(&campo.as_str())
+    {
+        return Err("Campo de documento no permitido".to_string());
+    }
+    let base = base_url(&estado)?;
+    let token = token_actual(&estado, &base).await?;
+    let respuesta = reqwest::Client::new()
+        .get(format!(
+            "{}/api/v1/darfes/{id}/documentos/{campo}",
+            base.trim_end_matches('/')
+        ))
+        .bearer_auth(token)
+        .send()
+        .await
+        .map_err(api::describir)?;
+
+    if !respuesta.status().is_success() {
+        return Err(format!(
+            "No se pudo abrir el documento (HTTP {})",
+            respuesta.status()
+        ));
+    }
+
+    let nombre = respuesta
+        .headers()
+        .get("content-disposition")
+        .and_then(|valor| valor.to_str().ok())
+        .and_then(|valor| valor.split("filename=\"").nth(1))
+        .and_then(|valor| valor.split('"').next())
+        .unwrap_or("documento")
+        .replace('/', "_")
+        .replace('\\', "_");
+    let mime = respuesta
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|valor| valor.to_str().ok())
+        .unwrap_or("application/octet-stream")
+        .to_string();
+    let bytes = respuesta.bytes().await.map_err(|error| error.to_string())?;
+
+    Ok(DocumentoVista {
+        nombre,
+        mime,
+        contenido_base64: BASE64.encode(&bytes),
+    })
+}
+
+#[tauri::command]
 async fn guardar_exportacion_darfes(
     consulta: String,
     app: tauri::AppHandle,
@@ -711,6 +783,7 @@ pub fn run() {
             peticion,
             guardar_documento_pa,
             guardar_documento_darfe,
+            ver_documento_darfe,
             guardar_exportacion_darfes,
             guardar_formato_darfe,
             servidor_actual,

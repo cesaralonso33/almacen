@@ -83,6 +83,13 @@
     let errorFormulario = $state('');
     let documentosExistentes = $state<string[]>([]);
     let archivos = $state<Archivos>(vacioArchivos());
+    let vistaDocumento = $state<{
+        id: string;
+        campo: string;
+        nombre: string;
+        mime: string;
+        url: string;
+    } | null>(null);
     let folioFormulario = $state('');
     let guardandoFolio = $state(false);
     let columnas = $state<Record<ClaveColumna, boolean>>({ ...COLUMNAS_PREDETERMINADAS });
@@ -416,6 +423,41 @@
         }
     }
 
+    async function verDocumento(registro: any, campo: string) {
+        try {
+            const documento = await invoke<{
+                nombre: string;
+                mime: string;
+                contenido_base64: string;
+            }>('ver_documento_darfe', { id: registro.id, campo });
+            const binario = atob(documento.contenido_base64);
+            const bytes = new Uint8Array(binario.length);
+            for (let indice = 0; indice < binario.length; indice++) {
+                bytes[indice] = binario.charCodeAt(indice);
+            }
+            const url = URL.createObjectURL(
+                new Blob([bytes], { type: documento.mime || 'application/octet-stream' })
+            );
+            cerrarVista();
+            vistaDocumento = {
+                id: registro.id,
+                campo,
+                nombre: documento.nombre,
+                mime: documento.mime,
+                url
+            };
+        } catch (fallo) {
+            app.avisar(String(fallo), 'error');
+        }
+    }
+
+    function cerrarVista() {
+        if (vistaDocumento) {
+            URL.revokeObjectURL(vistaDocumento.url);
+            vistaDocumento = null;
+        }
+    }
+
     async function exportar() {
         try {
             const consulta = new URLSearchParams();
@@ -708,7 +750,8 @@
                                                     <button
                                                         class="text-xs underline text-institucional-600"
                                                         type="button"
-                                                        onclick={() => descargarDocumento(registro, campo.clave)}
+                                                        title={`Ver ${campo.etiqueta}`}
+                                                        onclick={() => verDocumento(registro, campo.clave)}
                                                     >
                                                         {campo.etiqueta}
                                                     </button>
@@ -1002,9 +1045,9 @@
                                 <button
                                     class="mt-1 text-xs underline text-institucional-600"
                                     type="button"
-                                    onclick={() => descargarDocumento({ id: editandoId }, campo.clave)}
+                                    onclick={() => verDocumento({ id: editandoId }, campo.clave)}
                                 >
-                                    Descargar actual
+                                    Ver actual
                                 </button>
                             {/if}
                             <input
@@ -1072,5 +1115,43 @@
                 </button>
             </div>
         </form>
+    </Modal>
+{/if}
+
+{#if vistaDocumento}
+    <Modal
+        titulo={`Documento: ${vistaDocumento.nombre}`}
+        ancho={80}
+        oncerrar={cerrarVista}
+    >
+        {#if vistaDocumento.mime.startsWith('image/')}
+            <img
+                src={vistaDocumento.url}
+                alt={vistaDocumento.nombre}
+                class="mx-auto max-h-[70vh] max-w-full object-contain"
+            />
+        {:else if vistaDocumento.mime === 'application/pdf'}
+            <iframe
+                src={vistaDocumento.url}
+                title={vistaDocumento.nombre}
+                class="h-[70vh] w-full rounded-lg border border-slate-200"
+            ></iframe>
+        {:else}
+            <p class="rounded-lg bg-slate-50 px-3 py-4 text-sm text-slate-600">
+                Este tipo de archivo no se puede previsualizar. Descárgalo para abrirlo con el
+                programa correspondiente.
+            </p>
+        {/if}
+
+        <div class="mt-4 flex flex-wrap justify-end gap-2">
+            <button
+                class="btn-secundario"
+                type="button"
+                onclick={() => descargarDocumento({ id: vistaDocumento!.id }, vistaDocumento!.campo)}
+            >
+                Descargar
+            </button>
+            <button class="btn-primario" type="button" onclick={cerrarVista}>Cerrar</button>
+        </div>
     </Modal>
 {/if}

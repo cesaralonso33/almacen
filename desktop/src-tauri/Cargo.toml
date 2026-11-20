@@ -1,6 +1,6 @@
 [package]
 name = "expedientes-desktop"
-version = "0.1.14"
+version = "0.1.15"
 edition = "2021"
 
 [lib]
@@ -13,6 +13,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 async-trait = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
+base64 = "0.22"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls-native-roots"] }
 rusqlite = { version = "0.32", features = ["bundled-sqlcipher-vendored-openssl"] }
 serde = { version = "1", features = ["derive"] }

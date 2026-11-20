@@ -554,7 +554,10 @@ servidor Debian de destino.
   menú por debajo de 1024 px; el encabezado, las barras de herramientas y los formularios ajustan
   sus columnas; las tablas tienen desplazamiento horizontal y ancho mínimo legible; el acceso y los
   modales reducen márgenes en pantallas pequeñas.
+- Versión `0.1.15`: los documentos de DARFES se pueden **visualizar** dentro de la aplicación
+  (PDF e imágenes) desde la tabla y el formulario, con opción de descargarlos. Se agregó el comando
+  `ver_documento_darfe`, el visor modal y la política CSP para `blob:`.
 - Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
-  `infra/updates/`. **Pendiente**: publicar `0.1.14` en el VPS; el servidor responde por HTTPS y
+  `infra/updates/`. **Pendiente**: publicar `0.1.15` en el VPS; el servidor responde por HTTPS y
   sigue sirviendo `0.1.4`, pero el puerto SSH `2702` presenta una clave de host distinta a la
   registrada, por lo que no se desplegó sin validarla.

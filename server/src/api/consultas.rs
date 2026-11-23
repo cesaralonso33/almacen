@@ -1,8 +1,12 @@
 use axum::{
+    body::Body,
     extract::{Path, State},
+    http::{header, HeaderValue, StatusCode},
+    response::Response,
     Json,
 };
 use chrono::{DateTime, Utc};
+use rust_xlsxwriter::{Format, Workbook};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
 use uuid::Uuid;
@@ -298,6 +302,128 @@ pub async fn buscar_expedientes(
         "unidades": unidades,
         "anios": anios,
     })))
+}
+
+pub async fn exportar_expedientes(
+    State(app): State<AppState>,
+    user: AuthUser,
+    ApiQuery(input): ApiQuery<BusquedaExpedientes>,
+) -> Result<Response, ApiError> {
+    user.exigir("expedientes:exportar")?;
+
+    let patron = format!("%{}%", input.buscar.as_deref().unwrap_or_default().trim());
+    let estado = input
+        .estado
+        .as_deref()
+        .map(str::trim)
+        .filter(|valor| !valor.is_empty());
+    let unidad = input
+        .unidad
+        .as_deref()
+        .map(str::trim)
+        .filter(|valor| !valor.is_empty());
+    let custodio = input
+        .custodio
+        .as_deref()
+        .map(str::trim)
+        .filter(|valor| !valor.is_empty())
+        .map(|valor| format!("%{valor}%"));
+
+    let filas = sqlx::query_as::<
+        _,
+        (
+            String,
+            Option<i16>,
+            Option<String>,
+            String,
+            String,
+            Option<String>,
+            i64,
+        ),
+    >(
+        "SELECT e.numero, e.anio, e.unidad, e.descripcion, e.estado, u.nombre, e.version
+         FROM expedientes e
+         LEFT JOIN usuarios u ON u.id = e.custodio_id
+         WHERE (e.numero ILIKE $1 OR e.descripcion ILIKE $1)
+           AND ($2::text IS NULL OR e.estado = $2)
+           AND ($3::text IS NULL OR e.unidad = $3)
+           AND ($4::smallint IS NULL OR e.anio = $4)
+           AND ($5::text IS NULL OR u.nombre ILIKE $5)
+         ORDER BY e.numero
+         LIMIT 100000",
+    )
+    .bind(&patron)
+    .bind(estado)
+    .bind(unidad)
+    .bind(input.anio)
+    .bind(&custodio)
+    .fetch_all(&app.db)
+    .await?;
+
+    let mut libro = Workbook::new();
+    let hoja = libro.add_worksheet();
+    hoja.set_name("Expedientes").map_err(error_excel)?;
+    let encabezado = Format::new().set_bold();
+    let columnas = [
+        "NÚMERO",
+        "AÑO",
+        "UNIDAD / ÓRGANO",
+        "DESCRIPCIÓN",
+        "ESTADO",
+        "CUSTODIO",
+        "VERSIÓN",
+    ];
+    for (indice, titulo) in columnas.iter().enumerate() {
+        hoja.write_string_with_format(0, indice as u16, *titulo, &encabezado)
+            .map_err(error_excel)?;
+        hoja.set_column_width(indice as u16, if indice == 3 { 48 } else { 18 })
+            .map_err(error_excel)?;
+    }
+
+    for (fila, (numero, anio, unidad, descripcion, estado, custodio, version)) in
+        filas.iter().enumerate()
+    {
+        let renglon = fila as u32 + 1;
+        hoja.write_string(renglon, 0, numero.as_str())
+            .map_err(error_excel)?;
+        if let Some(anio) = anio {
+            hoja.write_number(renglon, 1, *anio as f64)
+                .map_err(error_excel)?;
+        }
+        hoja.write_string(renglon, 2, unidad.as_deref().unwrap_or(""))
+            .map_err(error_excel)?;
+        hoja.write_string(renglon, 3, descripcion.as_str())
+            .map_err(error_excel)?;
+        hoja.write_string(renglon, 4, estado.as_str())
+            .map_err(error_excel)?;
+        hoja.write_string(renglon, 5, custodio.as_deref().unwrap_or(""))
+            .map_err(error_excel)?;
+        hoja.write_number(renglon, 6, *version as f64)
+            .map_err(error_excel)?;
+    }
+
+    let bytes = libro.save_to_buffer().map_err(error_excel)?;
+    let nombre = format!("expedientes-{}.xlsx", Utc::now().format("%Y%m%d-%H%M%S"));
+    let disposicion = format!("attachment; filename=\"{nombre}\"");
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ),
+        )
+        .header(
+            header::CONTENT_DISPOSITION,
+            HeaderValue::from_str(&disposicion)
+                .map_err(|error| ApiError::interno(error.to_string()))?,
+        )
+        .body(Body::from(bytes))
+        .map_err(|error| ApiError::interno(error.to_string()))
+}
+
+fn error_excel(error: rust_xlsxwriter::XlsxError) -> ApiError {
+    ApiError::interno(format!("No se pudo generar el Excel: {error}"))
 }
 
 pub async fn historial(

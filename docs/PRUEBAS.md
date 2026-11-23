@@ -18,7 +18,7 @@ Cada prueba crea una base PostgreSQL efímera, aplica todas las migraciones y la
 | `tests/sync.rs` | 10 | snapshot, push idempotente, pull filtrado, cursores, operación no permitida y CONSULTA de solo lectura |
 | `tests/consultas.rs` | 7 | tablero, listados por rol, custodias, historial, directorio |
 | `tests/bootstrap.rs` | 2 | creación del administrador inicial, duplicados y contraseña corta |
-| `tests/expedientes.rs` | 4 | alta con custodia del creador, año actual, devolución, permisos y formato del número |
+| `tests/expedientes.rs` | 5 | alta con custodia del creador, año actual, devolución, permisos, formato del número y exportación exclusiva del administrador |
 | `src/api/expedientes.rs` (unitarias) | 1 | normalización a 8 caracteres antes de la barra |
 | `tests/admin.rs` | 3 | edición de nombre, correo y contraseña; revocación de sesiones; respaldo exclusivo del administrador |
 | `tests/importacion.rs` | 2 | importación masiva, normalización, duplicados, permisos y límite |
@@ -32,7 +32,7 @@ Cada prueba crea una base PostgreSQL efímera, aplica todas las migraciones y la
 | `tests/darfes.rs` | 6 | CRUD DARFES, tipos de apoyo, folio administrado, contacto, documentos (incluido escrito libre), PDF de depósito, canasta de 3 registros, recibo DOCX con folio anual, Excel, reportes y permisos |
 | `src/api/darfes.rs` (unitarias) | 4 | extracción del PDF de depósito y del reporte SPEI: coincidencia y diferencias de cuenta, monto y nombre |
 
-Total: **95 pruebas**.
+Total: **96 pruebas**.
 
 ## Escritorio (Rust)
 

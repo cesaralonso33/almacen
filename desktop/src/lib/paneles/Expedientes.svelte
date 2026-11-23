@@ -20,6 +20,7 @@
     let pagina = $state(1);
     let local = $state(false);
     let avanzado = $state(false);
+    let exportando = $state(false);
 
     let estadoFiltro = $state('');
     let unidadFiltro = $state('');
@@ -109,6 +110,26 @@
         custodioFiltro = '';
         pagina = 1;
         cargar();
+    }
+
+    async function exportar() {
+        exportando = true;
+        try {
+            const consulta = new URLSearchParams();
+            if (buscar.trim()) consulta.set('buscar', buscar.trim());
+            if (estadoFiltro) consulta.set('estado', estadoFiltro);
+            if (unidadFiltro) consulta.set('unidad', unidadFiltro);
+            if (anioFiltro) consulta.set('anio', anioFiltro);
+            if (custodioFiltro.trim()) consulta.set('custodio', custodioFiltro.trim());
+            const ruta = await invoke<string>('guardar_exportacion_expedientes', {
+                consulta: consulta.toString() ? `?${consulta.toString()}` : ''
+            });
+            app.avisar(`Exportación guardada en ${ruta}`);
+        } catch (error) {
+            app.avisar(String(error), 'error');
+        } finally {
+            exportando = false;
+        }
     }
 
     function alternarEstado(estado: string) {
@@ -240,6 +261,11 @@
             {/if}
             {#if app.permiso('expedientes:administrar')}
                 <button class="btn-secundario" onclick={abrirImportacion}>Importar lista</button>
+            {/if}
+            {#if app.permiso('expedientes:exportar')}
+                <button class="btn-secundario" onclick={exportar} disabled={exportando}>
+                    {exportando ? 'Exportando…' : 'Exportar Excel'}
+                </button>
             {/if}
             <button class="btn-secundario" onclick={cargar}>Actualizar</button>
         </div>

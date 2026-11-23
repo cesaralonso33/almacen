@@ -224,3 +224,102 @@ async fn normaliza_el_numero_a_ocho_caracteres_antes_de_la_barra() {
 
     t.cerrar().await;
 }
+
+#[tokio::test]
+async fn solo_administrador_exporta_expedientes() {
+    use axum::{
+        body::Body,
+        http::{header, Request},
+    };
+    use http_body_util::BodyExt;
+    use std::io::Read;
+    use tower::ServiceExt;
+
+    let t = setup().await;
+    crear_usuario(&t.db, "admin@test.mx", "ADMINISTRADOR").await;
+    crear_usuario(&t.db, "usuario@test.mx", "USUARIO").await;
+    let (tok_admin, _) = iniciar_sesion(&t.app, "admin@test.mx").await;
+    let (tok_usuario, _) = iniciar_sesion(&t.app, "usuario@test.mx").await;
+
+    let (estado, creado) = pedir(
+        &t.app,
+        "POST",
+        "/api/v1/expedientes",
+        Some(&tok_usuario),
+        Some(json!({
+            "numero": "EXP-EXPORT-1",
+            "descripcion": "Expediente para exportar",
+            "unidad": "JUZGADO 1"
+        })),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK, "{creado}");
+
+    let (estado, _) = pedir(
+        &t.app,
+        "GET",
+        "/api/v1/expedientes/exportar",
+        Some(&tok_usuario),
+        None,
+    )
+    .await;
+    assert_eq!(estado, StatusCode::FORBIDDEN);
+
+    let respuesta = t
+        .app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/v1/expedientes/exportar")
+                .header(header::AUTHORIZATION, format!("Bearer {tok_admin}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let estado = respuesta.status();
+    let disposicion = respuesta
+        .headers()
+        .get(header::CONTENT_DISPOSITION)
+        .and_then(|valor| valor.to_str().ok())
+        .unwrap_or_default()
+        .to_string();
+    let bytes = respuesta
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes();
+    assert_eq!(
+        estado,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&bytes)
+    );
+    assert!(disposicion.contains(".xlsx"), "{disposicion}");
+
+    assert!(bytes.starts_with(b"PK"), "no es un archivo xlsx");
+    let mut archivo = zip::ZipArchive::new(std::io::Cursor::new(&bytes)).expect("xlsx válido");
+    let mut contiene_expediente = false;
+    for indice in 0..archivo.len() {
+        let mut entrada = archivo.by_index(indice).unwrap();
+        let es_xml = entrada
+            .name()
+            .map(|nombre| nombre.ends_with(".xml"))
+            .unwrap_or(false);
+        if !es_xml {
+            continue;
+        }
+        let mut contenido = String::new();
+        if entrada.read_to_string(&mut contenido).is_ok()
+            && contenido.contains("EXP-EXPORT-1")
+        {
+            contiene_expediente = true;
+            break;
+        }
+    }
+    assert!(contiene_expediente, "el expediente no aparece en el Excel");
+
+    t.cerrar().await;
+}

@@ -742,6 +742,29 @@ async fn guardar_respaldo_base(
 }
 
 #[tauri::command]
+async fn guardar_exportacion_expedientes(
+    consulta: String,
+    app: tauri::AppHandle,
+    estado: tauri::State<'_, EstadoApp>,
+) -> Result<String, String> {
+    if (!consulta.is_empty() && !consulta.starts_with('?')) || consulta.contains("..") {
+        return Err("Filtros de exportación no válidos".to_string());
+    }
+    let base = base_url(&estado)?;
+    let token = token_actual(&estado, &base).await?;
+    let respuesta = reqwest::Client::new()
+        .get(format!(
+            "{}/api/v1/expedientes/exportar{consulta}",
+            base.trim_end_matches('/')
+        ))
+        .bearer_auth(token)
+        .send()
+        .await
+        .map_err(api::describir)?;
+    guardar_descarga(respuesta, &app, "expedientes.xlsx").await
+}
+
+#[tauri::command]
 fn servidor_actual(estado: tauri::State<'_, EstadoApp>) -> Result<String, String> {
     base_url(&estado)
 }
@@ -803,6 +826,7 @@ pub fn run() {
             guardar_exportacion_darfes,
             guardar_formato_darfe,
             guardar_respaldo_base,
+            guardar_exportacion_expedientes,
             servidor_actual,
             configurar_servidor
         ])

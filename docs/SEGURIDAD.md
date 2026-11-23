@@ -50,6 +50,8 @@
   credenciales de `DATABASE_URL`, escribe el archivo en el directorio temporal, lo entrega y lo
   elimina; el contenido del respaldo no se registra en logs. La acción queda en auditoría como
   `admin.backup`.
+- `expedientes:exportar` también es exclusivo de `ADMINISTRADOR`. La API aplica los filtros de la
+  consulta y entrega un `.xlsx`; el botón de la interfaz solo se muestra con ese permiso.
 
 ## Transporte y secretos
 

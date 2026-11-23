@@ -128,7 +128,14 @@ pub fn router(estado: AppState) -> Router {
             "/api/v1/expedientes",
             get(consultas::buscar_expedientes).post(expedientes::crear),
         )
-        .route("/api/v1/expedientes/importar", post(expedientes::importar))
+        .route(
+            "/api/v1/expedientes/importar",
+            post(expedientes::importar),
+        )
+        .route(
+            "/api/v1/expedientes/exportar",
+            get(consultas::exportar_expedientes),
+        )
         .route(
             "/api/v1/expedientes/{id}/historial",
             get(consultas::historial),

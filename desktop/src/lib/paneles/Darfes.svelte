@@ -45,6 +45,16 @@
 
     type ClaveColumna = (typeof COLUMNAS)[number]['clave'];
 
+    const PESTANAS_FORM = [
+        { clave: 'generales', etiqueta: 'Datos generales' },
+        { clave: 'pago', etiqueta: 'Pago' },
+        { clave: 'contacto', etiqueta: 'Contacto' },
+        { clave: 'documentos', etiqueta: 'Documentos' },
+        { clave: 'campos', etiqueta: 'Campos adicionales' }
+    ] as const;
+
+    type PestanaForm = (typeof PESTANAS_FORM)[number]['clave'];
+
     const COLUMNAS_PREDETERMINADAS: Record<ClaveColumna, boolean> = {
         numero_darfe: true,
         fecha: true,
@@ -92,6 +102,7 @@
     } | null>(null);
     let folioFormulario = $state('');
     let guardandoFolio = $state(false);
+    let pestanaForm = $state<PestanaForm>('generales');
     let columnas = $state<Record<ClaveColumna, boolean>>({ ...COLUMNAS_PREDETERMINADAS });
     let menuColumnas = $state(false);
     let menuColumnasEl = $state<HTMLDivElement | undefined>(undefined);
@@ -187,6 +198,7 @@
     function abrirNuevo() {
         editandoId = null;
         folioFormulario = '';
+        pestanaForm = 'generales';
         documentosExistentes = [];
         archivos = vacioArchivos();
         errorFormulario = '';
@@ -213,6 +225,7 @@
 
     function duplicar() {
         editandoId = null;
+        pestanaForm = 'generales';
         documentosExistentes = [];
         archivos = vacioArchivos();
         errorFormulario = '';
@@ -221,6 +234,7 @@
 
     function abrirEdicion(registro: any) {
         editandoId = registro.id;
+        pestanaForm = 'generales';
         folioFormulario = registro.folio_formato ? String(registro.folio_formato) : '';
         documentosExistentes = Array.isArray(registro.documentos) ? registro.documentos : [];
         archivos = vacioArchivos();
@@ -884,7 +898,29 @@
                 guardar();
             }}
         >
-            <section class="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+            <div
+                class="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1"
+                role="tablist"
+                aria-label="Secciones del formulario DARFE"
+            >
+                {#each PESTANAS_FORM as pestana}
+                    <button
+                        class="rounded-lg px-3 py-2 text-sm font-medium transition {pestanaForm ===
+                        pestana.clave
+                            ? 'bg-white text-institucional-700 shadow-sm'
+                            : 'text-slate-600 hover:bg-white/60'}"
+                        type="button"
+                        role="tab"
+                        aria-selected={pestanaForm === pestana.clave}
+                        onclick={() => (pestanaForm = pestana.clave)}
+                    >
+                        {pestana.etiqueta}
+                    </button>
+                {/each}
+            </div>
+
+            {#if pestanaForm === 'generales'}
+                <section class="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
                 <h3 class="mb-3 text-sm font-semibold text-slate-700">Identificación del DARFE</h3>
                 <div class="grid gap-3 sm:grid-cols-2">
                     <label class="block text-sm">
@@ -963,7 +999,9 @@
                     </div>
                 </section>
             {/if}
+            {/if}
 
+            {#if pestanaForm === 'pago'}
             <section class="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
                 <h3 class="mb-3 text-sm font-semibold text-slate-700">Datos de pago</h3>
                 <div class="grid gap-3 sm:grid-cols-2">
@@ -981,7 +1019,9 @@
                     </label>
                 </div>
             </section>
+            {/if}
 
+            {#if pestanaForm === 'contacto'}
             <section class="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
                 <h3 class="mb-3 text-sm font-semibold text-slate-700">Datos personales y contacto</h3>
                 <div class="grid gap-3 sm:grid-cols-2">
@@ -1023,7 +1063,9 @@
                     </label>
                 </div>
             </section>
+            {/if}
 
+            {#if pestanaForm === 'documentos'}
             <section class="space-y-2 rounded-lg border border-slate-200 bg-slate-50/60 p-4">
                 <div class="flex items-center justify-between">
                     <h3 class="text-sm font-semibold text-slate-700">Documentos</h3>
@@ -1066,6 +1108,9 @@
                 </div>
             </section>
 
+            {/if}
+
+            {#if pestanaForm === 'campos'}
             <section class="space-y-2 rounded-lg border border-slate-200 bg-slate-50/60 p-4">
                 <div class="flex items-center justify-between">
                     <h3 class="text-sm font-semibold text-slate-700">Campos adicionales</h3>
@@ -1081,6 +1126,7 @@
                     </div>
                 {/each}
             </section>
+            {/if}
 
             {#if errorFormulario}
                 <p class="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{errorFormulario}</p>

@@ -566,7 +566,10 @@ servidor Debian de destino.
 - El `Dockerfile` de la API fija el builder en `rust:1.90-slim-bookworm` para que el binario enlace
   con la glibc de `debian:bookworm-slim` y evitar `GLIBC_2.39 not found`. La reconstrucción debe
   hacerse con `--pull --no-cache`.
+- Versión `0.1.18`: el formulario de DARFES se organiza en pestañas (**Datos generales**,
+  **Pago**, **Contacto**, **Documentos** y **Campos adicionales**) para mostrar una sección a la vez
+  y evitar el desplazamiento vertical del formulario completo.
 - Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
-  `infra/updates/`. **Pendiente**: publicar `0.1.17` en el VPS; el servidor responde por HTTPS y
+  `infra/updates/`. **Pendiente**: publicar `0.1.18` en el VPS; el servidor responde por HTTPS y
   sigue sirviendo `0.1.4`, pero el puerto SSH `2702` presenta una clave de host distinta a la
   registrada, por lo que no se desplegó sin validarla.

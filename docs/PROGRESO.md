@@ -572,7 +572,10 @@ servidor Debian de destino.
 - Versión `0.1.19`: **Expedientes** agrega el botón **Exportar Excel** con los filtros activos,
   visible únicamente para el administrador mediante el permiso `expedientes:exportar`. La migración
   `0020_expedientes_exportar.sql` crea el permiso y lo concede solo a `ADMINISTRADOR`.
+- Versión `0.1.20`: **Expedientes** usa una vista de altura completa: la tabla ocupa el espacio
+  restante y se desplaza internamente, mientras los filtros avanzados quedan en una rejilla
+  compacta. Al abrirlos ya no desplazan toda la página ni provocan el scroll general.
 - Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
-  `infra/updates/`. **Pendiente**: publicar `0.1.19` en el VPS; el servidor responde por HTTPS y
+  `infra/updates/`. **Pendiente**: publicar `0.1.20` en el VPS; el servidor responde por HTTPS y
   sigue sirviendo `0.1.4`, pero el puerto SSH `2702` presenta una clave de host distinta a la
   registrada, por lo que no se desplegó sin validarla.

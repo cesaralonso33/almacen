@@ -240,8 +240,8 @@
     }
 </script>
 
-<div class="space-y-4">
-    <div class="flex flex-wrap items-end justify-between gap-3">
+<div class="flex h-[calc(100vh-8rem)] min-h-0 flex-col gap-3">
+    <div class="flex shrink-0 flex-wrap items-end justify-between gap-3">
         <div>
             <p class="text-2xl font-semibold text-slate-800">
                 {total.toLocaleString('es-MX')}
@@ -271,7 +271,7 @@
         </div>
     </div>
 
-    <div class="flex flex-wrap items-center gap-3">
+    <div class="flex shrink-0 flex-wrap items-center gap-3">
         <input
             class="campo max-w-md"
             placeholder="Buscar por número o descripción…"
@@ -289,7 +289,7 @@
     </div>
 
     {#if Object.keys(porEstado).length > 0}
-        <div class="flex flex-wrap gap-2">
+        <div class="flex shrink-0 flex-wrap gap-2">
             {#each Object.entries(porEstado) as [estado, cantidad]}
                 <button
                     class="flex items-center gap-2 rounded-full border px-3 py-1 text-xs {estadoFiltro === estado
@@ -305,7 +305,7 @@
     {/if}
 
     {#if avanzado}
-        <div class="tarjeta grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="tarjeta grid shrink-0 gap-2 p-3 sm:grid-cols-2 md:grid-cols-4">
             <label class="block text-sm">
                 <span class="mb-1 block font-medium text-slate-600">Estado</span>
                 <select class="campo" bind:value={estadoFiltro} onchange={aplicarFiltros}>
@@ -350,14 +350,14 @@
     {/if}
 
     {#if local}
-        <p class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+        <p class="shrink-0 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
             Sin conexión: mostrando la copia local de expedientes. Los filtros avanzados requieren
             conexión con el servidor.
         </p>
     {/if}
 
-    <div class="tarjeta overflow-hidden">
-        <div class="max-h-[62vh] overflow-auto">
+    <div class="tarjeta flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div class="min-h-0 flex-1 overflow-auto">
             <table class="tabla min-w-[900px]">
                 <thead>
                     <tr>
@@ -389,15 +389,17 @@
                 </tbody>
             </table>
         </div>
-        <Paginacion
-            {pagina}
-            {paginas}
-            {total}
-            onCambiar={(valor) => {
-                pagina = valor;
-                cargar();
-            }}
-        />
+        <div class="shrink-0">
+            <Paginacion
+                {pagina}
+                {paginas}
+                {total}
+                onCambiar={(valor) => {
+                    pagina = valor;
+                    cargar();
+                }}
+            />
+        </div>
     </div>
 </div>
 

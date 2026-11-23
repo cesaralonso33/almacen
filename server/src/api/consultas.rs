@@ -433,8 +433,8 @@ pub async fn historial(
 ) -> Result<Json<Value>, ApiError> {
     user.exigir("expedientes:leer")?;
 
-    let cabecera = sqlx::query_as::<_, (String, String, Option<String>, i64)>(
-        "SELECT e.numero, e.estado, u.nombre, e.version
+    let cabecera = sqlx::query_as::<_, (String, String, Option<String>, i64, String)>(
+        "SELECT e.numero, e.estado, u.nombre, e.version, e.descripcion
          FROM expedientes e
          LEFT JOIN usuarios u ON u.id = e.custodio_id
          WHERE e.id = $1",
@@ -443,7 +443,7 @@ pub async fn historial(
     .fetch_optional(&app.db)
     .await?;
 
-    let Some((numero, estado, custodio, version)) = cabecera else {
+    let Some((numero, estado, custodio, version, descripcion)) = cabecera else {
         return Err(ApiError::no_encontrado("Expediente no encontrado"));
     };
 
@@ -472,6 +472,7 @@ pub async fn historial(
             "numero": numero,
             "estado": estado,
             "custodio": custodio,
+            "descripcion": descripcion,
             "version": version,
         },
         "movimientos": movimientos,

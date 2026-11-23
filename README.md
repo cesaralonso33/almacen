@@ -143,7 +143,7 @@ La llave privada no se versiona. Si se genera una nueva, hay que reemplazar la l
 `desktop/src-tauri/tauri.conf.json` antes de distribuir. El instalador queda en:
 
 ```
-desktop/src-tauri/target/release/bundle/nsis/Custodia CradSystem_0.1.20_x64-setup.exe
+desktop/src-tauri/target/release/bundle/nsis/Custodia CradSystem_0.1.21_x64-setup.exe
 ```
 
 ### Configurar el primer acceso
@@ -181,6 +181,7 @@ manda la dirección guardada en la pantalla de acceso.
 - Reporte de expedientes nuevos por usuario, agrupado por día, mes y año.
 - Expedientes con total, resumen por estado, filtros avanzados compactos y paginación del servidor; la tabla ocupa la altura disponible y se desplaza internamente.
 - **Exportar Excel** en Expedientes (solo administrador): descarga el inventario con los filtros activos.
+- **Editar descripción** de un expediente desde su detalle (Administrador y Almacén), con registro en el historial.
 - Sesión de 24 horas y cierre automático tras 18 horas sin actividad. El escritorio renueva el token de acceso automáticamente.
 - Actualización firmada del escritorio desde `https://<dominio>/updates/latest.json`.
 - SQLite local cifrada con SQLCipher y clave protegida por Windows/DPAPI.

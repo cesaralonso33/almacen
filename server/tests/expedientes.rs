@@ -323,3 +323,71 @@ async fn solo_administrador_exporta_expedientes() {
 
     t.cerrar().await;
 }
+
+#[tokio::test]
+async fn almacen_edita_la_descripcion_y_se_sincroniza() {
+    let t = setup().await;
+    crear_usuario(&t.db, "almacen@test.mx", "ALMACEN").await;
+    crear_usuario(&t.db, "usuario@test.mx", "USUARIO").await;
+    let (tok_almacen, _) = iniciar_sesion(&t.app, "almacen@test.mx").await;
+    let (tok_usuario, _) = iniciar_sesion(&t.app, "usuario@test.mx").await;
+
+    let (estado, creado) = pedir(
+        &t.app,
+        "POST",
+        "/api/v1/expedientes",
+        Some(&tok_usuario),
+        Some(json!({
+            "numero": "EXP-EDIT-1",
+            "descripcion": "Descripción original"
+        })),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK, "{creado}");
+    let id = creado["expediente_id"].as_str().unwrap();
+
+    let (estado, _) = pedir(
+        &t.app,
+        "PUT",
+        &format!("/api/v1/expedientes/{id}"),
+        Some(&tok_usuario),
+        Some(json!({ "descripcion": "No autorizado" })),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::FORBIDDEN);
+
+    let (estado, actualizado) = pedir(
+        &t.app,
+        "PUT",
+        &format!("/api/v1/expedientes/{id}"),
+        Some(&tok_almacen),
+        Some(json!({ "descripcion": "Descripción corregida" })),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK, "{actualizado}");
+    assert_eq!(actualizado["descripcion"], "Descripción corregida");
+    assert_eq!(actualizado["version"], 2);
+
+    let (descripcion, version): (String, i64) =
+        sqlx::query_as("SELECT descripcion, version FROM expedientes WHERE id = $1")
+            .bind(id.parse::<uuid::Uuid>().unwrap())
+            .fetch_one(&t.db)
+            .await
+            .unwrap();
+    assert_eq!(descripcion, "Descripción corregida");
+    assert_eq!(version, 2);
+
+    let payload: serde_json::Value = sqlx::query_scalar(
+        "SELECT payload FROM sync_events
+         WHERE entidad = 'expediente' AND entidad_id = $1
+         ORDER BY secuencia DESC LIMIT 1",
+    )
+    .bind(id.parse::<uuid::Uuid>().unwrap())
+    .fetch_one(&t.db)
+    .await
+    .unwrap();
+    assert_eq!(payload["descripcion"], "Descripción corregida");
+    assert_eq!(payload["version"], 2);
+
+    t.cerrar().await;
+}

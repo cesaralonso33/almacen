@@ -1,4 +1,7 @@
-use axum::{extract::State, Json};
+use axum::{
+    extract::{Path, State},
+    Json,
+};
 use chrono::{Datelike, Utc};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -13,6 +16,12 @@ pub struct NuevoExpediente {
     pub descripcion: Option<String>,
     pub unidad: Option<String>,
     pub anio: Option<i16>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ActualizarExpediente {
+    pub descripcion: String,
 }
 
 /// Normaliza la parte anterior a la primera barra a 8 caracteres con ceros a la izquierda.
@@ -144,6 +153,91 @@ pub async fn crear(
         "numero": numero,
         "custodio_id": user.id,
         "anio": anio,
+    })))
+}
+
+/// Actualización de la descripción autorizada del expediente.
+pub async fn actualizar(
+    State(app): State<AppState>,
+    user: AuthUser,
+    Path(id): Path<Uuid>,
+    ApiJson(input): ApiJson<ActualizarExpediente>,
+) -> Result<Json<Value>, ApiError> {
+    user.exigir("expedientes:administrar")?;
+
+    let descripcion = input.descripcion.trim().to_string();
+    if descripcion.chars().count() > 2000 {
+        return Err(ApiError::inprocesable(
+            "La descripción admite hasta 2000 caracteres",
+        ));
+    }
+
+    let mut tx = app.db.begin().await?;
+    let fila: Option<(String, String, Option<Uuid>, i64)> = sqlx::query_as(
+        "SELECT numero, estado, custodio_id, version
+         FROM expedientes WHERE id = $1 FOR UPDATE",
+    )
+    .bind(id)
+    .fetch_optional(&mut *tx)
+    .await?;
+    let Some((numero, estado, custodio_id, _)) = fila else {
+        return Err(ApiError::no_encontrado("Expediente no encontrado"));
+    };
+
+    let version: i64 = sqlx::query_scalar(
+        "UPDATE expedientes
+         SET descripcion = $2, version = version + 1
+         WHERE id = $1
+         RETURNING version",
+    )
+    .bind(id)
+    .bind(&descripcion)
+    .fetch_one(&mut *tx)
+    .await?;
+
+    sqlx::query(
+        "INSERT INTO movimientos(expediente_id, tipo, actor_id, detalle)
+         VALUES ($1, 'EDICION', $2, 'Actualización de la descripción')",
+    )
+    .bind(id)
+    .bind(user.id)
+    .execute(&mut *tx)
+    .await?;
+
+    sync::global(
+        &mut tx,
+        "expediente",
+        id,
+        "ACTUALIZAR",
+        version,
+        json!({
+            "id": id,
+            "numero": numero,
+            "descripcion": descripcion,
+            "estado": estado,
+            "custodio_id": custodio_id,
+            "version": version,
+        }),
+    )
+    .await?;
+
+    audit::registrar(
+        &mut tx,
+        Some(user.id),
+        "expedientes.editar",
+        "expedientes",
+        id,
+        "EXITO",
+        json!({ "numero": numero, "descripcion": descripcion, "version": version }),
+    )
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(Json(json!({
+        "expediente_id": id,
+        "descripcion": descripcion,
+        "version": version,
     })))
 }
 

@@ -575,7 +575,11 @@ servidor Debian de destino.
 - Versión `0.1.20`: **Expedientes** usa una vista de altura completa: la tabla ocupa el espacio
   restante y se desplaza internamente, mientras los filtros avanzados quedan en una rejilla
   compacta. Al abrirlos ya no desplazan toda la página ni provocan el scroll general.
+- Versión `0.1.21`: en **Expedientes** se puede editar la **descripción** desde el detalle del
+  expediente, con el permiso `expedientes:administrar`. La edición incrementa la versión, registra
+  un movimiento `EDICION`, queda en auditoría y emite un evento de sincronización con la nueva
+  descripción.
 - Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
-  `infra/updates/`. **Pendiente**: publicar `0.1.20` en el VPS; el servidor responde por HTTPS y
+  `infra/updates/`. **Pendiente**: publicar `0.1.21` en el VPS; el servidor responde por HTTPS y
   sigue sirviendo `0.1.4`, pero el puerto SSH `2702` presenta una clave de host distinta a la
   registrada, por lo que no se desplegó sin validarla.

@@ -52,6 +52,9 @@
   `admin.backup`.
 - `expedientes:exportar` también es exclusivo de `ADMINISTRADOR`. La API aplica los filtros de la
   consulta y entrega un `.xlsx`; el botón de la interfaz solo se muestra con ese permiso.
+- La descripción de un expediente solo puede modificarse con `expedientes:administrar` (Administrador
+  y Almacén). La API valida la longitud, bloquea la fila, incrementa la versión, registra el
+  movimiento y la auditoría, y emite el evento de sincronización.
 
 ## Transporte y secretos
 

@@ -137,6 +137,10 @@ pub fn router(estado: AppState) -> Router {
             get(consultas::exportar_expedientes),
         )
         .route(
+            "/api/v1/expedientes/{id}",
+            put(expedientes::actualizar),
+        )
+        .route(
             "/api/v1/expedientes/{id}/historial",
             get(consultas::historial),
         )

@@ -29,6 +29,10 @@
 
     let seleccionado = $state<any>(null);
     let historial = $state<any[]>([]);
+    let editandoDescripcion = $state(false);
+    let descripcionEdicion = $state('');
+    let guardandoDescripcion = $state(false);
+    let errorDescripcion = $state('');
 
     let creando = $state(false);
     let numeroNuevo = $state('');
@@ -138,12 +142,41 @@
     }
 
     async function abrir(expediente: Expediente) {
+        editandoDescripcion = false;
+        errorDescripcion = '';
         try {
             const respuesta = await api<any>('GET', `/api/v1/expedientes/${expediente.id}/historial`);
             seleccionado = respuesta.expediente;
             historial = respuesta.movimientos;
         } catch (error) {
             app.avisar(String(error), 'error');
+        }
+    }
+
+    function iniciarEdicionDescripcion() {
+        if (!seleccionado) return;
+        descripcionEdicion = seleccionado.descripcion ?? '';
+        errorDescripcion = '';
+        editandoDescripcion = true;
+    }
+
+    async function guardarDescripcion() {
+        if (!seleccionado) return;
+        guardandoDescripcion = true;
+        errorDescripcion = '';
+        try {
+            const respuesta = await api<any>('PUT', `/api/v1/expedientes/${seleccionado.id}`, {
+                descripcion: descripcionEdicion
+            });
+            editandoDescripcion = false;
+            app.avisar('Descripción actualizada');
+            await cargar();
+            await abrir({ ...seleccionado, descripcion: respuesta.descripcion, version: respuesta.version });
+            await app.sincronizar(true);
+        } catch (error) {
+            errorDescripcion = String(error);
+        } finally {
+            guardandoDescripcion = false;
         }
     }
 
@@ -503,6 +536,54 @@
         <dl class="mb-4 grid grid-cols-2 gap-3 text-sm">
             <div><dt class="text-slate-500">Estado</dt><dd><Insignia estado={seleccionado.estado} /></dd></div>
             <div><dt class="text-slate-500">Custodio actual</dt><dd>{seleccionado.custodio ?? 'Almacén'}</dd></div>
+            <div class="col-span-2">
+                <div class="flex items-center justify-between gap-2">
+                    <dt class="text-slate-500">Descripción</dt>
+                    {#if app.permiso('expedientes:administrar') && !editandoDescripcion}
+                        <button
+                            class="text-xs text-institucional-600 underline"
+                            type="button"
+                            onclick={iniciarEdicionDescripcion}
+                        >
+                            Editar
+                        </button>
+                    {/if}
+                </div>
+                {#if editandoDescripcion}
+                    <div class="mt-2 space-y-2">
+                        <textarea
+                            class="campo h-20"
+                            maxlength="2000"
+                            bind:value={descripcionEdicion}
+                        ></textarea>
+                        {#if errorDescripcion}
+                            <p class="text-xs text-rose-700">{errorDescripcion}</p>
+                        {/if}
+                        <div class="flex flex-wrap gap-2">
+                            <button
+                                class="btn-primario"
+                                type="button"
+                                onclick={guardarDescripcion}
+                                disabled={guardandoDescripcion}
+                            >
+                                {guardandoDescripcion ? 'Guardando…' : 'Guardar'}
+                            </button>
+                            <button
+                                class="btn-secundario"
+                                type="button"
+                                onclick={() => (editandoDescripcion = false)}
+                                disabled={guardandoDescripcion}
+                            >
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                {:else}
+                    <dd class="mt-1 whitespace-pre-wrap break-words text-slate-700">
+                        {seleccionado.descripcion || '—'}
+                    </dd>
+                {/if}
+            </div>
         </dl>
         <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
             Historial de movimientos

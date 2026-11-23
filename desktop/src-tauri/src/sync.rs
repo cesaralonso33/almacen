@@ -194,6 +194,13 @@ fn aplicar_evento(tx: &Connection, evento: &Value) -> Result<(), String> {
                 )
                 .map_err(error_texto)?;
             }
+            if let Some(descripcion) = payload.get("descripcion").and_then(Value::as_str) {
+                tx.execute(
+                    "UPDATE expedientes SET descripcion = ?2 WHERE id = ?1",
+                    params![entidad_id, descripcion],
+                )
+                .map_err(error_texto)?;
+            }
             if let Some(ubicacion) = payload.get("ubicacion_id").and_then(Value::as_str) {
                 tx.execute(
                     "UPDATE expedientes SET ubicacion_id = ?2 WHERE id = ?1",

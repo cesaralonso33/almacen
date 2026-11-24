@@ -52,6 +52,12 @@
   `admin.backup`.
 - `expedientes:exportar` también es exclusivo de `ADMINISTRADOR`. La API aplica los filtros de la
   consulta y entrega un `.xlsx`; el botón de la interfaz solo se muestra con ese permiso.
+- `admin:integraciones` es exclusivo de `ADMINISTRADOR`. Las URL y tokens de la API de expedientes y
+  de Paperless-ngx se guardan en la tabla `integraciones`; los tokens nunca se devuelven a la
+  interfaz. Las llamadas externas las realiza el servidor, con timeout y validación de URL http/https.
+- La consulta de expediente requiere `darfes:leer`; la importación desde Paperless requiere
+  `darfes:documentos` y limita el archivo a 8 MiB. Los respaldos de la base incluyen los tokens, por
+  lo que deben protegerse como información sensible.
 - La descripción de un expediente solo puede modificarse con `expedientes:administrar` (Administrador
   y Almacén). La API valida la longitud, bloquea la fila, incrementa la versión, registra el
   movimiento y la auditoría, y emite el evento de sincronización.

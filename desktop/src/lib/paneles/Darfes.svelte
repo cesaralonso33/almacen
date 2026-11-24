@@ -103,6 +103,11 @@
     let folioFormulario = $state('');
     let guardandoFolio = $state(false);
     let pestanaForm = $state<PestanaForm>('generales');
+    let consultandoExpediente = $state(false);
+    let avisoConsulta = $state('');
+    let paperlessId = $state('');
+    let paperlessCampo = $state('CURP');
+    let importandoPaperless = $state(false);
     let columnas = $state<Record<ClaveColumna, boolean>>({ ...COLUMNAS_PREDETERMINADAS });
     let menuColumnas = $state(false);
     let menuColumnasEl = $state<HTMLDivElement | undefined>(undefined);
@@ -199,6 +204,8 @@
         editandoId = null;
         folioFormulario = '';
         pestanaForm = 'generales';
+        avisoConsulta = '';
+        paperlessId = '';
         documentosExistentes = [];
         archivos = vacioArchivos();
         errorFormulario = '';
@@ -226,6 +233,8 @@
     function duplicar() {
         editandoId = null;
         pestanaForm = 'generales';
+        avisoConsulta = '';
+        paperlessId = '';
         documentosExistentes = [];
         archivos = vacioArchivos();
         errorFormulario = '';
@@ -235,6 +244,8 @@
     function abrirEdicion(registro: any) {
         editandoId = registro.id;
         pestanaForm = 'generales';
+        avisoConsulta = '';
+        paperlessId = '';
         folioFormulario = registro.folio_formato ? String(registro.folio_formato) : '';
         documentosExistentes = Array.isArray(registro.documentos) ? registro.documentos : [];
         archivos = vacioArchivos();
@@ -498,6 +509,71 @@
         const prefijo = texto.slice(0, indice);
         if (prefijo.length >= 8) return texto;
         return `${prefijo.padStart(8, '0')}${texto.slice(indice)}`;
+    }
+
+    async function consultarExpediente() {
+        const numero = normalizarExpediente(form.expediente);
+        if (!numero) {
+            app.avisar('Capture el número de expediente', 'error');
+            return;
+        }
+        form.expediente = numero;
+        consultandoExpediente = true;
+        avisoConsulta = '';
+        try {
+            const datos = await api<any>(
+                'POST',
+                '/api/v1/integraciones/expediente/consultar',
+                { expediente: numero }
+            );
+            if (datos.nombre) form.nombre = datos.nombre;
+            if (datos.correo) form.correo = datos.correo;
+            if (datos.telefono) form.telefono = datos.telefono;
+            if (datos.curp) form.curp = datos.curp;
+            avisoConsulta = datos.curp
+                ? 'Datos cargados desde la API'
+                : 'Datos cargados; la API no devolvió CURP';
+            app.avisar(avisoConsulta);
+        } catch (error) {
+            app.avisar(String(error), 'error');
+        } finally {
+            consultandoExpediente = false;
+        }
+    }
+
+    async function importarPaperless() {
+        if (!editandoId) return;
+        const documento = paperlessId.trim();
+        if (!documento) {
+            app.avisar('Capture el ID del documento de Paperless', 'error');
+            return;
+        }
+        importandoPaperless = true;
+        try {
+            const resultado = await api<any>(
+                'POST',
+                `/api/v1/darfes/${editandoId}/paperless`,
+                { documento_id: documento, campo: paperlessCampo }
+            );
+            if (!documentosExistentes.includes(resultado.campo)) {
+                documentosExistentes = [...documentosExistentes, resultado.campo];
+            }
+            paperlessId = '';
+            if (resultado.campo === 'DEPOSITO') {
+                app.avisar(
+                    resultado.coincide
+                        ? 'Depósito importado; los datos coinciden'
+                        : 'Depósito importado; los datos no coinciden',
+                    resultado.coincide ? 'ok' : 'error'
+                );
+            } else {
+                app.avisar(`Documento importado en ${resultado.campo}`);
+            }
+        } catch (error) {
+            app.avisar(String(error), 'error');
+        } finally {
+            importandoPaperless = false;
+        }
     }
 
     function alternarColumna(clave: ClaveColumna, visible: boolean) {
@@ -1037,11 +1113,24 @@
                     <label class="block text-sm sm:col-span-2">
                         <span class="mb-1 block font-medium text-slate-600">Número de expediente</span>
                         <input
-                        class="campo"
-                        maxlength="200"
-                        bind:value={form.expediente}
-                        onblur={() => (form.expediente = normalizarExpediente(form.expediente))}
-                    />
+                            class="campo"
+                            maxlength="200"
+                            bind:value={form.expediente}
+                            onblur={() => (form.expediente = normalizarExpediente(form.expediente))}
+                        />
+                        <div class="mt-1 flex flex-wrap items-center gap-2">
+                            <button
+                                class="btn-secundario px-2 py-1 text-xs"
+                                type="button"
+                                onclick={consultarExpediente}
+                                disabled={consultandoExpediente}
+                            >
+                                {consultandoExpediente ? 'Consultando…' : 'Consultar expediente'}
+                            </button>
+                            {#if avisoConsulta}
+                                <span class="text-xs text-slate-500">{avisoConsulta}</span>
+                            {/if}
+                        </div>
                     </label>
                     <label class="block text-sm sm:col-span-2">
                         <span class="mb-1 block font-medium text-slate-600">Número de registro</span>
@@ -1087,6 +1176,43 @@
                         <span class="text-xs text-slate-500">Los archivos nuevos reemplazan al existente.</span>
                     {/if}
                 </div>
+
+                {#if editandoId}
+                    <div class="rounded-lg border border-slate-200 bg-white p-3">
+                        <p class="text-sm font-medium text-slate-700">Importar desde Paperless-ngx</p>
+                        <div class="mt-2 flex flex-wrap items-end gap-2">
+                            <label class="block text-sm">
+                                <span class="mb-1 block text-xs text-slate-500">ID del documento</span>
+                                <input
+                                    class="campo w-40"
+                                    inputmode="numeric"
+                                    bind:value={paperlessId}
+                                    placeholder="123"
+                                />
+                            </label>
+                            <label class="block text-sm">
+                                <span class="mb-1 block text-xs text-slate-500">Campo destino</span>
+                                <select class="campo w-48" bind:value={paperlessCampo}>
+                                    {#each CAMPOS_DOCUMENTO as campo}
+                                        <option value={campo.clave}>{campo.etiqueta}</option>
+                                    {/each}
+                                </select>
+                            </label>
+                            <button
+                                class="btn-secundario"
+                                type="button"
+                                onclick={importarPaperless}
+                                disabled={importandoPaperless}
+                            >
+                                {importandoPaperless ? 'Importando…' : 'Importar'}
+                            </button>
+                        </div>
+                    </div>
+                {:else}
+                    <p class="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                        Guarde el DARFE para importar documentos desde Paperless-ngx.
+                    </p>
+                {/if}
                 <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                     {#each CAMPOS_DOCUMENTO as campo}
                         <div

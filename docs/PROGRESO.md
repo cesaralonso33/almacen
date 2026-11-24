@@ -582,7 +582,13 @@ servidor Debian de destino.
 - Versión `0.1.22`: el **Número de expediente** de DARFES se normaliza a 8 caracteres antes de la
   barra, rellenando con ceros (`2898/2026` → `00002898/2026`). Se aplica al guardar y al salir del
   campo; los números sin barra se conservan.
+- Versión `0.1.23`: agrega el panel **Configuración** (solo administrador) para la API que consulta
+  expedientes y para **Paperless-ngx**. La consulta por número de expediente llena nombre, correo y
+  teléfono (usa `correo2`/`tel2` como respaldo) y CURP si la respuesta la incluye. En DARFES se puede
+  importar un documento de Paperless por ID a cualquiera de sus campos. La migración
+  `0021_integraciones.sql` crea la configuración, el permiso `admin:integraciones` y limita el
+  acceso al `ADMINISTRADOR`.
 - Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
-  `infra/updates/`. **Pendiente**: publicar `0.1.22` en el VPS; el servidor responde por HTTPS y
+  `infra/updates/`. **Pendiente**: publicar `0.1.23` en el VPS; el servidor responde por HTTPS y
   sigue sirviendo `0.1.4`, pero el puerto SSH `2702` presenta una clave de host distinta a la
   registrada, por lo que no se desplegó sin validarla.

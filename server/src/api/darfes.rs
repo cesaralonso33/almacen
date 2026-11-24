@@ -24,7 +24,7 @@ use crate::{
     AppState,
 };
 
-const CAMPOS_DOCUMENTO: [&str; 7] = [
+pub(crate) const CAMPOS_DOCUMENTO: [&str; 7] = [
     "CURP",
     "RFC",
     "REGISTRO",
@@ -33,7 +33,7 @@ const CAMPOS_DOCUMENTO: [&str; 7] = [
     "DEPOSITO",
     "ESCRITO_LIBRE",
 ];
-const LIMITE_DOCUMENTO: usize = 8 * 1024 * 1024;
+pub(crate) const LIMITE_DOCUMENTO: usize = 8 * 1024 * 1024;
 const DESCRIPCIONES_CANASTA: [&str; 3] = ["1ra canasta 3", "2da canasta de 3", "3ra canasta de 3"];
 const TIPOS_DARFE: [&str; 8] = [
     "CANASTA",
@@ -1438,7 +1438,7 @@ fn nombre_mes(mes: u32) -> &'static str {
     }
 }
 
-fn validar_deposito(
+pub(crate) fn validar_deposito(
     contenido: &[u8],
     cuenta_capturada: &str,
     monto_capturado: f64,

@@ -1,6 +1,6 @@
 {
   "productName": "Custodia CradSystem",
-  "version": "0.1.22",
+  "version": "0.1.23",
   "identifier": "mx.institucion.custodia",
   "build": {
     "beforeDevCommand": "npm run dev",

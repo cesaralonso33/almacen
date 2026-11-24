@@ -7,6 +7,7 @@ pub mod directorio;
 pub mod entrada;
 pub mod entregas;
 pub mod expedientes;
+pub mod integraciones;
 pub mod pa;
 pub mod pedidos;
 pub mod reportes;
@@ -105,6 +106,23 @@ pub fn router(estado: AppState) -> Router {
         )
         .route("/api/v1/darfes/{id}/formato", post(darfes::generar_formato))
         .route("/api/v1/darfes/{id}/folio", put(darfes::actualizar_folio))
+        .route(
+            "/api/v1/darfes/{id}/paperless",
+            post(integraciones::importar_paperless),
+        )
+        .route("/api/v1/integraciones", get(integraciones::listar))
+        .route(
+            "/api/v1/integraciones/{clave}",
+            put(integraciones::guardar),
+        )
+        .route(
+            "/api/v1/integraciones/expediente/consultar",
+            post(integraciones::consultar_expediente),
+        )
+        .route(
+            "/api/v1/integraciones/paperless/probar",
+            post(integraciones::probar_paperless),
+        )
         .route(
             "/api/v1/darfes/{id}/documentos/{campo}",
             get(darfes::documento).delete(darfes::eliminar_documento),

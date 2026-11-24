@@ -15,6 +15,7 @@
     import Devoluciones from './paneles/Devoluciones.svelte';
     import Reportes from './paneles/Reportes.svelte';
     import Admin from './paneles/Admin.svelte';
+    import Configuracion from './paneles/Configuracion.svelte';
 
     const items = [
         { id: 'inicio', etiqueta: 'Inicio', permiso: null },
@@ -28,7 +29,8 @@
         { id: 'custodias', etiqueta: 'Mis custodias', permiso: 'expedientes:leer' },
         { id: 'devoluciones', etiqueta: 'Devoluciones', permiso: 'devoluciones:confirmar' },
         { id: 'reportes', etiqueta: 'Reportes', permiso: 'reportes:leer' },
-        { id: 'admin', etiqueta: 'Administración', permiso: 'admin:usuarios' }
+        { id: 'admin', etiqueta: 'Administración', permiso: 'admin:usuarios' },
+        { id: 'configuracion', etiqueta: 'Configuración', permiso: 'admin:integraciones' }
     ];
 
     let conflictos = $state<any[]>([]);
@@ -184,6 +186,7 @@
             {#if app.panel === 'devoluciones'}<Devoluciones />{/if}
             {#if app.panel === 'reportes'}<Reportes />{/if}
             {#if app.panel === 'admin'}<Admin />{/if}
+            {#if app.panel === 'configuracion'}<Configuracion />{/if}
         </main>
     </div>
 </div>

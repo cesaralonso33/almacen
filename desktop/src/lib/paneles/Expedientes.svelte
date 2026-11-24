@@ -432,7 +432,12 @@
                         <tr
                             class="cursor-pointer"
                             onclick={() => abrir(expediente)}
-                            onkeydown={(e) => e.key === 'Enter' && abrir(expediente)}
+                            onkeydown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    abrir(expediente);
+                                }
+                            }}
                             tabindex="0"
                         >
                             <td class="font-medium text-institucional-600">{expediente.numero}</td>

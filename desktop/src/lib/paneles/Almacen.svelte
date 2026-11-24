@@ -113,7 +113,17 @@
             </thead>
             <tbody>
                 {#each visibles as pedido}
-                    <tr class="cursor-pointer" onclick={() => abrir(pedido.id)}>
+                    <tr
+                        class="cursor-pointer"
+                        tabindex="0"
+                        onclick={() => abrir(pedido.id)}
+                        onkeydown={(evento) => {
+                            if (evento.key === 'Enter' || evento.key === ' ') {
+                                evento.preventDefault();
+                                abrir(pedido.id);
+                            }
+                        }}
+                    >
                         <td>{pedido.solicitante_nombre}</td>
                         <td><Insignia estado={pedido.estado} /></td>
                         <td>{pedido.total}</td>

@@ -623,6 +623,15 @@
         menuColumnas = false;
     }
 
+    function alPresionarTecla(evento: KeyboardEvent) {
+        if (evento.key !== 'Escape') return;
+        if (menuColumnas) {
+            menuColumnas = false;
+            return;
+        }
+        if (avanzado) avanzado = false;
+    }
+
     function claseEstatus(estatus: string): string {
         if (estatus === 'COMPLETO') return 'bg-emerald-100 text-emerald-700';
         if (estatus === 'INCOMPLETO') return 'bg-amber-100 text-amber-700';
@@ -635,7 +644,7 @@
     }
 </script>
 
-<svelte:window onclick={cerrarMenuColumnas} />
+<svelte:window onclick={cerrarMenuColumnas} onkeydown={alPresionarTecla} />
 
 <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
@@ -705,7 +714,12 @@
     </div>
 
     {#if pestana === 'registros'}
-        <section class="tarjeta overflow-hidden">
+        <section class="tarjeta overflow-hidden" aria-busy={cargando}>
+            {#if cargando}
+                <div class="h-0.5 w-full overflow-hidden bg-slate-100" aria-hidden="true">
+                    <div class="h-full w-1/3 animate-pulse rounded-full bg-institucional-500"></div>
+                </div>
+            {/if}
             <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2">
                 <div class="relative min-w-0 flex-1 sm:min-w-64">
                     <svg
@@ -1071,7 +1085,24 @@
                         {:else}
                             <tr>
                                 <td colspan={columnasVisibles + 1} class="py-8 text-center text-sm text-slate-500">
-                                    No hay DARFES con esos filtros.
+                                    {#if cargando}
+                                        <span class="inline-flex items-center gap-2">
+                                            <svg
+                                                class="h-4 w-4 animate-spin text-institucional-500"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                                stroke-linecap="round"
+                                                aria-hidden="true"
+                                            >
+                                                <path d="M21 12a9 9 0 1 1-6.22-8.56" />
+                                            </svg>
+                                            Buscando…
+                                        </span>
+                                    {:else}
+                                        No hay DARFES con esos filtros.
+                                    {/if}
                                 </td>
                             </tr>
                         {/each}

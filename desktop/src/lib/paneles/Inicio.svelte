@@ -11,6 +11,7 @@
     let tablero = $state<Record<string, number> | null>(null);
     let pedidos = $state<any[]>([]);
     let pagina = $state(1);
+    let cargando = $state(true);
 
     const paginas = $derived(totalPaginas(pedidos.length, POR_PAGINA));
     const visibles = $derived(recortar(pedidos, pagina, POR_PAGINA));
@@ -18,23 +19,28 @@
     onMount(cargar);
 
     async function cargar() {
-        const [resultadoTablero, resultadoPedidos] = await allSettledConcurrent(
-            () => api<Record<string, number>>('GET', '/api/v1/dashboard'),
-            () => api<{ pedidos: any[] }>('GET', '/api/v1/pedidos')
-        );
+        cargando = true;
+        try {
+            const [resultadoTablero, resultadoPedidos] = await allSettledConcurrent(
+                () => api<Record<string, number>>('GET', '/api/v1/dashboard'),
+                () => api<{ pedidos: any[] }>('GET', '/api/v1/pedidos')
+            );
 
-        if (resultadoTablero.status === 'fulfilled') {
-            tablero = resultadoTablero.value;
-        }
-        if (resultadoPedidos.status === 'fulfilled') {
-            pedidos = resultadoPedidos.value.pedidos;
-            pagina = 1;
-        }
+            if (resultadoTablero.status === 'fulfilled') {
+                tablero = resultadoTablero.value;
+            }
+            if (resultadoPedidos.status === 'fulfilled') {
+                pedidos = resultadoPedidos.value.pedidos;
+                pagina = 1;
+            }
 
-        const error = [resultadoTablero, resultadoPedidos].find(
-            (resultado) => resultado.status === 'rejected'
-        );
-        if (error?.status === 'rejected') app.avisar(String(error.reason), 'error');
+            const error = [resultadoTablero, resultadoPedidos].find(
+                (resultado) => resultado.status === 'rejected'
+            );
+            if (error?.status === 'rejected') app.avisar(String(error.reason), 'error');
+        } finally {
+            cargando = false;
+        }
     }
 
     const tarjetas = [
@@ -50,7 +56,12 @@
 <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
         <p class="text-sm text-slate-500">Resumen operativo del almacén y la cadena de custodia.</p>
-        <BotonIcono nombre="actualizar" etiqueta="Actualizar resumen" onclick={cargar} />
+        <BotonIcono
+            nombre="actualizar"
+            etiqueta="Actualizar resumen"
+            onclick={cargar}
+            disabled={cargando}
+        />
     </div>
 
     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -61,16 +72,21 @@
                     {tarjeta.titulo}
                 </p>
                 <p class="mt-2 text-3xl font-semibold tabular-nums {tarjeta.color}">
-                    {tablero?.[tarjeta.clave] ?? '—'}
+                    {tablero?.[tarjeta.clave] ?? (cargando ? '…' : '—')}
                 </p>
             </div>
         {/each}
     </div>
 
-    <section class="tarjeta overflow-hidden">
+    <section class="tarjeta overflow-hidden" aria-busy={cargando}>
         <header class="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5">
             <h2 class="text-sm font-semibold text-slate-700">Pedidos recientes</h2>
-            <BotonIcono nombre="actualizar" etiqueta="Actualizar pedidos" onclick={cargar} />
+            <BotonIcono
+                nombre="actualizar"
+                etiqueta="Actualizar pedidos"
+                onclick={cargar}
+                disabled={cargando}
+            />
         </header>
         <div class="overflow-x-auto">
             <table class="tabla min-w-[640px]">
@@ -94,7 +110,11 @@
                         </tr>
                     {/each}
                     {#if pedidos.length === 0}
-                        <tr><td colspan="4" class="py-6 text-center text-slate-400">Sin pedidos</td></tr>
+                        <tr>
+                            <td colspan="4" class="py-6 text-center text-slate-400">
+                                {cargando ? 'Cargando pedidos…' : 'Sin pedidos'}
+                            </td>
+                        </tr>
                     {/if}
                 </tbody>
             </table>

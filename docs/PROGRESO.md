@@ -588,6 +588,12 @@ servidor Debian de destino.
   importar un documento de Paperless por ID a cualquiera de sus campos. La migración
   `0021_integraciones.sql` crea la configuración, el permiso `admin:integraciones` y limita el
   acceso al `ADMINISTRADOR`.
+- Versión `0.1.27`: mejoras de accesibilidad y retroalimentación sin cambios en los flujos. Los
+  modales cierran con `Escape`, enfocan el primer control, atrapan `Tab`/`Shift+Tab` y restauran el
+  foco al cerrar. Las filas de **Pedidos**, **Almacén** y **Expedientes** se abren con `Enter` o
+  `Espacio`. En DARFES, `Escape` cierra el menú de columnas y los filtros, y la tabla muestra
+  “Buscando…” con `aria-busy`. **Inicio** distingue la carga de una lista vacía y se respeta la
+  preferencia del sistema `prefers-reduced-motion`.
 - Versión `0.1.26`: se extiende el lenguaje visual minimalista a todos los módulos. El menú lateral
   se agrupa en **General**, **Operación**, **Análisis** y **Sistema**, con iconos y sección activa.
   Se agregan componentes reutilizables de icono y botón de icono; las listas (expedientes, P.A.,
@@ -604,6 +610,6 @@ servidor Debian de destino.
   la interfaz como en los endpoints del servidor. Aunque otro rol reciba el permiso
   `admin:integraciones`, el servidor responde 403 y la opción no aparece en el menú.
 - Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
-  `infra/updates/`. **Pendiente**: publicar `0.1.26` en el VPS; el servidor responde por HTTPS y
+  `infra/updates/`. **Pendiente**: publicar `0.1.27` en el VPS; el servidor responde por HTTPS y
   sigue sirviendo `0.1.4`, pero el puerto SSH `2702` presenta una clave de host distinta a la
   registrada, por lo que no se desplegó sin validarla.

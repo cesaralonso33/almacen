@@ -89,7 +89,7 @@
 
         <nav class="flex-1 space-y-1 overflow-y-auto px-3 pb-4" aria-label="Navegación principal">
             {#each items as item}
-                {#if !item.permiso || app.permiso(item.permiso)}
+                {#if (!item.permiso || app.permiso(item.permiso)) && (item.id !== 'configuracion' || app.esAdministrador())}
                     <button
                         class="w-full rounded-lg px-3 py-2 text-left text-sm transition {app.panel === item.id
                             ? 'bg-white/10 font-semibold text-white'
@@ -186,7 +186,7 @@
             {#if app.panel === 'devoluciones'}<Devoluciones />{/if}
             {#if app.panel === 'reportes'}<Reportes />{/if}
             {#if app.panel === 'admin'}<Admin />{/if}
-            {#if app.panel === 'configuracion'}<Configuracion />{/if}
+            {#if app.panel === 'configuracion' && app.esAdministrador()}<Configuracion />{/if}
         </main>
     </div>
 </div>

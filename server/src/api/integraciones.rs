@@ -55,6 +55,11 @@ pub async fn listar(
     user: AuthUser,
 ) -> Result<Json<Value>, ApiError> {
     user.exigir("admin:integraciones")?;
+    if !user.es_administrador() {
+        return Err(ApiError::prohibido(
+            "Solo el administrador puede consultar la configuración de integraciones",
+        ));
+    }
     let filas = sqlx::query_as::<_, (String, String, bool, bool, Value, DateTime<Utc>)>(
         "SELECT clave, url, (token <> '') AS token_configurado, activo, config, actualizado_en
          FROM integraciones ORDER BY clave",
@@ -86,6 +91,11 @@ pub async fn guardar(
     ApiJson(input): ApiJson<IntegracionInput>,
 ) -> Result<Json<Value>, ApiError> {
     user.exigir("admin:integraciones")?;
+    if !user.es_administrador() {
+        return Err(ApiError::prohibido(
+            "Solo el administrador puede modificar la configuración de integraciones",
+        ));
+    }
     let clave = clave.trim().to_uppercase();
     if clave != CLAVE_EXPEDIENTE && clave != CLAVE_PAPERLESS {
         return Err(ApiError::no_encontrado("Integración no encontrada"));
@@ -263,6 +273,11 @@ pub async fn probar_paperless(
     user: AuthUser,
 ) -> Result<Json<Value>, ApiError> {
     user.exigir("admin:integraciones")?;
+    if !user.es_administrador() {
+        return Err(ApiError::prohibido(
+            "Solo el administrador puede probar la configuración de Paperless",
+        ));
+    }
     let integracion = configurar(&app, CLAVE_PAPERLESS).await?;
     let cliente = reqwest::Client::builder()
         .timeout(Duration::from_secs(12))

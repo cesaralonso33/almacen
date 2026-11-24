@@ -588,7 +588,10 @@ servidor Debian de destino.
   importar un documento de Paperless por ID a cualquiera de sus campos. La migración
   `0021_integraciones.sql` crea la configuración, el permiso `admin:integraciones` y limita el
   acceso al `ADMINISTRADOR`.
+- Versión `0.1.24`: el apartado **Configuración** queda restringido al rol `ADMINISTRADOR`, tanto en
+  la interfaz como en los endpoints del servidor. Aunque otro rol reciba el permiso
+  `admin:integraciones`, el servidor responde 403 y la opción no aparece en el menú.
 - Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
-  `infra/updates/`. **Pendiente**: publicar `0.1.23` en el VPS; el servidor responde por HTTPS y
+  `infra/updates/`. **Pendiente**: publicar `0.1.24` en el VPS; el servidor responde por HTTPS y
   sigue sirviendo `0.1.4`, pero el puerto SSH `2702` presenta una clave de host distinta a la
   registrada, por lo que no se desplegó sin validarla.

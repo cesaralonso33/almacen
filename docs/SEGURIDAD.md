@@ -55,6 +55,9 @@
 - `admin:integraciones` es exclusivo de `ADMINISTRADOR`. Las URL y tokens de la API de expedientes y
   de Paperless-ngx se guardan en la tabla `integraciones`; los tokens nunca se devuelven a la
   interfaz. Las llamadas externas las realiza el servidor, con timeout y validación de URL http/https.
+- La configuración de integraciones comprueba además el rol `ADMINISTRADOR` en el servidor y en la
+  interfaz: aunque otro rol recibiera el permiso, no puede consultar ni modificar la configuración
+  ni ver el apartado **Configuración**.
 - La consulta de expediente requiere `darfes:leer`; la importación desde Paperless requiere
   `darfes:documentos` y limita el archivo a 8 MiB. Los respaldos de la base incluyen los tokens, por
   lo que deben protegerse como información sensible.

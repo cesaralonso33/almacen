@@ -38,6 +38,7 @@ struct SesionInfo {
     nombre: String,
     usuario_id: String,
     permisos: Vec<String>,
+    roles: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -171,6 +172,13 @@ async fn login(
         .transpose()
         .map_err(|error| error.to_string())?
         .unwrap_or_default();
+    let roles: Vec<String> = respuesta
+        .get("roles")
+        .cloned()
+        .map(serde_json::from_value)
+        .transpose()
+        .map_err(|error| error.to_string())?
+        .unwrap_or_default();
 
     guardar_sesion(
         &estado,
@@ -183,7 +191,7 @@ async fn login(
             nombre: nombre.clone(),
         },
     )?;
-    Ok(SesionInfo { nombre, usuario_id, permisos })
+    Ok(SesionInfo { nombre, usuario_id, permisos, roles })
 }
 
 #[tauri::command]

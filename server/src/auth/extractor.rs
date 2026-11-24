@@ -22,10 +22,14 @@ pub struct AuthUser {
 }
 
 impl AuthUser {
+    pub fn es_administrador(&self) -> bool {
+        self.roles.iter().any(|rol| rol == "ADMINISTRADOR")
+    }
+
     pub fn puede(&self, permiso: &str) -> bool {
         // El rol Administrador conserva acceso a todos los módulos, incluidos
         // los que se agreguen en migraciones posteriores.
-        self.roles.iter().any(|rol| rol == "ADMINISTRADOR") || self.permisos.contains(permiso)
+        self.es_administrador() || self.permisos.contains(permiso)
     }
 
     pub fn exigir(&self, permiso: &str) -> Result<(), ApiError> {

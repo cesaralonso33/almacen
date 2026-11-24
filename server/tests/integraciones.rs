@@ -83,8 +83,28 @@ async fn administrador_configura_y_consulta_expediente() {
     let t = setup().await;
     let tok_admin = administrador(&t).await;
     crear_usuario(&t.db, "aux@test.mx", "ADMINISTRATIVO").await;
+    // Aun si otro rol recibiera el permiso, la configuración sigue siendo solo del administrador.
+    sqlx::query(
+        "INSERT INTO rol_permisos (rol_id, permiso_id)
+         SELECT r.id, p.id FROM roles r, permisos p
+         WHERE r.clave = 'ADMINISTRATIVO' AND p.clave = 'admin:integraciones'
+         ON CONFLICT (rol_id, permiso_id) DO NOTHING",
+    )
+    .execute(&t.db)
+    .await
+    .unwrap();
     let (tok_aux, _) = iniciar_sesion(&t.app, "aux@test.mx").await;
     let url = iniciar_mock_expediente().await;
+
+    let (estado, _) = pedir(
+        &t.app,
+        "GET",
+        "/api/v1/integraciones",
+        Some(&tok_aux),
+        None,
+    )
+    .await;
+    assert_eq!(estado, StatusCode::FORBIDDEN);
 
     let (estado, _) = pedir(
         &t.app,

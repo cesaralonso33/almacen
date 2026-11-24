@@ -6,6 +6,7 @@ export type SesionInfo = {
     nombre: string;
     usuario_id: string;
     permisos: string[];
+    roles: string[];
 };
 
 class EstadoApp {
@@ -31,6 +32,10 @@ class EstadoApp {
 
     permiso(clave: string): boolean {
         return this.usuario?.permisos.includes(clave) ?? false;
+    }
+
+    esAdministrador(): boolean {
+        return this.usuario?.roles.includes('ADMINISTRADOR') ?? false;
     }
 
     avisar(texto: string, tipo: 'ok' | 'error' = 'ok') {

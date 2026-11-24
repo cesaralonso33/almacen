@@ -134,6 +134,11 @@
     const columnasVisibles = $derived(
         COLUMNAS.filter((columna) => columnas[columna.clave]).length
     );
+    const filtrosAvanzados = $derived(
+        [filtros.fecha_desde, filtros.fecha_hasta, filtros.estatus, filtros.banco, filtros.tipo].filter(
+            (valor) => Boolean(valor)
+        ).length
+    );
 
     onMount(() => {
         cargarColumnas();
@@ -636,135 +641,267 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
             <h2 class="text-lg font-semibold text-slate-800">DARFES</h2>
-            <p class="text-sm text-slate-500">Registro, documentos, exportación y reportes.</p>
+            <p class="text-sm text-slate-500">
+                {#if pestana === 'registros'}
+                    {total} {total === 1 ? 'registro' : 'registros'}
+                {:else}
+                    Reportes e indicadores
+                {/if}
+            </p>
         </div>
-        <div class="flex flex-wrap gap-2">
-            <button
-                class="btn-secundario"
-                type="button"
-                onclick={() => {
-                    pestana = 'registros';
-                    cargar();
-                }}
+        <div class="flex flex-wrap items-center gap-2">
+            <div
+                class="inline-flex rounded-lg bg-slate-100 p-0.5"
+                role="tablist"
+                aria-label="Vista de DARFES"
             >
-                Registros
-            </button>
-            <button
-                class="btn-secundario"
-                type="button"
-                onclick={() => {
-                    pestana = 'reportes';
-                    cargarReportes();
-                }}
-            >
-                Reportes e indicadores
-            </button>
+                <button
+                    class="rounded-md px-3 py-1.5 text-xs font-medium transition {pestana ===
+                    'registros'
+                        ? 'bg-white text-slate-800 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'}"
+                    type="button"
+                    role="tab"
+                    aria-selected={pestana === 'registros'}
+                    onclick={() => {
+                        pestana = 'registros';
+                        cargar();
+                    }}
+                >
+                    Registros
+                </button>
+                <button
+                    class="rounded-md px-3 py-1.5 text-xs font-medium transition {pestana ===
+                    'reportes'
+                        ? 'bg-white text-slate-800 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'}"
+                    type="button"
+                    role="tab"
+                    aria-selected={pestana === 'reportes'}
+                    onclick={() => {
+                        pestana = 'reportes';
+                        cargarReportes();
+                    }}
+                >
+                    Reportes
+                </button>
+            </div>
             {#if pestana === 'registros' && app.permiso('darfes:crear')}
-                <button class="btn-primario" type="button" onclick={abrirNuevo}>Nuevo DARFE</button>
+                <button class="btn-primario px-3 py-1.5 text-xs" type="button" onclick={abrirNuevo}>
+                    <svg
+                        class="h-3.5 w-3.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        aria-hidden="true"
+                    >
+                        <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    Nuevo DARFE
+                </button>
             {/if}
         </div>
     </div>
 
     {#if pestana === 'registros'}
-        <section class="tarjeta space-y-3 p-4">
-            <div class="flex flex-wrap gap-2">
-                <input
-                    class="campo min-w-0 flex-1 sm:min-w-64"
-                    placeholder="Buscar por número, nombre, expediente, CURP, RFC, teléfono, correo, banco…"
-                    bind:value={filtros.buscar}
-                    onkeydown={(evento) => evento.key === 'Enter' && buscar()}
-                />
-                <button class="btn-secundario" type="button" onclick={buscar} disabled={cargando}>
-                    {cargando ? 'Buscando…' : 'Buscar'}
-                </button>
-                <button class="btn-secundario" type="button" onclick={() => (avanzado = !avanzado)}>
-                    {avanzado ? 'Ocultar filtros' : 'Filtros'}
-                </button>
-                <div class="relative" bind:this={menuColumnasEl}>
-                    <button
-                        class="btn-secundario"
-                        type="button"
-                        onclick={() => (menuColumnas = !menuColumnas)}
-                        aria-expanded={menuColumnas}
-                        aria-haspopup="true"
+        <section class="tarjeta overflow-hidden">
+            <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2">
+                <div class="relative min-w-0 flex-1 sm:min-w-64">
+                    <svg
+                        class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        aria-hidden="true"
                     >
-                        Columnas
-                    </button>
-                    {#if menuColumnas}
-                        <div
-                            class="absolute right-0 z-20 mt-1 w-64 rounded-lg border border-slate-200 bg-white p-3 shadow-xl"
-                            role="group"
-                            aria-label="Columnas visibles"
+                        <circle cx="11" cy="11" r="7" />
+                        <path d="m20 20-3.5-3.5" />
+                    </svg>
+                    <input
+                        class="campo border-transparent bg-slate-50 pl-9 focus:bg-white"
+                        placeholder="Buscar número, nombre, expediente, CURP, RFC, teléfono, correo o banco…"
+                        aria-label="Buscar DARFES"
+                        bind:value={filtros.buscar}
+                        onkeydown={(evento) => evento.key === 'Enter' && buscar()}
+                    />
+                </div>
+                <button
+                    class="boton-icono"
+                    type="button"
+                    onclick={buscar}
+                    disabled={cargando}
+                    aria-label="Buscar"
+                    title={cargando ? 'Buscando…' : 'Buscar'}
+                >
+                    <svg
+                        class="h-4 w-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        aria-hidden="true"
+                    >
+                        <circle cx="11" cy="11" r="7" />
+                        <path d="m20 20-3.5-3.5" />
+                    </svg>
+                </button>
+                <div class="ml-auto flex items-center gap-1">
+                    <button
+                        class="boton-icono relative {avanzado ? 'boton-icono-activo' : ''}"
+                        type="button"
+                        onclick={() => (avanzado = !avanzado)}
+                        aria-expanded={avanzado}
+                        aria-label="Filtros"
+                        title={avanzado ? 'Ocultar filtros' : 'Filtros'}
+                    >
+                        <svg
+                            class="h-4 w-4"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            aria-hidden="true"
                         >
-                            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                Columnas visibles
-                            </p>
-                            <div class="space-y-1">
-                                {#each COLUMNAS as columna}
-                                    <label class="flex items-center gap-2 text-sm text-slate-700">
-                                        <input
-                                            type="checkbox"
-                                            checked={columnas[columna.clave]}
-                                            disabled={columnas[columna.clave] && columnasVisibles === 1}
-                                            onchange={(evento) =>
-                                                alternarColumna(
-                                                    columna.clave,
-                                                    evento.currentTarget.checked
-                                                )}
-                                        />
-                                        {columna.etiqueta}
-                                    </label>
-                                {/each}
+                            <path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h13M21 18h-1" />
+                            <circle cx="16" cy="6" r="2" />
+                            <circle cx="10" cy="12" r="2" />
+                            <circle cx="19" cy="18" r="2" />
+                        </svg>
+                        {#if filtrosAvanzados > 0}
+                            <span
+                                class="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-institucional-500"
+                                aria-hidden="true"
+                            ></span>
+                        {/if}
+                    </button>
+                    <div class="relative" bind:this={menuColumnasEl}>
+                        <button
+                            class="boton-icono {menuColumnas ? 'boton-icono-activo' : ''}"
+                            type="button"
+                            onclick={() => (menuColumnas = !menuColumnas)}
+                            aria-expanded={menuColumnas}
+                            aria-haspopup="true"
+                            aria-label="Columnas visibles"
+                            title="Columnas"
+                        >
+                            <svg
+                                class="h-4 w-4"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                aria-hidden="true"
+                            >
+                                <rect x="3" y="4" width="7" height="16" rx="1" />
+                                <rect x="14" y="4" width="7" height="16" rx="1" />
+                            </svg>
+                        </button>
+                        {#if menuColumnas}
+                            <div
+                                class="absolute right-0 z-20 mt-1 w-64 rounded-lg border border-slate-200 bg-white p-3 shadow-xl"
+                                role="group"
+                                aria-label="Columnas visibles"
+                            >
+                                <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Columnas visibles
+                                </p>
+                                <div class="space-y-1">
+                                    {#each COLUMNAS as columna}
+                                        <label class="flex items-center gap-2 text-sm text-slate-700">
+                                            <input
+                                                type="checkbox"
+                                                checked={columnas[columna.clave]}
+                                                disabled={columnas[columna.clave] && columnasVisibles === 1}
+                                                onchange={(evento) =>
+                                                    alternarColumna(
+                                                        columna.clave,
+                                                        evento.currentTarget.checked
+                                                    )}
+                                            />
+                                            {columna.etiqueta}
+                                        </label>
+                                    {/each}
+                                </div>
                             </div>
-                        </div>
+                        {/if}
+                    </div>
+                    {#if app.permiso('darfes:exportar')}
+                        <button
+                            class="boton-icono"
+                            type="button"
+                            onclick={exportar}
+                            aria-label="Exportar a Excel"
+                            title="Exportar a Excel"
+                        >
+                            <svg
+                                class="h-4 w-4"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                aria-hidden="true"
+                            >
+                                <path d="M12 4v10" />
+                                <path d="m8 10 4 4 4-4" />
+                                <path d="M5 19h14" />
+                            </svg>
+                        </button>
                     {/if}
                 </div>
-                {#if app.permiso('darfes:exportar')}
-                    <button class="btn-secundario" type="button" onclick={exportar}>Exportar Excel</button>
-                {/if}
             </div>
 
             {#if avanzado}
-                <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <label class="block text-sm">
-                        <span class="mb-1 block font-medium text-slate-600">Fecha desde</span>
-                        <input class="campo" type="date" bind:value={filtros.fecha_desde} />
+                <div class="grid gap-3 border-b border-slate-100 bg-slate-50/60 px-3 py-3 sm:grid-cols-2 lg:grid-cols-5">
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Fecha desde</span>
+                        <input class="campo py-1.5 text-xs" type="date" bind:value={filtros.fecha_desde} />
                     </label>
-                    <label class="block text-sm">
-                        <span class="mb-1 block font-medium text-slate-600">Fecha hasta</span>
-                        <input class="campo" type="date" bind:value={filtros.fecha_hasta} />
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Fecha hasta</span>
+                        <input class="campo py-1.5 text-xs" type="date" bind:value={filtros.fecha_hasta} />
                     </label>
-                    <label class="block text-sm">
-                        <span class="mb-1 block font-medium text-slate-600">Estatus</span>
-                        <select class="campo" bind:value={filtros.estatus}>
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Estatus</span>
+                        <select class="campo py-1.5 text-xs" bind:value={filtros.estatus}>
                             <option value="">Todos</option>
                             {#each ESTATUS as estatus}
                                 <option value={estatus}>{estatus}</option>
                             {/each}
                         </select>
                     </label>
-                    <label class="block text-sm">
-                        <span class="mb-1 block font-medium text-slate-600">Banco</span>
-                        <input class="campo" bind:value={filtros.banco} />
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Banco</span>
+                        <input class="campo py-1.5 text-xs" bind:value={filtros.banco} />
                     </label>
-                    <label class="block text-sm">
-                        <span class="mb-1 block font-medium text-slate-600">Tipo</span>
-                        <select class="campo" bind:value={filtros.tipo}>
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Tipo</span>
+                        <select class="campo py-1.5 text-xs" bind:value={filtros.tipo}>
                             <option value="">Todos</option>
                             {#each TIPOS as tipo}
                                 <option value={tipo}>{tipo}</option>
                             {/each}
                         </select>
                     </label>
-                    <div class="flex items-end gap-2 md:col-span-5">
-                        <button class="btn-secundario" type="button" onclick={limpiarFiltros}>Limpiar</button>
-                        <button class="btn-primario" type="button" onclick={buscar}>Aplicar</button>
+                    <div class="flex items-end gap-2 sm:col-span-2 lg:col-span-5">
+                        <button class="btn-secundario px-3 py-1.5 text-xs" type="button" onclick={limpiarFiltros}>
+                            Limpiar
+                        </button>
+                        <button class="btn-primario px-3 py-1.5 text-xs" type="button" onclick={buscar}>
+                            Aplicar
+                        </button>
                     </div>
                 </div>
             {/if}
-        </section>
 
-        <section class="tarjeta overflow-hidden">
             <div class="max-h-[62vh] overflow-auto">
                 <table class="tabla min-w-[1100px]">
                     <thead>
@@ -879,17 +1016,57 @@
                                         </div>
                                     </td>
                                 {/if}
-                                <td class="space-x-2 whitespace-nowrap text-right">
-                                    {#if app.permiso('darfes:editar')}
-                                        <button class="btn-secundario" type="button" onclick={() => abrirEdicion(registro)}>
-                                            Editar
-                                        </button>
-                                    {/if}
-                                    {#if app.permiso('darfes:eliminar')}
-                                        <button class="btn-secundario" type="button" onclick={() => eliminar(registro)}>
-                                            Eliminar
-                                        </button>
-                                    {/if}
+                                <td class="whitespace-nowrap text-right">
+                                    <div class="flex justify-end gap-1">
+                                        {#if app.permiso('darfes:editar')}
+                                            <button
+                                                class="boton-icono h-7 w-7"
+                                                type="button"
+                                                onclick={() => abrirEdicion(registro)}
+                                                aria-label={`Editar DARFE ${registro.numero_darfe}`}
+                                                title="Editar"
+                                            >
+                                                <svg
+                                                    class="h-4 w-4"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    aria-hidden="true"
+                                                >
+                                                    <path d="M12 20h9" />
+                                                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                                                </svg>
+                                            </button>
+                                        {/if}
+                                        {#if app.permiso('darfes:eliminar')}
+                                            <button
+                                                class="boton-icono h-7 w-7 hover:bg-rose-50 hover:text-rose-600"
+                                                type="button"
+                                                onclick={() => eliminar(registro)}
+                                                aria-label={`Eliminar DARFE ${registro.numero_darfe}`}
+                                                title="Eliminar"
+                                            >
+                                                <svg
+                                                    class="h-4 w-4"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    aria-hidden="true"
+                                                >
+                                                    <path d="M4 7h16" />
+                                                    <path d="M9 7V4h6v3" />
+                                                    <path d="M6 7l1 13h10l1-13" />
+                                                    <path d="M10 11v5M14 11v5" />
+                                                </svg>
+                                            </button>
+                                        {/if}
+                                    </div>
                                 </td>
                             </tr>
                         {:else}

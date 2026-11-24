@@ -295,7 +295,7 @@
             numero_darfe: form.numero_darfe,
             fecha: form.fecha,
             nombre: form.nombre,
-            expediente: form.expediente,
+            expediente: normalizarExpediente(form.expediente),
             registro: form.registro,
             banco: form.banco,
             curp: form.curp,
@@ -489,6 +489,15 @@
 
     function fechaVisible(fecha: string): string {
         return new Date(`${fecha}T00:00:00`).toLocaleDateString('es-MX');
+    }
+
+    function normalizarExpediente(valor: string): string {
+        const texto = valor.trim();
+        const indice = texto.indexOf('/');
+        if (indice <= 0) return texto;
+        const prefijo = texto.slice(0, indice);
+        if (prefijo.length >= 8) return texto;
+        return `${prefijo.padStart(8, '0')}${texto.slice(indice)}`;
     }
 
     function alternarColumna(clave: ClaveColumna, visible: boolean) {
@@ -1027,7 +1036,12 @@
                 <div class="grid gap-3 sm:grid-cols-2">
                     <label class="block text-sm sm:col-span-2">
                         <span class="mb-1 block font-medium text-slate-600">Número de expediente</span>
-                        <input class="campo" maxlength="200" bind:value={form.expediente} />
+                        <input
+                        class="campo"
+                        maxlength="200"
+                        bind:value={form.expediente}
+                        onblur={() => (form.expediente = normalizarExpediente(form.expediente))}
+                    />
                     </label>
                     <label class="block text-sm sm:col-span-2">
                         <span class="mb-1 block font-medium text-slate-600">Número de registro</span>

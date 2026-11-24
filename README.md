@@ -143,7 +143,7 @@ La llave privada no se versiona. Si se genera una nueva, hay que reemplazar la l
 `desktop/src-tauri/tauri.conf.json` antes de distribuir. El instalador queda en:
 
 ```
-desktop/src-tauri/target/release/bundle/nsis/Custodia CradSystem_0.1.21_x64-setup.exe
+desktop/src-tauri/target/release/bundle/nsis/Custodia CradSystem_0.1.22_x64-setup.exe
 ```
 
 ### Configurar el primer acceso
@@ -170,7 +170,7 @@ manda la dirección guardada en la pantalla de acceso.
   Devoluciones, Reportes y Administración.
 - Interfaz adaptable: menú lateral colapsable en ventanas pequeñas, tablas con desplazamiento horizontal y formularios que reorganizan sus columnas.
 - Módulo **P.A.**: CRUD de personas con folio consecutivo por año, campos adicionales libres, filtros avanzados y constancia PDF generada al guardar; el municipio se elige de la lista de los **217 municipios de Puebla**, con la opción **Otros** al final.
-- Módulo **DARFES** para el perfil Administrativo: CRUD con formulario en pestañas (datos generales, pago, contacto, documentos y campos adicionales), documentos adjuntos que se pueden **visualizar** (PDF e imágenes) o descargar, teléfono y correo, exportación a Excel, buscador, campos libres, columnas configurables por usuario y reportes/indicadores.
+- Módulo **DARFES** para el perfil Administrativo: CRUD con formulario en pestañas (datos generales, pago, contacto, documentos y campos adicionales), número de expediente normalizado a 8 caracteres antes de la barra, documentos adjuntos que se pueden **visualizar** (PDF e imágenes) o descargar, teléfono y correo, exportación a Excel, buscador, campos libres, columnas configurables por usuario y reportes/indicadores.
 - **Recibo de ayuda en DOCX**: se descarga desde el formulario usando la plantilla institucional y sustituye folio, año/mes, tipo, beneficiario, monto y No. DARFE. El folio es consecutivo anual, inicia en 557 y se conserva en reimpresiones; solo el administrador puede modificarlo y ver el botón **Duplicar**.
 - **Mis custodias** con buscador por número, descripción o estado y paginación sobre los resultados.
 - **Respaldo de la base de datos** desde Administración: el administrador genera un `.dump` restaurable con `pg_restore`; el archivo se descarga al equipo y la acción queda auditada.

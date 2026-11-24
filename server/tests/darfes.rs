@@ -514,3 +514,38 @@ async fn solo_administrador_cambia_el_folio() {
 
     t.cerrar().await;
 }
+
+#[tokio::test]
+async fn normaliza_el_numero_de_expediente_del_darfe() {
+    let t = setup().await;
+    crear_usuario(&t.db, "admin@test.mx", "ADMINISTRATIVO").await;
+    let (tok, _) = iniciar_sesion(&t.app, "admin@test.mx").await;
+
+    let mut cuerpo = darfe("DARFE-EXP-1", "Persona Expediente");
+    cuerpo["expediente"] = json!("2898/2026");
+    let (estado, creado) = pedir(
+        &t.app,
+        "POST",
+        "/api/v1/darfes",
+        Some(&tok),
+        Some(cuerpo),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK, "{creado}");
+    assert_eq!(creado["expediente"], "00002898/2026");
+
+    let mut sin_barra = darfe("DARFE-EXP-2", "Otra Persona");
+    sin_barra["expediente"] = json!("EXP-1");
+    let (estado, creado) = pedir(
+        &t.app,
+        "POST",
+        "/api/v1/darfes",
+        Some(&tok),
+        Some(sin_barra),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK, "{creado}");
+    assert_eq!(creado["expediente"], "EXP-1");
+
+    t.cerrar().await;
+}

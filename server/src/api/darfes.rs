@@ -17,6 +17,7 @@ use uuid::Uuid;
 
 use crate::{
     api::entrada::{ApiJson, ApiQuery},
+    api::expedientes::normalizar_numero,
     audit,
     auth::AuthUser,
     error::ApiError,
@@ -1025,7 +1026,11 @@ fn validar(input: DarfeInput) -> Result<DatosDarfe, ApiError> {
         numero_darfe,
         fecha: input.fecha,
         nombre,
-        expediente: campo(input.expediente, 200, "El expediente")?,
+        expediente: campo(
+            normalizar_numero(input.expediente.trim()),
+            200,
+            "El expediente",
+        )?,
         registro: campo(input.registro, 100, "El registro")?,
         banco: campo(input.banco, 120, "El banco")?,
         curp: campo(input.curp.to_uppercase(), 18, "La CURP")?,

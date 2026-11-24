@@ -579,7 +579,10 @@ servidor Debian de destino.
   expediente, con el permiso `expedientes:administrar`. La edición incrementa la versión, registra
   un movimiento `EDICION`, queda en auditoría y emite un evento de sincronización con la nueva
   descripción.
+- Versión `0.1.22`: el **Número de expediente** de DARFES se normaliza a 8 caracteres antes de la
+  barra, rellenando con ceros (`2898/2026` → `00002898/2026`). Se aplica al guardar y al salir del
+  campo; los números sin barra se conservan.
 - Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
-  `infra/updates/`. **Pendiente**: publicar `0.1.21` en el VPS; el servidor responde por HTTPS y
+  `infra/updates/`. **Pendiente**: publicar `0.1.22` en el VPS; el servidor responde por HTTPS y
   sigue sirviendo `0.1.4`, pero el puerto SSH `2702` presenta una clave de host distinta a la
   registrada, por lo que no se desplegó sin validarla.

@@ -2,6 +2,7 @@
     import { onMount } from 'svelte';
     import { api, type PedidoResumen } from '../api';
     import { app } from '../estado.svelte';
+    import BotonIcono from '../BotonIcono.svelte';
     import Insignia from '../Insignia.svelte';
     import Paginacion from '../Paginacion.svelte';
     import { allSettledConcurrent } from '../allSettledConcurrent.js';
@@ -70,14 +71,19 @@
     );
 </script>
 
-<div class="space-y-6">
-    <section class="grid gap-4 sm:grid-cols-3">
+<div class="space-y-4">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <p class="text-sm text-slate-500">Indicadores de pedidos, altas y movimientos.</p>
+        <BotonIcono nombre="actualizar" etiqueta="Actualizar reportes" onclick={cargar} />
+    </div>
+
+    <section class="grid gap-3 sm:grid-cols-3">
         {#each Object.entries(tablero ?? {}) as [clave, valor]}
             <div class="tarjeta p-4">
                 <p class="text-xs uppercase tracking-wide text-slate-500">
                     {clave.replaceAll('_', ' ')}
                 </p>
-                <p class="mt-1 text-2xl font-semibold text-institucional-600">{valor}</p>
+                <p class="mt-1 text-2xl font-semibold tabular-nums text-institucional-600">{valor}</p>
             </div>
         {/each}
     </section>
@@ -105,12 +111,12 @@
                     Altas con custodia inicial · {altas?.total ?? 0} en total
                 </p>
             </div>
-            <div class="flex gap-1">
+            <div class="segmentado">
                 {#each agrupaciones as opcion}
                     <button
-                        class="btn-secundario {agrupacion === opcion.clave
-                            ? 'bg-slate-100 font-semibold text-slate-900'
-                            : ''}"
+                        class={agrupacion === opcion.clave ? 'segmentado-activo' : ''}
+                        type="button"
+                        aria-pressed={agrupacion === opcion.clave}
                         onclick={() => cambiarAgrupacion(opcion.clave)}
                     >
                         {opcion.etiqueta}

@@ -2,6 +2,7 @@
     import { onMount } from 'svelte';
     import { api } from '../api';
     import { app } from '../estado.svelte';
+    import BotonIcono from '../BotonIcono.svelte';
     import Insignia from '../Insignia.svelte';
     import Paginacion from '../Paginacion.svelte';
     import { allSettledConcurrent } from '../allSettledConcurrent.js';
@@ -37,33 +38,39 @@
     }
 
     const tarjetas = [
-        { clave: 'pedidos_pendientes', titulo: 'Pedidos pendientes', color: 'text-amber-600' },
-        { clave: 'pedidos_por_preparar', titulo: 'Por preparar', color: 'text-sky-600' },
-        { clave: 'en_entrega', titulo: 'En entrega', color: 'text-purple-600' },
-        { clave: 'custodias_activas', titulo: 'Custodias activas', color: 'text-indigo-600' },
-        { clave: 'devoluciones_pendientes', titulo: 'Devoluciones por acusar', color: 'text-rose-600' },
-        { clave: 'no_localizados', titulo: 'No localizados', color: 'text-rose-700' }
+        { clave: 'pedidos_pendientes', titulo: 'Pedidos pendientes', color: 'text-amber-600', punto: 'bg-amber-500' },
+        { clave: 'pedidos_por_preparar', titulo: 'Por preparar', color: 'text-sky-600', punto: 'bg-sky-500' },
+        { clave: 'en_entrega', titulo: 'En entrega', color: 'text-purple-600', punto: 'bg-purple-500' },
+        { clave: 'custodias_activas', titulo: 'Custodias activas', color: 'text-indigo-600', punto: 'bg-indigo-500' },
+        { clave: 'devoluciones_pendientes', titulo: 'Devoluciones por acusar', color: 'text-rose-600', punto: 'bg-rose-500' },
+        { clave: 'no_localizados', titulo: 'No localizados', color: 'text-rose-700', punto: 'bg-rose-700' }
     ];
 </script>
 
-<div class="space-y-6">
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+<div class="space-y-4">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <p class="text-sm text-slate-500">Resumen operativo del almacén y la cadena de custodia.</p>
+        <BotonIcono nombre="actualizar" etiqueta="Actualizar resumen" onclick={cargar} />
+    </div>
+
+    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {#each tarjetas as tarjeta}
-            <div class="tarjeta p-4">
-                <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
+            <div class="tarjeta p-4 transition hover:border-slate-300">
+                <p class="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+                    <span class="h-1.5 w-1.5 rounded-full {tarjeta.punto}" aria-hidden="true"></span>
                     {tarjeta.titulo}
                 </p>
-                <p class="mt-2 text-3xl font-semibold {tarjeta.color}">
+                <p class="mt-2 text-3xl font-semibold tabular-nums {tarjeta.color}">
                     {tablero?.[tarjeta.clave] ?? '—'}
                 </p>
             </div>
         {/each}
     </div>
 
-    <section class="tarjeta">
-        <header class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+    <section class="tarjeta overflow-hidden">
+        <header class="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5">
             <h2 class="text-sm font-semibold text-slate-700">Pedidos recientes</h2>
-            <button class="btn-secundario" onclick={cargar}>Actualizar</button>
+            <BotonIcono nombre="actualizar" etiqueta="Actualizar pedidos" onclick={cargar} />
         </header>
         <div class="overflow-x-auto">
             <table class="tabla min-w-[640px]">

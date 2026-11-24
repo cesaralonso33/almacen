@@ -3,6 +3,8 @@
     import { invoke } from '@tauri-apps/api/core';
     import { api, type Expediente, type PedidoResumen } from '../api';
     import { app } from '../estado.svelte';
+    import BotonIcono from '../BotonIcono.svelte';
+    import Icono from '../Icono.svelte';
     import Insignia from '../Insignia.svelte';
     import Modal from '../Modal.svelte';
     import Paginacion from '../Paginacion.svelte';
@@ -114,12 +116,15 @@
 </script>
 
 <div class="space-y-4">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-3">
         <p class="text-sm text-slate-500">{pedidos.length} pedidos</p>
-        <div class="flex gap-2">
-            <button class="btn-secundario" onclick={cargar}>Actualizar</button>
+        <div class="flex items-center gap-1">
+            <BotonIcono nombre="actualizar" etiqueta="Actualizar" onclick={cargar} />
             {#if app.permiso('pedidos:crear')}
-                <button class="btn-primario" onclick={() => (creando = true)}>Nuevo pedido</button>
+                <button class="btn-primario ml-1 px-3 py-1.5 text-xs" onclick={() => (creando = true)}>
+                    <Icono nombre="mas" clase="h-3.5 w-3.5" />
+                    Nuevo pedido
+                </button>
             {/if}
         </div>
     </div>

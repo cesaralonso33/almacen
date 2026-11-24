@@ -3,6 +3,8 @@
     import { invoke } from '@tauri-apps/api/core';
     import { api } from '../api';
     import { app } from '../estado.svelte';
+    import BotonIcono from '../BotonIcono.svelte';
+    import Icono from '../Icono.svelte';
     import Modal from '../Modal.svelte';
     import Paginacion from '../Paginacion.svelte';
     import { POR_PAGINA, recortar, totalPaginas } from '../paginacion';
@@ -121,9 +123,15 @@
 </script>
 
 <div class="space-y-6">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-3">
         <p class="text-sm text-slate-500">{usuarios.length} usuarios</p>
-        <button class="btn-primario" onclick={() => (creando = !creando)}>Nuevo usuario</button>
+        <button
+            class="btn-primario px-3 py-1.5 text-xs"
+            onclick={() => (creando = !creando)}
+        >
+            <Icono nombre={creando ? 'cerrar' : 'mas'} clase="h-3.5 w-3.5" />
+            {creando ? 'Cancelar' : 'Nuevo usuario'}
+        </button>
     </div>
 
     {#if creando}
@@ -180,13 +188,22 @@
                                 {usuario.activo ? 'Activo' : 'Inactivo'}
                             </span>
                         </td>
-                        <td class="space-x-2 text-right">
-                            <button class="btn-secundario" onclick={() => abrirEdicion(usuario)}>
-                                Editar
-                            </button>
-                            <button class="btn-secundario" onclick={() => cambiarEstado(usuario)}>
-                                {usuario.activo ? 'Desactivar' : 'Activar'}
-                            </button>
+                        <td class="text-right">
+                            <div class="flex justify-end gap-1">
+                                <BotonIcono
+                                    nombre="editar"
+                                    etiqueta={`Editar ${usuario.nombre}`}
+                                    chico
+                                    onclick={() => abrirEdicion(usuario)}
+                                />
+                                <BotonIcono
+                                    nombre={usuario.activo ? 'rechazar' : 'aceptar'}
+                                    etiqueta={`${usuario.activo ? 'Desactivar' : 'Activar'} ${usuario.nombre}`}
+                                    chico
+                                    peligro={usuario.activo}
+                                    onclick={() => cambiarEstado(usuario)}
+                                />
+                            </div>
                         </td>
                     </tr>
                 {/each}
@@ -202,7 +219,10 @@
                 <div class="rounded-lg border border-slate-200 p-3">
                     <p class="text-sm font-semibold text-slate-700">{rol.clave}</p>
                     <p class="text-xs text-slate-500">{rol.nombre}</p>
-                    <p class="mt-2 text-xs text-slate-500">{rol.permisos.length} permisos</p>
+                    <p class="mt-2 text-xs text-slate-500">
+                        {rol.permisos.length}
+                        {rol.permisos.length === 1 ? 'permiso' : 'permisos'}
+                    </p>
                 </div>
             {/each}
         </div>
@@ -220,11 +240,12 @@
             </div>
             <div class="flex flex-wrap items-center gap-3">
                 <button
-                    class="btn-primario"
+                    class="btn-primario px-3 py-1.5 text-xs"
                     type="button"
                     onclick={generarRespaldo}
                     disabled={generandoRespaldo}
                 >
+                    <Icono nombre="respaldo" clase="h-3.5 w-3.5" />
                     {generandoRespaldo ? 'Generando respaldo…' : 'Generar y descargar respaldo'}
                 </button>
                 {#if respaldoRuta}

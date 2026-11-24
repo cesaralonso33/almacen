@@ -640,10 +640,9 @@
 <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-            <h2 class="text-lg font-semibold text-slate-800">DARFES</h2>
             <p class="text-sm text-slate-500">
                 {#if pestana === 'registros'}
-                    {total} {total === 1 ? 'registro' : 'registros'}
+                    {total} {total === 1 ? 'registro' : 'registros'} · registro, documentos y reportes
                 {:else}
                     Reportes e indicadores
                 {/if}

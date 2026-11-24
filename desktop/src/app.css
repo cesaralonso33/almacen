@@ -66,6 +66,22 @@
         @apply bg-slate-100 text-slate-800;
     }
 
+    .barra-herramientas {
+        @apply flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2;
+    }
+
+    .segmentado {
+        @apply inline-flex items-center rounded-lg bg-slate-100 p-0.5;
+    }
+
+    .segmentado > button {
+        @apply rounded-md px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:text-slate-700;
+    }
+
+    .segmentado > button.segmentado-activo {
+        @apply bg-white text-slate-800 shadow-sm;
+    }
+
     .insignia {
         @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold;
     }

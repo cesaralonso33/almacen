@@ -2,6 +2,8 @@
     import { onMount } from 'svelte';
     import { api, type PedidoResumen } from '../api';
     import { app } from '../estado.svelte';
+    import BotonIcono from '../BotonIcono.svelte';
+    import Icono from '../Icono.svelte';
     import Insignia from '../Insignia.svelte';
     import Modal from '../Modal.svelte';
     import Paginacion from '../Paginacion.svelte';
@@ -94,9 +96,9 @@
 </script>
 
 <div class="space-y-4">
-    <div class="flex items-center justify-between">
-        <p class="text-sm text-slate-500">Pedidos por atender</p>
-        <button class="btn-secundario" onclick={cargar}>Actualizar</button>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <p class="text-sm text-slate-500">{pedidos.length} pedidos por atender</p>
+        <BotonIcono nombre="actualizar" etiqueta="Actualizar" onclick={cargar} />
     </div>
 
     <div class="tarjeta overflow-hidden">
@@ -123,8 +125,8 @@
                 {/if}
             </tbody>
         </table></div>
+        <Paginacion {pagina} {paginas} total={pedidos.length} onCambiar={(valor) => (pagina = valor)} />
     </div>
-    <Paginacion {pagina} {paginas} total={pedidos.length} onCambiar={(valor) => (pagina = valor)} />
 </div>
 
 {#if detalle}
@@ -140,10 +142,16 @@
                         <div class="flex items-center gap-2">
                             <Insignia estado={item.estado} />
                             {#if item.estado === 'PENDIENTE'}
-                                <button class="btn-secundario" onclick={() => preparar(item.id)}>
+                                <button
+                                    class="btn-secundario px-2.5 py-1 text-xs"
+                                    onclick={() => preparar(item.id)}
+                                >
                                     Preparar
                                 </button>
-                                <button class="btn-secundario" onclick={() => (descartando = item.id)}>
+                                <button
+                                    class="btn-secundario px-2.5 py-1 text-xs"
+                                    onclick={() => (descartando = item.id)}
+                                >
                                     Descartar
                                 </button>
                             {/if}

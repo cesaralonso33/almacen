@@ -3,6 +3,8 @@
     import { invoke } from '@tauri-apps/api/core';
     import { api, type Expediente } from '../api';
     import { app } from '../estado.svelte';
+    import BotonIcono from '../BotonIcono.svelte';
+    import Icono from '../Icono.svelte';
     import Insignia from '../Insignia.svelte';
     import Modal from '../Modal.svelte';
     import Paginacion from '../Paginacion.svelte';
@@ -54,6 +56,9 @@
     let resultadoImportacion = $state<any>(null);
 
     const paginas = $derived(totalPaginas(total, TAMANO));
+    const filtrosActivos = $derived(
+        [estadoFiltro, unidadFiltro, anioFiltro, custodioFiltro].filter(Boolean).length
+    );
 
     let temporizador: ReturnType<typeof setTimeout>;
 
@@ -274,11 +279,11 @@
 </script>
 
 <div class="flex h-[calc(100vh-8rem)] min-h-0 flex-col gap-3">
-    <div class="flex shrink-0 flex-wrap items-end justify-between gap-3">
+    <div class="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div>
-            <p class="text-2xl font-semibold text-slate-800">
+            <p class="text-xl font-semibold text-slate-800">
                 {total.toLocaleString('es-MX')}
-                <span class="text-base font-normal text-slate-500">expedientes</span>
+                <span class="text-sm font-normal text-slate-500">expedientes</span>
             </p>
             <p class="text-xs text-slate-500">
                 {#if local}
@@ -288,37 +293,26 @@
                 {/if}
             </p>
         </div>
-        <div class="flex flex-wrap gap-2">
-            {#if app.permiso('expedientes:crear')}
-                <button class="btn-primario" onclick={abrirAlta}>Nuevo expediente</button>
-            {/if}
+        <div class="flex flex-wrap items-center gap-1">
             {#if app.permiso('expedientes:administrar')}
-                <button class="btn-secundario" onclick={abrirImportacion}>Importar lista</button>
+                <BotonIcono nombre="importar" etiqueta="Importar lista" onclick={abrirImportacion} />
             {/if}
             {#if app.permiso('expedientes:exportar')}
-                <button class="btn-secundario" onclick={exportar} disabled={exportando}>
-                    {exportando ? 'Exportando…' : 'Exportar Excel'}
+                <BotonIcono
+                    nombre="descargar"
+                    etiqueta={exportando ? 'Exportando…' : 'Exportar a Excel'}
+                    disabled={exportando}
+                    onclick={exportar}
+                />
+            {/if}
+            <BotonIcono nombre="actualizar" etiqueta="Actualizar" onclick={cargar} />
+            {#if app.permiso('expedientes:crear')}
+                <button class="btn-primario ml-1 px-3 py-1.5 text-xs" onclick={abrirAlta}>
+                    <Icono nombre="mas" clase="h-3.5 w-3.5" />
+                    Nuevo expediente
                 </button>
             {/if}
-            <button class="btn-secundario" onclick={cargar}>Actualizar</button>
         </div>
-    </div>
-
-    <div class="flex shrink-0 flex-wrap items-center gap-3">
-        <input
-            class="campo max-w-md"
-            placeholder="Buscar por número o descripción…"
-            bind:value={buscar}
-            oninput={conRetardo}
-        />
-        <button class="btn-secundario" onclick={() => (avanzado = !avanzado)}>
-            {avanzado ? 'Ocultar filtros' : 'Filtros avanzados'}
-        </button>
-        {#if estadoFiltro || unidadFiltro || anioFiltro || custodioFiltro}
-            <button class="text-xs text-institucional-600 underline" onclick={limpiarFiltros}>
-                Limpiar filtros
-            </button>
-        {/if}
     </div>
 
     {#if Object.keys(porEstado).length > 0}
@@ -337,51 +331,6 @@
         </div>
     {/if}
 
-    {#if avanzado}
-        <div class="tarjeta grid shrink-0 gap-2 p-3 sm:grid-cols-2 md:grid-cols-4">
-            <label class="block text-sm">
-                <span class="mb-1 block font-medium text-slate-600">Estado</span>
-                <select class="campo" bind:value={estadoFiltro} onchange={aplicarFiltros}>
-                    <option value="">Todos</option>
-                    <option value="ALMACEN">Almacén</option>
-                    <option value="EN_CUSTODIA">En custodia</option>
-                    <option value="NO_LOCALIZADO">No localizado</option>
-                </select>
-            </label>
-
-            <label class="block text-sm">
-                <span class="mb-1 block font-medium text-slate-600">Unidad / órgano</span>
-                <select class="campo" bind:value={unidadFiltro} onchange={aplicarFiltros}>
-                    <option value="">Todas</option>
-                    {#each unidades as unidad}
-                        <option value={unidad}>{unidad}</option>
-                    {/each}
-                </select>
-            </label>
-
-            <label class="block text-sm">
-                <span class="mb-1 block font-medium text-slate-600">Año</span>
-                <select class="campo" bind:value={anioFiltro} onchange={aplicarFiltros}>
-                    <option value="">Todos</option>
-                    {#each anios as anio}
-                        <option value={String(anio)}>{anio}</option>
-                    {/each}
-                </select>
-            </label>
-
-            <label class="block text-sm">
-                <span class="mb-1 block font-medium text-slate-600">Custodio</span>
-                <input
-                    class="campo"
-                    placeholder="Nombre del custodio"
-                    bind:value={custodioFiltro}
-                    onchange={aplicarFiltros}
-                    onkeydown={(evento) => evento.key === 'Enter' && aplicarFiltros()}
-                />
-            </label>
-        </div>
-    {/if}
-
     {#if local}
         <p class="shrink-0 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
             Sin conexión: mostrando la copia local de expedientes. Los filtros avanzados requieren
@@ -390,6 +339,83 @@
     {/if}
 
     <div class="tarjeta flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div class="barra-herramientas shrink-0">
+            <div class="relative min-w-0 flex-1 sm:max-w-md">
+                <Icono
+                    nombre="buscar"
+                    clase="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                    class="campo border-transparent bg-slate-50 pl-9 focus:bg-white"
+                    placeholder="Buscar por número o descripción…"
+                    aria-label="Buscar expedientes"
+                    bind:value={buscar}
+                    oninput={conRetardo}
+                />
+            </div>
+            <BotonIcono
+                nombre="filtros"
+                etiqueta={avanzado ? 'Ocultar filtros' : 'Filtros avanzados'}
+                activo={avanzado}
+                punto={filtrosActivos > 0 && !avanzado}
+                onclick={() => (avanzado = !avanzado)}
+            />
+            {#if filtrosActivos > 0}
+                <button
+                    class="rounded-md px-2 py-1 text-xs font-medium text-institucional-600 hover:bg-institucional-50"
+                    type="button"
+                    onclick={limpiarFiltros}
+                >
+                    Limpiar filtros
+                </button>
+            {/if}
+        </div>
+
+        {#if avanzado}
+            <div class="grid shrink-0 gap-3 border-b border-slate-100 bg-slate-50/60 px-3 py-3 sm:grid-cols-2 md:grid-cols-4">
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Estado</span>
+                    <select class="campo py-1.5 text-xs" bind:value={estadoFiltro} onchange={aplicarFiltros}>
+                        <option value="">Todos</option>
+                        <option value="ALMACEN">Almacén</option>
+                        <option value="EN_CUSTODIA">En custodia</option>
+                        <option value="NO_LOCALIZADO">No localizado</option>
+                    </select>
+                </label>
+
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Unidad / órgano</span>
+                    <select class="campo py-1.5 text-xs" bind:value={unidadFiltro} onchange={aplicarFiltros}>
+                        <option value="">Todas</option>
+                        {#each unidades as unidad}
+                            <option value={unidad}>{unidad}</option>
+                        {/each}
+                    </select>
+                </label>
+
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Año</span>
+                    <select class="campo py-1.5 text-xs" bind:value={anioFiltro} onchange={aplicarFiltros}>
+                        <option value="">Todos</option>
+                        {#each anios as anio}
+                            <option value={String(anio)}>{anio}</option>
+                        {/each}
+                    </select>
+                </label>
+
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Custodio</span>
+                    <input
+                        class="campo py-1.5 text-xs"
+                        placeholder="Nombre del custodio"
+                        bind:value={custodioFiltro}
+                        onchange={aplicarFiltros}
+                        onkeydown={(evento) => evento.key === 'Enter' && aplicarFiltros()}
+                    />
+                </label>
+            </div>
+        {/if}
+
         <div class="min-h-0 flex-1 overflow-auto">
             <table class="tabla min-w-[900px]">
                 <thead>

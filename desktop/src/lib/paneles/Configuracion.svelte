@@ -175,7 +175,7 @@
 
             <div class="flex flex-wrap items-center gap-2">
                 <button
-                    class="btn-primario"
+                    class="btn-primario px-3 py-1.5 text-xs"
                     type="button"
                     onclick={() => guardar('EXPEDIENTE')}
                     disabled={guardando === 'EXPEDIENTE'}
@@ -197,7 +197,7 @@
                     />
                 </label>
                 <button
-                    class="btn-secundario self-end"
+                    class="btn-secundario self-end px-3 py-1.5 text-xs"
                     type="button"
                     onclick={probarExpediente}
                     disabled={probandoExpediente}
@@ -260,7 +260,7 @@
 
             <div class="flex flex-wrap items-center gap-2">
                 <button
-                    class="btn-primario"
+                    class="btn-primario px-3 py-1.5 text-xs"
                     type="button"
                     onclick={() => guardar('PAPERLESS')}
                     disabled={guardando === 'PAPERLESS'}
@@ -268,7 +268,7 @@
                     {guardando === 'PAPERLESS' ? 'Guardando…' : 'Guardar'}
                 </button>
                 <button
-                    class="btn-secundario"
+                    class="btn-secundario px-3 py-1.5 text-xs"
                     type="button"
                     onclick={probarPaperless}
                     disabled={probandoPaperless || !activoPaperless}

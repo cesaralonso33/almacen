@@ -98,7 +98,7 @@
 </script>
 
 <div class="space-y-4">
-    <section class="card">
+    <section class="tarjeta p-4">
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
                 <h2 class="text-base font-semibold text-slate-800">Asignación masiva de pedidos</h2>
@@ -153,7 +153,7 @@
         </div>
     </section>
 
-    <section class="card overflow-hidden p-0">
+    <section class="tarjeta overflow-hidden">
         <div class="overflow-x-auto">
             <table class="tabla min-w-[800px]">
                 <thead>
@@ -192,20 +192,18 @@
             </table>
         </div>
 
-        <div class="border-t border-slate-200 px-4 py-3">
-            <Paginacion
-                {pagina}
-                {paginas}
-                total={total}
-                onCambiar={(valor) => {
-                    pagina = valor;
-                    buscar();
-                }}
-            />
-        </div>
+        <Paginacion
+            {pagina}
+            {paginas}
+            total={total}
+            onCambiar={(valor) => {
+                pagina = valor;
+                buscar();
+            }}
+        />
     </section>
 
-    <section class="card flex flex-wrap items-center justify-between gap-3">
+    <section class="tarjeta flex flex-wrap items-center justify-between gap-3 p-4">
         <div class="text-sm text-slate-600">
             {#if destino}
                 Se creará un pedido para <strong>{nombreDestino()}</strong> con
@@ -232,7 +230,7 @@
     </section>
 
     {#if resultado}
-        <section class="card border-emerald-200 bg-emerald-50 text-sm text-emerald-800">
+        <section class="tarjeta border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
             Pedido <span class="font-mono">{resultado.pedido_id}</span> creado con
             {resultado.total} expediente(s). Almacén lo verá en su bandeja y el destinatario
             deberá confirmar la recepción.

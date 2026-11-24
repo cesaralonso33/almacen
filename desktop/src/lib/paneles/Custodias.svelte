@@ -2,6 +2,8 @@
     import { onMount } from 'svelte';
     import { api } from '../api';
     import { app } from '../estado.svelte';
+    import BotonIcono from '../BotonIcono.svelte';
+    import Icono from '../Icono.svelte';
     import Insignia from '../Insignia.svelte';
     import Modal from '../Modal.svelte';
     import Paginacion from '../Paginacion.svelte';
@@ -160,20 +162,17 @@
 
 <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <p class="text-sm text-slate-500">Expedientes bajo mi custodia</p>
-        <div class="flex flex-wrap items-center gap-2">
-            <input
-                class="campo w-full min-w-0 sm:w-72"
-                type="search"
-                placeholder="Buscar por número, descripción o estado…"
-                aria-label="Buscar en mis custodias"
-                bind:value={buscar}
-                oninput={() => (pagina = 1)}
-            />
+        <p class="text-sm text-slate-500">
+            {custodiasFiltradas.length} expedientes bajo mi custodia
+        </p>
+        <div class="flex items-center gap-1">
+            <BotonIcono nombre="actualizar" etiqueta="Actualizar" onclick={cargar} />
             {#if app.permiso('expedientes:crear')}
-                <button class="btn-primario" onclick={abrirAlta}>Agregar expediente</button>
+                <button class="btn-primario ml-1 px-3 py-1.5 text-xs" onclick={abrirAlta}>
+                    <Icono nombre="mas" clase="h-3.5 w-3.5" />
+                    Agregar expediente
+                </button>
             {/if}
-            <button class="btn-secundario" onclick={cargar}>Actualizar</button>
         </div>
     </div>
 
@@ -200,13 +199,21 @@
                             <td class="text-slate-500">
                                 {new Date(pendiente.solicitada_en).toLocaleString('es-MX')}
                             </td>
-                            <td class="space-x-2 text-right">
-                                <button class="btn-primario" onclick={() => aceptar(pendiente.id)}>
-                                    Aceptar
-                                </button>
-                                <button class="btn-secundario" onclick={() => rechazar(pendiente.id)}>
-                                    Rechazar
-                                </button>
+                            <td class="text-right">
+                                <div class="flex justify-end gap-1">
+                                    <button
+                                        class="btn-primario px-2.5 py-1 text-xs"
+                                        onclick={() => aceptar(pendiente.id)}
+                                    >
+                                        Aceptar
+                                    </button>
+                                    <button
+                                        class="btn-secundario px-2.5 py-1 text-xs"
+                                        onclick={() => rechazar(pendiente.id)}
+                                    >
+                                        Rechazar
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     {/each}
@@ -216,6 +223,22 @@
     {/if}
 
     <div class="tarjeta overflow-hidden">
+        <div class="barra-herramientas">
+            <div class="relative min-w-0 flex-1 sm:max-w-sm">
+                <Icono
+                    nombre="buscar"
+                    clase="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                    class="campo border-transparent bg-slate-50 pl-9 focus:bg-white"
+                    type="search"
+                    placeholder="Buscar por número, descripción o estado…"
+                    aria-label="Buscar en mis custodias"
+                    bind:value={buscar}
+                    oninput={() => (pagina = 1)}
+                />
+            </div>
+        </div>
         <div class="overflow-x-auto"><table class="tabla min-w-[720px]">
             <thead>
                 <tr>
@@ -235,14 +258,22 @@
                         <td class="text-slate-500">
                             {new Date(custodia.desde).toLocaleString('es-MX')}
                         </td>
-                        <td class="space-x-2 text-right">
-                            <button class="btn-secundario" onclick={() => devolver(custodia.expediente_id)}>
-                                Devolver
-                            </button>
-                            <button class="btn-secundario" onclick={() => abrirTransferencia(custodia)}>
-                                Transferir
-                            </button>
-                        </td>
+                            <td class="text-right">
+                                <div class="flex justify-end gap-1">
+                                    <BotonIcono
+                                        nombre="devolver"
+                                        etiqueta={`Devolver ${custodia.numero}`}
+                                        chico
+                                        onclick={() => devolver(custodia.expediente_id)}
+                                    />
+                                    <BotonIcono
+                                        nombre="transferir"
+                                        etiqueta={`Transferir ${custodia.numero}`}
+                                        chico
+                                        onclick={() => abrirTransferencia(custodia)}
+                                    />
+                                </div>
+                            </td>
                     </tr>
                 {/each}
                 {#if custodiasFiltradas.length === 0}

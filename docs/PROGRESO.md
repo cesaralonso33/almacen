@@ -588,6 +588,13 @@ servidor Debian de destino.
   importar un documento de Paperless por ID a cualquiera de sus campos. La migración
   `0021_integraciones.sql` crea la configuración, el permiso `admin:integraciones` y limita el
   acceso al `ADMINISTRADOR`.
+- Versión `0.1.26`: se extiende el lenguaje visual minimalista a todos los módulos. El menú lateral
+  se agrupa en **General**, **Operación**, **Análisis** y **Sistema**, con iconos y sección activa.
+  Se agregan componentes reutilizables de icono y botón de icono; las listas (expedientes, P.A.,
+  custodias, pedidos, entregas, devoluciones, reportes y administración) usan barras de herramientas
+  compactas, filtros plegables, acciones de fila con iconos accesibles y paginación integrada en la
+  tarjeta. Los modales tienen encabezado y cierre compactos, y los botones de sincronización y
+  conflictos son más discretos.
 - Versión `0.1.25`: rediseño minimalista del área de la tabla de DARFES. Las vistas **Registros** y
   **Reportes** pasan a un control segmentado; la búsqueda, filtros, columnas y exportación se agrupan
   en una sola barra compacta con botones de icono accesibles, y las acciones de cada fila son iconos
@@ -597,6 +604,6 @@ servidor Debian de destino.
   la interfaz como en los endpoints del servidor. Aunque otro rol reciba el permiso
   `admin:integraciones`, el servidor responde 403 y la opción no aparece en el menú.
 - Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
-  `infra/updates/`. **Pendiente**: publicar `0.1.25` en el VPS; el servidor responde por HTTPS y
+  `infra/updates/`. **Pendiente**: publicar `0.1.26` en el VPS; el servidor responde por HTTPS y
   sigue sirviendo `0.1.4`, pero el puerto SSH `2702` presenta una clave de host distinta a la
   registrada, por lo que no se desplegó sin validarla.

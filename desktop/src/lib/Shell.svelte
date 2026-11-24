@@ -2,6 +2,8 @@
     import { invoke } from '@tauri-apps/api/core';
     import { app } from './estado.svelte';
     import Modal from './Modal.svelte';
+    import BotonIcono from './BotonIcono.svelte';
+    import Icono from './Icono.svelte';
     import CambiarPassword from './CambiarPassword.svelte';
     import Inicio from './paneles/Inicio.svelte';
     import Expedientes from './paneles/Expedientes.svelte';
@@ -18,20 +20,21 @@
     import Configuracion from './paneles/Configuracion.svelte';
 
     const items = [
-        { id: 'inicio', etiqueta: 'Inicio', permiso: null },
-        { id: 'expedientes', etiqueta: 'Expedientes', permiso: 'expedientes:leer' },
-        { id: 'pa', etiqueta: 'P.A.', permiso: 'pa:leer' },
-        { id: 'darfes', etiqueta: 'DARFES', permiso: 'darfes:leer' },
-        { id: 'pedidos', etiqueta: 'Mis pedidos', permiso: 'pedidos:leer' },
-        { id: 'asignaciones', etiqueta: 'Asignaciones', permiso: 'pedidos:asignar' },
-        { id: 'almacen', etiqueta: 'Almacén', permiso: 'pedidos:preparar' },
-        { id: 'entregas', etiqueta: 'Entregas', permiso: 'entregas:confirmar' },
-        { id: 'custodias', etiqueta: 'Mis custodias', permiso: 'expedientes:leer' },
-        { id: 'devoluciones', etiqueta: 'Devoluciones', permiso: 'devoluciones:confirmar' },
-        { id: 'reportes', etiqueta: 'Reportes', permiso: 'reportes:leer' },
-        { id: 'admin', etiqueta: 'Administración', permiso: 'admin:usuarios' },
-        { id: 'configuracion', etiqueta: 'Configuración', permiso: 'admin:integraciones' }
+        { id: 'inicio', etiqueta: 'Inicio', permiso: null, grupo: 'General', icono: 'inicio' },
+        { id: 'expedientes', etiqueta: 'Expedientes', permiso: 'expedientes:leer', grupo: 'General', icono: 'carpeta' },
+        { id: 'pa', etiqueta: 'P.A.', permiso: 'pa:leer', grupo: 'General', icono: 'persona' },
+        { id: 'darfes', etiqueta: 'DARFES', permiso: 'darfes:leer', grupo: 'General', icono: 'documento' },
+        { id: 'pedidos', etiqueta: 'Mis pedidos', permiso: 'pedidos:leer', grupo: 'Operación', icono: 'lista' },
+        { id: 'asignaciones', etiqueta: 'Asignaciones', permiso: 'pedidos:asignar', grupo: 'Operación', icono: 'transferir' },
+        { id: 'almacen', etiqueta: 'Almacén', permiso: 'pedidos:preparar', grupo: 'Operación', icono: 'caja' },
+        { id: 'entregas', etiqueta: 'Entregas', permiso: 'entregas:confirmar', grupo: 'Operación', icono: 'entrega' },
+        { id: 'custodias', etiqueta: 'Mis custodias', permiso: 'expedientes:leer', grupo: 'Operación', icono: 'candado' },
+        { id: 'devoluciones', etiqueta: 'Devoluciones', permiso: 'devoluciones:confirmar', grupo: 'Operación', icono: 'devolver' },
+        { id: 'reportes', etiqueta: 'Reportes', permiso: 'reportes:leer', grupo: 'Análisis', icono: 'reportes' },
+        { id: 'admin', etiqueta: 'Administración', permiso: 'admin:usuarios', grupo: 'Sistema', icono: 'usuarios' },
+        { id: 'configuracion', etiqueta: 'Configuración', permiso: 'admin:integraciones', grupo: 'Sistema', icono: 'ajustes' }
     ];
+    const grupos = ['General', 'Operación', 'Análisis', 'Sistema'];
 
     let conflictos = $state<any[]>([]);
     let verConflictos = $state(false);
@@ -87,21 +90,39 @@
             <h1 class="mt-1 text-base font-semibold text-white">Custodia CradSystem</h1>
         </div>
 
-        <nav class="flex-1 space-y-1 overflow-y-auto px-3 pb-4" aria-label="Navegación principal">
-            {#each items as item}
-                {#if (!item.permiso || app.permiso(item.permiso)) && (item.id !== 'configuracion' || app.esAdministrador())}
-                    <button
-                        class="w-full rounded-lg px-3 py-2 text-left text-sm transition {app.panel === item.id
-                            ? 'bg-white/10 font-semibold text-white'
-                            : 'text-slate-300 hover:bg-white/5'}"
-                        onclick={() => {
-                            app.panel = item.id;
-                            menuAbierto = false;
-                        }}
-                        aria-current={app.panel === item.id ? 'page' : undefined}
-                    >
-                        {item.etiqueta}
-                    </button>
+        <nav class="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4" aria-label="Navegación principal">
+            {#each grupos as grupo}
+                {@const visibles = items.filter(
+                    (item) =>
+                        item.grupo === grupo &&
+                        (!item.permiso || app.permiso(item.permiso)) &&
+                        (item.id !== 'configuracion' || app.esAdministrador())
+                )}
+                {#if visibles.length > 0}
+                    <p class="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                        {grupo}
+                    </p>
+                    {#each visibles as item}
+                        <button
+                            class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition {app.panel ===
+                            item.id
+                                ? 'bg-white/10 font-semibold text-white'
+                                : 'text-slate-300 hover:bg-white/5'}"
+                            onclick={() => {
+                                app.panel = item.id;
+                                menuAbierto = false;
+                            }}
+                            aria-current={app.panel === item.id ? 'page' : undefined}
+                        >
+                            <Icono
+                                nombre={item.icono}
+                                clase="h-4 w-4 shrink-0 {app.panel === item.id
+                                    ? 'text-white'
+                                    : 'text-slate-400'}"
+                            />
+                            <span class="truncate">{item.etiqueta}</span>
+                        </button>
+                    {/each}
                 {/if}
             {/each}
         </nav>
@@ -120,27 +141,12 @@
             class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 py-2 sm:px-6 sm:py-3"
         >
             <div class="flex min-w-0 items-center gap-2">
-                <button
-                    class="btn-secundario px-2 py-1 lg:hidden"
-                    type="button"
-                    aria-label="Abrir menú"
+                <BotonIcono
+                    nombre="menu"
+                    etiqueta="Abrir menú"
+                    extra="lg:hidden"
                     onclick={() => (menuAbierto = true)}
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        class="h-5 w-5"
-                        aria-hidden="true"
-                    >
-                        <line x1="4" y1="6" x2="20" y2="6" />
-                        <line x1="4" y1="12" x2="20" y2="12" />
-                        <line x1="4" y1="18" x2="20" y2="18" />
-                    </svg>
-                </button>
+                />
                 <h2 class="truncate text-base font-semibold text-slate-800 sm:text-lg">{titulo}</h2>
             </div>
 
@@ -162,12 +168,18 @@
                 {/if}
 
                 {#if app.sync && app.sync.conflictos > 0}
-                    <button class="btn-secundario" onclick={abrirConflictos}>
+                    <button class="btn-secundario px-2.5 py-1.5 text-xs" onclick={abrirConflictos}>
+                        <Icono nombre="alerta" clase="h-3.5 w-3.5" />
                         {app.sync.conflictos} conflictos
                     </button>
                 {/if}
 
-                <button class="btn-primario" disabled={app.ocupado} onclick={() => app.sincronizar()}>
+                <button
+                    class="btn-primario px-3 py-1.5 text-xs"
+                    disabled={app.ocupado}
+                    onclick={() => app.sincronizar()}
+                >
+                    <Icono nombre="sincronizar" clase="h-3.5 w-3.5 {app.ocupado ? 'animate-spin' : ''}" />
                     {app.ocupado ? 'Sincronizando…' : 'Sincronizar'}
                 </button>
             </div>

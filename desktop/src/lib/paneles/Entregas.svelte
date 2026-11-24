@@ -2,6 +2,7 @@
     import { onMount } from 'svelte';
     import { api } from '../api';
     import { app } from '../estado.svelte';
+    import BotonIcono from '../BotonIcono.svelte';
     import Paginacion from '../Paginacion.svelte';
     import { POR_PAGINA, recortar, totalPaginas } from '../paginacion';
 
@@ -36,9 +37,12 @@
 </script>
 
 <div class="space-y-4">
-    <div class="flex items-center justify-between">
-        <p class="text-sm text-slate-500">Entregas pendientes de mi acuse</p>
-        <button class="btn-secundario" onclick={cargar}>Actualizar</button>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <p class="text-sm font-medium text-slate-700">Pendientes de mi acuse</p>
+            <p class="text-xs text-slate-500">{entregas.length} entregas por confirmar</p>
+        </div>
+        <BotonIcono nombre="actualizar" etiqueta="Actualizar" onclick={cargar} />
     </div>
 
     <div class="tarjeta overflow-hidden">
@@ -62,7 +66,10 @@
                             {new Date(entrega.creada_en).toLocaleString('es-MX')}
                         </td>
                         <td class="text-right">
-                            <button class="btn-primario" onclick={() => confirmar(entrega.id)}>
+                            <button
+                                class="btn-primario px-2.5 py-1 text-xs"
+                                onclick={() => confirmar(entrega.id)}
+                            >
                                 Confirmar recepción
                             </button>
                         </td>
@@ -75,6 +82,6 @@
                 {/if}
             </tbody>
         </table></div>
+        <Paginacion {pagina} {paginas} total={entregas.length} onCambiar={(valor) => (pagina = valor)} />
     </div>
-    <Paginacion {pagina} {paginas} total={entregas.length} onCambiar={(valor) => (pagina = valor)} />
 </div>

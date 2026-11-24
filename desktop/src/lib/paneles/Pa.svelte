@@ -3,6 +3,8 @@
     import { invoke } from '@tauri-apps/api/core';
     import { api } from '../api';
     import { app } from '../estado.svelte';
+    import BotonIcono from '../BotonIcono.svelte';
+    import Icono from '../Icono.svelte';
     import Modal from '../Modal.svelte';
     import Paginacion from '../Paginacion.svelte';
     import { totalPaginas } from '../paginacion';
@@ -36,6 +38,21 @@
         campo: '',
         valor: ''
     });
+    const filtrosActivos = $derived(
+        [
+            filtros.folio,
+            filtros.curp,
+            filtros.nombre,
+            filtros.genero,
+            filtros.municipio,
+            filtros.fecha_desde,
+            filtros.fecha_hasta,
+            filtros.edad_min,
+            filtros.edad_max,
+            filtros.campo,
+            filtros.valor
+        ].filter(Boolean).length
+    );
     let form = $state({
         fecha: fechaHoy(),
         curp: '',
@@ -204,96 +221,117 @@
 </script>
 
 <div class="space-y-4">
-    <section class="tarjeta space-y-3 p-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <h2 class="text-base font-semibold text-slate-800">P.A.</h2>
-                <p class="text-sm text-slate-500">
-                    Registro de personas con folio anual y constancia PDF.
-                </p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-                <button class="btn-secundario" type="button" onclick={() => (avanzado = !avanzado)}>
-                    {avanzado ? 'Ocultar filtros' : 'Filtros avanzados'}
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <p class="text-sm text-slate-500">{total} registros P.A.</p>
+        <div class="flex items-center gap-1">
+            <BotonIcono nombre="actualizar" etiqueta="Actualizar" onclick={cargar} />
+            {#if app.permiso('pa:crear')}
+                <button class="btn-primario ml-1 px-3 py-1.5 text-xs" type="button" onclick={abrirNuevo}>
+                    <Icono nombre="mas" clase="h-3.5 w-3.5" />
+                    Nuevo registro
                 </button>
-                {#if app.permiso('pa:crear')}
-                    <button class="btn-primario" type="button" onclick={abrirNuevo}>Nuevo registro</button>
+            {/if}
+        </div>
+    </div>
+
+    <section class="tarjeta overflow-hidden">
+        <div class="barra-herramientas">
+            <div class="relative min-w-0 flex-1 sm:min-w-64">
+                <Icono
+                    nombre="buscar"
+                    clase="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                    class="campo border-transparent bg-slate-50 pl-9 focus:bg-white"
+                    placeholder="Buscar por folio, CURP, nombre, municipio u observaciones"
+                    aria-label="Buscar en P.A."
+                    bind:value={filtros.buscar}
+                    onkeydown={(evento) => evento.key === 'Enter' && buscar()}
+                />
+            </div>
+            <BotonIcono nombre="buscar" etiqueta="Buscar" disabled={cargando} onclick={buscar} />
+            <div class="ml-auto flex items-center gap-1">
+                <BotonIcono
+                    nombre="filtros"
+                    etiqueta={avanzado ? 'Ocultar filtros' : 'Filtros avanzados'}
+                    activo={avanzado}
+                    punto={filtrosActivos > 0 && !avanzado}
+                    onclick={() => (avanzado = !avanzado)}
+                />
+                {#if filtrosActivos > 0}
+                    <button
+                        class="rounded-md px-2 py-1 text-xs font-medium text-institucional-600 hover:bg-institucional-50"
+                        type="button"
+                        onclick={limpiarFiltros}
+                    >
+                        Limpiar
+                    </button>
                 {/if}
             </div>
         </div>
 
-        <div class="flex flex-wrap gap-2">
-            <input
-                class="campo min-w-0 flex-1 sm:min-w-64"
-                placeholder="Buscar por folio, CURP, nombre, municipio u observaciones"
-                bind:value={filtros.buscar}
-                onkeydown={(evento) => evento.key === 'Enter' && buscar()}
-            />
-            <button class="btn-secundario" type="button" onclick={buscar} disabled={cargando}>
-                {cargando ? 'Buscando…' : 'Buscar'}
-            </button>
-        </div>
-
         {#if avanzado}
-            <div class="grid gap-3 md:grid-cols-3">
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">Folio</span>
-                    <input class="campo" bind:value={filtros.folio} />
+            <div class="grid gap-3 border-b border-slate-100 bg-slate-50/60 px-3 py-3 sm:grid-cols-2 md:grid-cols-3">
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Folio</span>
+                    <input class="campo py-1.5 text-xs" bind:value={filtros.folio} />
                 </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">CURP</span>
-                    <input class="campo" bind:value={filtros.curp} />
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">CURP</span>
+                    <input class="campo py-1.5 text-xs" bind:value={filtros.curp} />
                 </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">Nombre</span>
-                    <input class="campo" bind:value={filtros.nombre} />
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Nombre</span>
+                    <input class="campo py-1.5 text-xs" bind:value={filtros.nombre} />
                 </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">Género</span>
-                    <select class="campo" bind:value={filtros.genero}>
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Género</span>
+                    <select class="campo py-1.5 text-xs" bind:value={filtros.genero}>
                         <option value="">Todos</option>
                         {#each GENEROS as genero}
                             <option value={genero}>{genero}</option>
                         {/each}
                     </select>
                 </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">Municipio</span>
-                    <input class="campo" bind:value={filtros.municipio} />
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Municipio</span>
+                    <input class="campo py-1.5 text-xs" bind:value={filtros.municipio} />
                 </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">Edad mínima</span>
-                    <input class="campo" type="number" min="0" max="150" bind:value={filtros.edad_min} />
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Edad mínima</span>
+                    <input class="campo py-1.5 text-xs" type="number" min="0" max="150" bind:value={filtros.edad_min} />
                 </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">Edad máxima</span>
-                    <input class="campo" type="number" min="0" max="150" bind:value={filtros.edad_max} />
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Edad máxima</span>
+                    <input class="campo py-1.5 text-xs" type="number" min="0" max="150" bind:value={filtros.edad_max} />
                 </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">Fecha desde</span>
-                    <input class="campo" type="date" bind:value={filtros.fecha_desde} />
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Fecha desde</span>
+                    <input class="campo py-1.5 text-xs" type="date" bind:value={filtros.fecha_desde} />
                 </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">Fecha hasta</span>
-                    <input class="campo" type="date" bind:value={filtros.fecha_hasta} />
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Fecha hasta</span>
+                    <input class="campo py-1.5 text-xs" type="date" bind:value={filtros.fecha_hasta} />
                 </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">Campo adicional</span>
-                    <input class="campo" bind:value={filtros.campo} placeholder="Nombre del campo" />
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Campo adicional</span>
+                    <input class="campo py-1.5 text-xs" bind:value={filtros.campo} placeholder="Nombre del campo" />
                 </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium text-slate-600">Valor del campo</span>
-                    <input class="campo" bind:value={filtros.valor} placeholder="Valor" />
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Valor del campo</span>
+                    <input class="campo py-1.5 text-xs" bind:value={filtros.valor} placeholder="Valor" />
                 </label>
-                <div class="flex items-end gap-2">
-                    <button class="btn-secundario" type="button" onclick={limpiarFiltros}>Limpiar</button>
-                    <button class="btn-primario" type="button" onclick={buscar}>Aplicar</button>
+                <div class="flex items-end gap-2 sm:col-span-2 md:col-span-3">
+                    <button class="btn-secundario px-3 py-1.5 text-xs" type="button" onclick={limpiarFiltros}>
+                        Limpiar
+                    </button>
+                    <button class="btn-primario px-3 py-1.5 text-xs" type="button" onclick={buscar}>
+                        Aplicar
+                    </button>
                 </div>
             </div>
         {/if}
-    </section>
 
-    <section class="tarjeta overflow-hidden">
         <div class="max-h-[62vh] overflow-auto">
             <table class="tabla min-w-[900px]">
                 <thead>
@@ -318,20 +356,32 @@
                             <td>{registro.genero}</td>
                             <td>{registro.municipio}</td>
                             <td>{registro.edad}</td>
-                            <td class="space-x-2 whitespace-nowrap text-right">
-                                <button class="btn-secundario" type="button" onclick={() => descargar(registro)}>
-                                    PDF
-                                </button>
-                                {#if app.permiso('pa:editar')}
-                                    <button class="btn-secundario" type="button" onclick={() => abrirEdicion(registro)}>
-                                        Editar
-                                    </button>
-                                {/if}
-                                {#if app.permiso('pa:eliminar')}
-                                    <button class="btn-secundario" type="button" onclick={() => eliminar(registro)}>
-                                        Eliminar
-                                    </button>
-                                {/if}
+                            <td class="whitespace-nowrap text-right">
+                                <div class="flex justify-end gap-1">
+                                    <BotonIcono
+                                        nombre="pdf"
+                                        etiqueta={`Descargar constancia de ${registro.folio}`}
+                                        chico
+                                        onclick={() => descargar(registro)}
+                                    />
+                                    {#if app.permiso('pa:editar')}
+                                        <BotonIcono
+                                            nombre="editar"
+                                            etiqueta={`Editar registro ${registro.folio}`}
+                                            chico
+                                            onclick={() => abrirEdicion(registro)}
+                                        />
+                                    {/if}
+                                    {#if app.permiso('pa:eliminar')}
+                                        <BotonIcono
+                                            nombre="eliminar"
+                                            etiqueta={`Eliminar registro ${registro.folio}`}
+                                            chico
+                                            peligro
+                                            onclick={() => eliminar(registro)}
+                                        />
+                                    {/if}
+                                </div>
                             </td>
                         </tr>
                     {:else}

@@ -44,6 +44,10 @@
   bloqueo de la fila del DARFE y registra `darfes.formato` en la auditoría.
 - `darfes:folio` y `darfes:duplicar` se conceden únicamente a `ADMINISTRADOR`. El primero habilita
   la edición del folio del recibo; el segundo, el botón **Duplicar** del formulario.
+- `darfes:auditoria` se concede únicamente a `ADMINISTRADOR`. El endpoint
+  `GET /api/v1/darfes/{id}/auditoria` comprueba además el rol, de modo que otro rol con el permiso
+  recibe 403. El historial es completo y guarda actor, fecha, dispositivo, IP y valores
+  anterior/nuevo por campo; la interfaz enmascara CURP, RFC y número de cuenta.
 - El recibo se entrega como DOCX generado a partir de `server/assets/plantillas/recibo_ayuda.docx`.
   La plantilla no contiene datos personales; solo marcadores que el servidor sustituye.
 - `admin:backup` se concede únicamente a `ADMINISTRADOR`. La API ejecuta `pg_dump` con las

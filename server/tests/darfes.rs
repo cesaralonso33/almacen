@@ -549,3 +549,115 @@ async fn normaliza_el_numero_de_expediente_del_darfe() {
 
     t.cerrar().await;
 }
+
+#[tokio::test]
+async fn registra_y_consulta_el_historial_completo_de_cambios() {
+    let t = setup().await;
+    crear_usuario(&t.db, "admin@test.mx", "ADMINISTRADOR").await;
+    crear_usuario(&t.db, "aux@test.mx", "ADMINISTRATIVO").await;
+    let (tok_admin, _) = iniciar_sesion(&t.app, "admin@test.mx").await;
+    let (tok_aux, _) = iniciar_sesion(&t.app, "aux@test.mx").await;
+
+    let (estado, creado) = pedir(
+        &t.app,
+        "POST",
+        "/api/v1/darfes",
+        Some(&tok_admin),
+        Some(darfe("DARFE-AUD-1", "Persona Auditoría")),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK, "{creado}");
+    let id = creado["id"].as_str().unwrap();
+
+    let mut primera = darfe("DARFE-AUD-1", "Persona Auditoría");
+    primera["correo"] = json!("primero@ejemplo.mx");
+    primera["monto"] = json!(1800.25);
+    let (estado, actualizado) = pedir(
+        &t.app,
+        "PUT",
+        &format!("/api/v1/darfes/{id}"),
+        Some(&tok_aux),
+        Some(primera),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK, "{actualizado}");
+
+    let mut segunda = darfe("DARFE-AUD-1", "Persona Auditoría");
+    segunda["correo"] = json!("segundo@ejemplo.mx");
+    segunda["estatus"] = json!("COMPLETO");
+    let (estado, actualizado) = pedir(
+        &t.app,
+        "PUT",
+        &format!("/api/v1/darfes/{id}"),
+        Some(&tok_admin),
+        Some(segunda),
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK, "{actualizado}");
+
+    let (estado, historial) = pedir(
+        &t.app,
+        "GET",
+        &format!("/api/v1/darfes/{id}/auditoria"),
+        Some(&tok_admin),
+        None,
+    )
+    .await;
+    assert_eq!(estado, StatusCode::OK, "{historial}");
+    let eventos = historial["eventos"].as_array().unwrap();
+    assert_eq!(eventos[0]["accion"], "darfes.crear");
+    assert_eq!(eventos[0]["actor"]["correo"], "admin@test.mx");
+
+    let ediciones: Vec<_> = eventos
+        .iter()
+        .filter(|evento| evento["accion"] == "darfes.editar")
+        .collect();
+    assert_eq!(
+        ediciones.len(),
+        2,
+        "debe conservar cada edición: {historial}"
+    );
+    assert_eq!(ediciones[0]["actor"]["correo"], "aux@test.mx");
+    assert_eq!(ediciones[1]["actor"]["correo"], "admin@test.mx");
+
+    let primer_correo = ediciones[0]["detalle"]["campos"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|cambio| cambio["campo"] == "correo")
+        .expect("cambio de correo");
+    assert_eq!(primer_correo["anterior"], "persona@ejemplo.mx");
+    assert_eq!(primer_correo["nuevo"], "primero@ejemplo.mx");
+
+    let segundo_correo = ediciones[1]["detalle"]["campos"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|cambio| cambio["campo"] == "correo")
+        .expect("segundo cambio de correo");
+    assert_eq!(segundo_correo["anterior"], "primero@ejemplo.mx");
+    assert_eq!(segundo_correo["nuevo"], "segundo@ejemplo.mx");
+
+    // Aun con el permiso, otro rol no puede consultar el historial.
+    sqlx::query(
+        "INSERT INTO rol_permisos (rol_id, permiso_id)
+         SELECT r.id, p.id FROM roles r, permisos p
+         WHERE r.clave = 'ADMINISTRATIVO' AND p.clave = 'darfes:auditoria'
+         ON CONFLICT (rol_id, permiso_id) DO NOTHING",
+    )
+    .execute(&t.db)
+    .await
+    .unwrap();
+    let (tok_aux, _) = iniciar_sesion(&t.app, "aux@test.mx").await;
+    let (estado, _) = pedir(
+        &t.app,
+        "GET",
+        &format!("/api/v1/darfes/{id}/auditoria"),
+        Some(&tok_aux),
+        None,
+    )
+    .await;
+    assert_eq!(estado, StatusCode::FORBIDDEN);
+
+    t.cerrar().await;
+}

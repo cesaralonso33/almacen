@@ -588,6 +588,12 @@ servidor Debian de destino.
   importar un documento de Paperless por ID a cualquiera de sus campos. La migración
   `0021_integraciones.sql` crea la configuración, el permiso `admin:integraciones` y limita el
   acceso al `ADMINISTRADOR`.
+- Versión `0.1.28`: **Auditoría de DARFES** exclusiva del `ADMINISTRADOR`. Cada edición conserva
+  en la bitácora los valores anterior y nuevo de los campos modificados, con actor, fecha,
+  dispositivo e IP. La migración `0022_auditoria_darfes.sql` agrega el permiso `darfes:auditoria`,
+  lo limita al administrador y crea el índice por entidad y fecha. La fila de DARFES muestra una
+  acción de auditoría que abre la línea de tiempo completa; CURP, RFC y número de cuenta se
+  enmascaran en la vista.
 - Versión `0.1.27`: mejoras de accesibilidad y retroalimentación sin cambios en los flujos. Los
   modales cierran con `Escape`, enfocan el primer control, atrapan `Tab`/`Shift+Tab` y restauran el
   foco al cerrar. Las filas de **Pedidos**, **Almacén** y **Expedientes** se abren con `Enter` o
@@ -610,6 +616,6 @@ servidor Debian de destino.
   la interfaz como en los endpoints del servidor. Aunque otro rol reciba el permiso
   `admin:integraciones`, el servidor responde 403 y la opción no aparece en el menú.
 - Instalador y manifiesto generados en `desktop/src-tauri/target/release/bundle/nsis/` e
-  `infra/updates/`. **Pendiente**: publicar `0.1.27` en el VPS; el servidor responde por HTTPS y
-  sigue sirviendo `0.1.4`, pero el puerto SSH `2702` presenta una clave de host distinta a la
+  `infra/updates/`. **Pendiente**: publicar `0.1.28` en el VPS; el servidor responde por HTTPS y
+  sigue sirviendo `0.1.17`, pero el puerto SSH `2702` presenta una clave de host distinta a la
   registrada, por lo que no se desplegó sin validarla.

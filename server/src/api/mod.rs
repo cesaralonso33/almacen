@@ -105,6 +105,10 @@ pub fn router(estado: AppState) -> Router {
             post(darfes::subir_documento),
         )
         .route("/api/v1/darfes/{id}/formato", post(darfes::generar_formato))
+        .route(
+            "/api/v1/darfes/{id}/auditoria",
+            get(darfes::auditoria),
+        )
         .route("/api/v1/darfes/{id}/folio", put(darfes::actualizar_folio))
         .route(
             "/api/v1/darfes/{id}/paperless",

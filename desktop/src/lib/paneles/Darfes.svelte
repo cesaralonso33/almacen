@@ -108,6 +108,11 @@
     let paperlessId = $state('');
     let paperlessCampo = $state('CURP');
     let importandoPaperless = $state(false);
+    let auditoriaAbierta = $state(false);
+    let auditoriaCargando = $state(false);
+    let auditoriaError = $state('');
+    let auditoriaDarfe = $state<{ id: string; numero_darfe: string } | null>(null);
+    let auditoriaEventos = $state<any[]>([]);
     let columnas = $state<Record<ClaveColumna, boolean>>({ ...COLUMNAS_PREDETERMINADAS });
     let menuColumnas = $state(false);
     let menuColumnasEl = $state<HTMLDivElement | undefined>(undefined);
@@ -276,6 +281,155 @@
                 : []
         };
         modal = true;
+    }
+
+    async function abrirAuditoria(registro: any) {
+        if (!app.esAdministrador()) return;
+        auditoriaAbierta = true;
+        auditoriaCargando = true;
+        auditoriaError = '';
+        auditoriaEventos = [];
+        auditoriaDarfe = { id: registro.id, numero_darfe: registro.numero_darfe };
+        try {
+            const respuesta = await api<{
+                darfe: { id: string; numero_darfe: string };
+                eventos: any[];
+            }>('GET', `/api/v1/darfes/${registro.id}/auditoria`);
+            auditoriaDarfe = respuesta.darfe;
+            auditoriaEventos = respuesta.eventos;
+        } catch (fallo) {
+            auditoriaError = String(fallo);
+        } finally {
+            auditoriaCargando = false;
+        }
+    }
+
+    function cerrarAuditoria() {
+        auditoriaAbierta = false;
+        auditoriaEventos = [];
+        auditoriaError = '';
+        auditoriaDarfe = null;
+    }
+
+    const ETIQUETAS_CAMPO: Record<string, string> = {
+        numero_darfe: 'No. DARFE',
+        fecha: 'Fecha',
+        nombre: 'Nombre',
+        expediente: 'Número de expediente',
+        registro: 'Registro',
+        banco: 'Banco',
+        curp: 'CURP',
+        rfc: 'RFC',
+        telefono: 'Teléfono',
+        correo: 'Correo',
+        descripcion: 'Descripción',
+        monto: 'Monto',
+        numero_cuenta: 'Número de cuenta',
+        estatus: 'Estatus',
+        campos_extra: 'Campos adicionales'
+    };
+
+    function etiquetaCampo(campo: string): string {
+        return ETIQUETAS_CAMPO[campo] ?? campo.replaceAll('_', ' ');
+    }
+
+    function enmascarar(valor: string): string {
+        if (!valor) return '—';
+        if (valor.length <= 4) return '••••';
+        return `••••${valor.slice(-4)}`;
+    }
+
+    function valorAuditoria(campo: string, valor: any): string {
+        if (valor === null || valor === undefined || valor === '') return '—';
+        if (campo === 'monto') {
+            return `$${Number(valor ?? 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+        }
+        if (campo === 'fecha') return fechaVisible(String(valor));
+        if (campo === 'campos_extra') {
+            if (!Array.isArray(valor) || valor.length === 0) return '—';
+            return valor
+                .map((item: any) => `${item?.nombre ?? 'Campo'}: ${item?.valor ?? ''}`)
+                .join(' · ');
+        }
+        if (campo === 'curp' || campo === 'rfc' || campo === 'numero_cuenta') {
+            return enmascarar(String(valor));
+        }
+        if (Array.isArray(valor)) return valor.join(', ');
+        if (typeof valor === 'object') return JSON.stringify(valor);
+        return String(valor);
+    }
+
+    function camposEvento(evento: any): any[] {
+        return Array.isArray(evento?.detalle?.campos) ? evento.detalle.campos : [];
+    }
+
+    function detalleCamposDisponible(evento: any): boolean {
+        return Array.isArray(evento?.detalle?.campos);
+    }
+
+    function etiquetaAccion(accion: string): string {
+        const etiquetas: Record<string, string> = {
+            'darfes.crear': 'Creación',
+            'darfes.crear_canasta': 'Creación de canasta',
+            'darfes.editar': 'Edición',
+            'darfes.eliminar': 'Eliminación',
+            'darfes.documento.subir': 'Documento cargado',
+            'darfes.documento.eliminar': 'Documento eliminado',
+            'darfes.folio.editar': 'Folio modificado',
+            'darfes.formato': 'Recibo generado'
+        };
+        return etiquetas[accion] ?? accion.replaceAll('.', ' · ');
+    }
+
+    function resumenEvento(evento: any): string {
+        const detalle = evento?.detalle ?? {};
+        switch (evento?.accion) {
+            case 'darfes.crear':
+                return `DARFE ${detalle.numero_darfe ?? ''} creado`.trim();
+            case 'darfes.crear_canasta':
+                return `Canasta ${detalle.grupo ?? ''} creada`.trim();
+            case 'darfes.editar': {
+                const totalCampos = camposEvento(evento).length;
+                return totalCampos === 0
+                    ? 'Guardó sin cambios en los campos'
+                    : `${totalCampos} campo${totalCampos === 1 ? '' : 's'} modificado${
+                          totalCampos === 1 ? '' : 's'
+                      }`;
+            }
+            case 'darfes.eliminar':
+                return `DARFE ${detalle.numero_darfe ?? ''} eliminado`.trim();
+            case 'darfes.documento.subir':
+                return `Documento ${detalle.campo ?? ''} cargado`.trim();
+            case 'darfes.documento.eliminar':
+                return `Documento ${detalle.campo ?? ''} eliminado`.trim();
+            case 'darfes.folio.editar':
+                return detalle.anio
+                    ? `Folio ${detalle.folio} del año ${detalle.anio}`
+                    : `Folio ${detalle.folio ?? ''}`.trim();
+            case 'darfes.formato':
+                return detalle.folio
+                    ? `Recibo generado con folio ${detalle.folio}`
+                    : 'Recibo generado';
+            default:
+                return 'Evento registrado';
+        }
+    }
+
+    function claseAccion(accion: string): string {
+        if (accion === 'darfes.crear' || accion === 'darfes.crear_canasta') {
+            return 'bg-emerald-500';
+        }
+        if (accion === 'darfes.eliminar' || accion === 'darfes.documento.eliminar') {
+            return 'bg-rose-500';
+        }
+        if (accion === 'darfes.editar') return 'bg-amber-500';
+        if (accion === 'darfes.folio.editar') return 'bg-violet-500';
+        if (accion === 'darfes.formato') return 'bg-sky-500';
+        return 'bg-slate-400';
+    }
+
+    function fechaHoraAuditoria(valor: string): string {
+        return new Date(valor).toLocaleString('es-MX');
     }
 
     function agregarCampo() {
@@ -1031,6 +1185,30 @@
                                 {/if}
                                 <td class="whitespace-nowrap text-right">
                                     <div class="flex justify-end gap-1">
+                                        {#if app.esAdministrador()}
+                                            <button
+                                                class="boton-icono h-7 w-7"
+                                                type="button"
+                                                onclick={() => abrirAuditoria(registro)}
+                                                aria-label={`Ver auditoría del DARFE ${registro.numero_darfe}`}
+                                                title="Auditoría"
+                                            >
+                                                <svg
+                                                    class="h-4 w-4"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    aria-hidden="true"
+                                                >
+                                                    <path d="M3 12a9 9 0 1 0 3-6.7" />
+                                                    <path d="M3 4v5h5" />
+                                                    <path d="M12 7v5l3 2" />
+                                                </svg>
+                                            </button>
+                                        {/if}
                                         {#if app.permiso('darfes:editar')}
                                             <button
                                                 class="boton-icono h-7 w-7"
@@ -1545,6 +1723,135 @@
                 Descargar
             </button>
             <button class="btn-primario" type="button" onclick={cerrarVista}>Cerrar</button>
+        </div>
+    </Modal>
+{/if}
+
+{#if auditoriaAbierta}
+    <Modal
+        titulo={`Auditoría · ${auditoriaDarfe?.numero_darfe ?? 'DARFE'}`}
+        ancho={80}
+        oncerrar={cerrarAuditoria}
+    >
+        <div class="space-y-4">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                    <p class="text-sm text-slate-600">
+                        Historial completo de cambios del DARFE. Solo el Administrador puede consultarlo.
+                    </p>
+                    <p class="mt-1 text-xs text-slate-500">
+                        CURP, RFC y número de cuenta se muestran parcialmente enmascarados.
+                    </p>
+                </div>
+                <span class="insignia bg-slate-100 text-slate-600">
+                    {auditoriaEventos.length} evento{auditoriaEventos.length === 1 ? '' : 's'}
+                </span>
+            </div>
+
+            {#if auditoriaCargando}
+                <div class="space-y-2" aria-label="Cargando auditoría">
+                    {#each Array(3) as _}
+                        <div class="h-20 animate-pulse rounded-lg bg-slate-100"></div>
+                    {/each}
+                </div>
+            {:else if auditoriaError}
+                <p class="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{auditoriaError}</p>
+            {:else if auditoriaEventos.length === 0}
+                <p class="rounded-lg bg-slate-50 px-3 py-6 text-center text-sm text-slate-500">
+                    Este DARFE todavía no tiene eventos de auditoría.
+                </p>
+            {:else}
+                <ol class="relative space-y-3 border-l border-slate-200 pl-5">
+                    {#each auditoriaEventos as evento (evento.id)}
+                        <li class="relative">
+                            <span
+                                class="absolute -left-[26px] top-2 h-2.5 w-2.5 rounded-full ring-4 ring-white {claseAccion(
+                                    evento.accion
+                                )}"
+                                aria-hidden="true"
+                            ></span>
+                            <div class="rounded-lg border border-slate-200 bg-white p-3">
+                                <div class="flex flex-wrap items-start justify-between gap-2">
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-medium text-slate-800">
+                                            {etiquetaAccion(evento.accion)}
+                                        </p>
+                                        <p class="mt-0.5 text-xs text-slate-500">
+                                            {resumenEvento(evento)}
+                                        </p>
+                                    </div>
+                                    <time
+                                        class="whitespace-nowrap text-xs text-slate-500"
+                                        datetime={evento.ocurrido_en}
+                                    >
+                                        {fechaHoraAuditoria(evento.ocurrido_en)}
+                                    </time>
+                                </div>
+
+                                <div class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                                    <span class="font-medium text-slate-700">
+                                        {evento.actor?.nombre ?? 'Sistema'}
+                                    </span>
+                                    {#if evento.actor?.correo}
+                                        <span>· {evento.actor.correo}</span>
+                                    {/if}
+                                    {#if evento.ip}
+                                        <span class="text-slate-400">· IP {evento.ip}</span>
+                                    {/if}
+                                    {#if evento.resultado !== 'EXITO'}
+                                        <span class="insignia bg-rose-100 text-rose-700">
+                                            {evento.resultado}
+                                        </span>
+                                    {/if}
+                                </div>
+
+                                {#if camposEvento(evento).length > 0}
+                                    <div class="mt-2 overflow-x-auto rounded-md border border-slate-100">
+                                        <table class="w-full text-xs">
+                                            <thead class="bg-slate-50 text-left text-slate-500">
+                                                <tr>
+                                                    <th class="px-2 py-1.5 font-medium">Campo</th>
+                                                    <th class="px-2 py-1.5 font-medium">Antes</th>
+                                                    <th class="px-2 py-1.5 font-medium">Después</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {#each camposEvento(evento) as cambio}
+                                                    <tr class="border-t border-slate-100 align-top">
+                                                        <td class="px-2 py-1.5 font-medium text-slate-700">
+                                                            {etiquetaCampo(cambio.campo)}
+                                                        </td>
+                                                        <td class="max-w-64 px-2 py-1.5 text-slate-500">
+                                                            {valorAuditoria(cambio.campo, cambio.anterior)}
+                                                        </td>
+                                                        <td class="max-w-64 px-2 py-1.5 text-slate-700">
+                                                            {valorAuditoria(cambio.campo, cambio.nuevo)}
+                                                        </td>
+                                                    </tr>
+                                                {/each}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {:else if evento.accion === 'darfes.editar'}
+                                    {#if detalleCamposDisponible(evento)}
+                                        <p class="mt-2 rounded-md bg-slate-50 px-2 py-1.5 text-xs text-slate-500">
+                                            No se modificó ningún campo.
+                                        </p>
+                                    {:else}
+                                        <p class="mt-2 rounded-md bg-slate-50 px-2 py-1.5 text-xs text-slate-500">
+                                            La edición se registró antes de habilitar el detalle por campo.
+                                        </p>
+                                    {/if}
+                                {/if}
+                            </div>
+                        </li>
+                    {/each}
+                </ol>
+            {/if}
+
+            <div class="flex justify-end">
+                <button class="btn-primario" type="button" onclick={cerrarAuditoria}>Cerrar</button>
+            </div>
         </div>
     </Modal>
 {/if}

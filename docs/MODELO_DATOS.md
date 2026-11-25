@@ -47,6 +47,10 @@ Migraciones en `server/migrations` (SQLx, aplicadas al iniciar la API).
   capturado.
 - El listado se ordena por `creado_en` descendente; el índice parcial `darfes_creado_en`
   (`0014`) sostiene ese orden.
+- Cada edición de un DARFE registra en `auditoria` (entidad `darfes`) el detalle `campos` con el
+  valor anterior y nuevo de cada campo modificado, además del actor, fecha, dispositivo e IP. El
+  índice `auditoria_entidad_fecha_idx` (`0022`) sostiene la consulta del historial por DARFE; el
+  permiso `darfes:auditoria` es exclusivo del administrador.
 
 ## Estados
 

@@ -162,6 +162,41 @@ struct DatosDarfe {
     campos_extra: Vec<CampoExtra>,
 }
 
+#[derive(sqlx::FromRow)]
+struct DarfeAnterior {
+    numero_darfe: String,
+    fecha: NaiveDate,
+    nombre: String,
+    descripcion: String,
+    monto: f64,
+    numero_cuenta: String,
+    expediente: String,
+    registro: String,
+    banco: String,
+    curp: String,
+    rfc: String,
+    telefono: String,
+    correo: String,
+    tipo: String,
+    estatus: String,
+    campos_extra: Value,
+    grupo_canasta: Option<Uuid>,
+    item_canasta: Option<i16>,
+}
+
+#[derive(sqlx::FromRow)]
+struct FilaAuditoria {
+    id: i64,
+    ocurrido_en: chrono::DateTime<Utc>,
+    accion: String,
+    resultado: String,
+    detalle: Value,
+    actor_id: Option<Uuid>,
+    actor_nombre: Option<String>,
+    actor_correo: Option<String>,
+    ip: Option<String>,
+}
+
 pub async fn listar(
     State(app): State<AppState>,
     user: AuthUser,
@@ -349,29 +384,36 @@ pub async fn actualizar(
     let extra = serde_json::to_value(&datos.campos_extra)
         .map_err(|error| ApiError::interno(error.to_string()))?;
 
-    let actual: Option<(String, Option<Uuid>, Option<i16>)> = sqlx::query_as(
-        "SELECT tipo, grupo_canasta, item_canasta FROM darfes
-         WHERE id=$1 AND eliminado_en IS NULL",
+    let mut tx = app.db.begin().await?;
+    let anterior: Option<DarfeAnterior> = sqlx::query_as(
+        "SELECT numero_darfe, fecha, nombre, descripcion, monto::float8,
+                numero_cuenta, expediente, registro, banco, curp, rfc, telefono,
+                correo, tipo, estatus, campos_extra, grupo_canasta, item_canasta
+         FROM darfes
+         WHERE id=$1 AND eliminado_en IS NULL
+         FOR UPDATE",
     )
     .bind(id)
-    .fetch_optional(&app.db)
+    .fetch_optional(&mut *tx)
     .await?;
-    let Some((tipo_actual, grupo, item)) = actual else {
+    let Some(anterior) = anterior else {
         return Err(ApiError::no_encontrado("DARFE no encontrado"));
     };
-    if tipo_actual != datos.tipo {
+    if anterior.tipo != datos.tipo {
         return Err(ApiError::conflicto(
             "No se puede cambiar el tipo de un DARFE existente",
         ));
     }
-    let descripcion = if tipo_actual == "CANASTA" {
-        item.and_then(|valor| DESCRIPCIONES_CANASTA.get((valor - 1) as usize).copied())
+    let descripcion = if anterior.tipo == "CANASTA" {
+        anterior
+            .item_canasta
+            .and_then(|valor| DESCRIPCIONES_CANASTA.get((valor - 1) as usize).copied())
             .unwrap_or(datos.descripcion.as_str())
     } else {
         datos.descripcion.as_str()
     };
+    let cambios = cambios_darfe(&anterior, &datos, descripcion, &extra);
 
-    let mut tx = app.db.begin().await?;
     sqlx::query(
         "UPDATE darfes
          SET numero_darfe=$2, fecha=$3, nombre=$4, descripcion=$5, monto=$6::numeric,
@@ -389,8 +431,8 @@ pub async fn actualizar(
     .bind(datos.monto.to_string())
     .bind(&datos.numero_cuenta)
     .bind(&datos.tipo)
-    .bind(grupo)
-    .bind(item)
+    .bind(anterior.grupo_canasta)
+    .bind(anterior.item_canasta)
     .bind(&datos.expediente)
     .bind(&datos.registro)
     .bind(&datos.banco)
@@ -412,11 +454,77 @@ pub async fn actualizar(
         "darfes",
         id,
         "EXITO",
-        json!({ "numero_darfe": datos.numero_darfe, "estatus": datos.estatus }),
+        json!({
+            "numero_darfe": datos.numero_darfe,
+            "estatus": datos.estatus,
+            "campos": cambios,
+        }),
     )
     .await?;
     tx.commit().await?;
     Ok(Json(consultar(&app, id).await?))
+}
+
+pub async fn auditoria(
+    State(app): State<AppState>,
+    user: AuthUser,
+    Path(id): Path<Uuid>,
+) -> Result<Json<Value>, ApiError> {
+    user.exigir("darfes:auditoria")?;
+    if !user.es_administrador() {
+        return Err(ApiError::prohibido(
+            "Solo el administrador puede consultar la auditoría de DARFES",
+        ));
+    }
+
+    let numero: Option<String> =
+        sqlx::query_scalar("SELECT numero_darfe FROM darfes WHERE id=$1")
+            .bind(id)
+            .fetch_optional(&app.db)
+            .await?;
+    let Some(numero) = numero else {
+        return Err(ApiError::no_encontrado("DARFE no encontrado"));
+    };
+
+    let filas: Vec<FilaAuditoria> = sqlx::query_as(
+        "SELECT a.id, a.ocurrido_en, a.accion, a.resultado, a.detalle,
+                a.actor_id, u.nombre AS actor_nombre, u.correo AS actor_correo,
+                a.ip::text AS ip
+         FROM auditoria a
+         LEFT JOIN usuarios u ON u.id=a.actor_id
+         WHERE a.entidad='darfes' AND a.entidad_id=$1
+         ORDER BY a.ocurrido_en ASC, a.id ASC",
+    )
+    .bind(id)
+    .fetch_all(&app.db)
+    .await?;
+
+    let eventos = filas
+        .into_iter()
+        .map(|fila| {
+            let actor = fila.actor_id.map(|actor_id| {
+                json!({
+                    "id": actor_id,
+                    "nombre": fila.actor_nombre,
+                    "correo": fila.actor_correo,
+                })
+            });
+            json!({
+                "id": fila.id,
+                "ocurrido_en": fila.ocurrido_en,
+                "accion": fila.accion,
+                "resultado": fila.resultado,
+                "detalle": fila.detalle,
+                "actor": actor,
+                "ip": fila.ip,
+            })
+        })
+        .collect::<Vec<_>>();
+
+    Ok(Json(json!({
+        "darfe": { "id": id, "numero_darfe": numero },
+        "eventos": eventos,
+    })))
 }
 
 pub async fn eliminar(
@@ -902,6 +1010,109 @@ async fn consultar_lista(
         })
         .collect();
     Ok((total, registros))
+}
+
+fn agregar_cambio(cambios: &mut Vec<Value>, campo: &str, anterior: Value, nuevo: Value) {
+    if anterior != nuevo {
+        cambios.push(json!({ "campo": campo, "anterior": anterior, "nuevo": nuevo }));
+    }
+}
+
+fn cambios_darfe(
+    anterior: &DarfeAnterior,
+    datos: &DatosDarfe,
+    descripcion: &str,
+    extra: &Value,
+) -> Vec<Value> {
+    let mut cambios = Vec::new();
+    agregar_cambio(
+        &mut cambios,
+        "numero_darfe",
+        json!(&anterior.numero_darfe),
+        json!(datos.numero_darfe),
+    );
+    agregar_cambio(
+        &mut cambios,
+        "fecha",
+        json!(anterior.fecha.to_string()),
+        json!(datos.fecha.to_string()),
+    );
+    agregar_cambio(
+        &mut cambios,
+        "nombre",
+        json!(&anterior.nombre),
+        json!(datos.nombre),
+    );
+    agregar_cambio(
+        &mut cambios,
+        "expediente",
+        json!(&anterior.expediente),
+        json!(datos.expediente),
+    );
+    agregar_cambio(
+        &mut cambios,
+        "registro",
+        json!(&anterior.registro),
+        json!(datos.registro),
+    );
+    agregar_cambio(
+        &mut cambios,
+        "banco",
+        json!(&anterior.banco),
+        json!(datos.banco),
+    );
+    agregar_cambio(
+        &mut cambios,
+        "curp",
+        json!(&anterior.curp),
+        json!(datos.curp),
+    );
+    agregar_cambio(&mut cambios, "rfc", json!(&anterior.rfc), json!(datos.rfc));
+    agregar_cambio(
+        &mut cambios,
+        "telefono",
+        json!(&anterior.telefono),
+        json!(datos.telefono),
+    );
+    agregar_cambio(
+        &mut cambios,
+        "correo",
+        json!(&anterior.correo),
+        json!(datos.correo),
+    );
+    agregar_cambio(
+        &mut cambios,
+        "descripcion",
+        json!(&anterior.descripcion),
+        json!(descripcion),
+    );
+    if format!("{:.2}", anterior.monto) != format!("{:.2}", datos.monto) {
+        agregar_cambio(
+            &mut cambios,
+            "monto",
+            json!(anterior.monto),
+            json!(datos.monto),
+        );
+    }
+    agregar_cambio(
+        &mut cambios,
+        "numero_cuenta",
+        json!(&anterior.numero_cuenta),
+        json!(datos.numero_cuenta),
+    );
+    agregar_cambio(
+        &mut cambios,
+        "estatus",
+        json!(&anterior.estatus),
+        json!(datos.estatus),
+    );
+    agregar_cambio(
+        &mut cambios,
+        "campos_extra",
+        anterior.campos_extra.clone(),
+        extra.clone(),
+    );
+    cambios
 }
 
 async fn consultar(app: &AppState, id: Uuid) -> Result<Value, ApiError> {
